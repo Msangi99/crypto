@@ -6,8 +6,12 @@ import PoolManagerABI from '../../contracts/abi/PoolManager.json';
 
 let contract: ethers.Contract | null = null;
 
+const isValidAddress = (addr: string): boolean => {
+  return /^0x[0-9a-fA-F]{40}$/.test(addr);
+};
+
 const getContract = (): ethers.Contract | null => {
-  if (!env.POOL_MANAGER_CONTRACT) return null;
+  if (!env.POOL_MANAGER_CONTRACT || !isValidAddress(env.POOL_MANAGER_CONTRACT)) return null;
   if (!contract) {
     contract = new ethers.Contract(env.POOL_MANAGER_CONTRACT, PoolManagerABI, provider);
   }
