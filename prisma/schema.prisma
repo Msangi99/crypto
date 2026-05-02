@@ -1,0 +1,162 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── User & Wallet ─────────────────────────────────
+model User {
+  id            String    @id @default(uuid())
+  walletAddress String    @unique
+  nonce         String    @default(uuid())
+  username      String?
+  email         String?   @unique
+  role          UserRole  @default(USER)
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  deposits      Deposit[]
+  referrals     Referral[]   @relation("referrer")
+  referredBy    Referral?    @relation("referred")
+  poolMemberships PoolMember[]
+  transactions  Transaction[]
+
+  @@map("users")
+}
+
+enum UserRole {
+  USER
+  ADMIN
+  MODERATOR
+}
+
+// ─── Pool ───────────────────────────────────────────
+model Pool {
+  id              String      @id @default(uuid())
+  name            String
+  description     String?
+  contractAddress String?     @unique
+  tokenSymbol     String      @default("BNB")
+  minDeposit      Decimal     @default(0)
+  maxDeposit      Decimal?
+  apy             Decimal     @default(0)
+  totalStaked     Decimal     @default(0)
+  status          PoolStatus  @default(ACTIVE)
+  startDate       DateTime    @default(now())
+  endDate         DateTime?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  // Relations
+  deposits        Deposit[]
+  members         PoolMember[]
+
+  @@map("pools")
+}
+
+enum PoolStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+  CANCELLED
+}
+
+// ─── Pool Member ────────────────────────────────────
+model PoolMember {
+  id        String   @id @default(uuid())
+  userId    String
+  poolId    String
+  joinedAt  DateTime @default(now())
+  share     Decimal  @default(0)
+
+  user      User     @relation(fields: [userId], references: [id])
+  pool      Pool     @relation(fields: [poolId], references: [id])
+
+  @@unique([userId, poolId])
+  @@map("pool_members")
+}
+
+// ─── Deposit ────────────────────────────────────────
+model Deposit {
+  id          String        @id @default(uuid())
+  userId      String
+  poolId      String
+  amount      Decimal
+  txHash      String?       @unique
+  status      DepositStatus @default(PENDING)
+  confirmedAt DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  user        User          @relation(fields: [userId], references: [id])
+  pool        Pool          @relation(fields: [poolId], references: [id])
+
+  @@map("deposits")
+}
+
+enum DepositStatus {
+  PENDING
+  CONFIRMED
+  FAILED
+  REFUNDED
+}
+
+// ─── Referral ───────────────────────────────────────
+model Referral {
+  id           String         @id @default(uuid())
+  referrerId   String
+  referredId   String         @unique
+  code         String         @unique
+  reward       Decimal        @default(0)
+  status       ReferralStatus @default(PENDING)
+  createdAt    DateTime       @default(now())
+
+  referrer     User           @relation("referrer", fields: [referrerId], references: [id])
+  referred     User           @relation("referred", fields: [referredId], references: [id])
+
+  @@map("referrals")
+}
+
+enum ReferralStatus {
+  PENDING
+  ACTIVE
+  REWARDED
+  EXPIRED
+}
+
+// ─── Transaction Log ────────────────────────────────
+model Transaction {
+  id          String          @id @default(uuid())
+  userId      String
+  type        TransactionType
+  amount      Decimal
+  txHash      String?         @unique
+  fromAddress String?
+  toAddress   String?
+  status      TxStatus        @default(PENDING)
+  metadata    Json?
+  createdAt   DateTime        @default(now())
+
+  user        User            @relation(fields: [userId], references: [id])
+
+  @@map("transactions")
+}
+
+enum TransactionType {
+  DEPOSIT
+  WITHDRAWAL
+  REWARD
+  REFERRAL_BONUS
+  FEE
+}
+
+enum TxStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}

@@ -1,0 +1,83 @@
+[
+  {
+    "inputs": [],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "name": "user", "type": "address" },
+      { "indexed": true, "name": "poolId", "type": "uint256" },
+      { "indexed": false, "name": "amount", "type": "uint256" }
+    ],
+    "name": "Deposited",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "name": "user", "type": "address" },
+      { "indexed": true, "name": "poolId", "type": "uint256" },
+      { "indexed": false, "name": "amount", "type": "uint256" }
+    ],
+    "name": "Withdrawn",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "name": "referrer", "type": "address" },
+      { "indexed": true, "name": "referred", "type": "address" },
+      { "indexed": false, "name": "reward", "type": "uint256" }
+    ],
+    "name": "ReferralRewarded",
+    "type": "event"
+  },
+  {
+    "inputs": [{ "name": "poolId", "type": "uint256" }],
+    "name": "deposit",
+    "outputs": [],
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "name": "poolId", "type": "uint256" },
+      { "name": "amount", "type": "uint256" }
+    ],
+    "name": "withdraw",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "name": "poolId", "type": "uint256" }],
+    "name": "getPoolInfo",
+    "outputs": [
+      { "name": "totalStaked", "type": "uint256" },
+      { "name": "memberCount", "type": "uint256" },
+      { "name": "apy", "type": "uint256" },
+      { "name": "isActive", "type": "bool" }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "name": "user", "type": "address" },
+      { "name": "poolId", "type": "uint256" }
+    ],
+    "name": "getUserStake",
+    "outputs": [{ "name": "", "type": "uint256" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "name": "referrer", "type": "address" }],
+    "name": "registerReferral",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  }
+]
