@@ -20,30 +20,59 @@ export default function ConnectWalletScreen() {
   const { setAuth } = useAuthStore();
 
   const handleConnect = async () => {
-    if (!walletAddress.trim().startsWith('0x') || walletAddress.trim().length !== 42) {
+    const addr = walletAddress.trim().toLowerCase();
+    if (!addr.startsWith('0x') || addr.length !== 42) {
       Alert.alert('Invalid Address', 'Please enter a valid BEP-20 wallet address (0x...)');
       return;
     }
     setLoading(true);
     try {
       if (mode === 'register') {
-        const res = await authAPI.register(walletAddress.trim().toLowerCase(), referralCode.trim() || undefined);
+        // User is explicitly registering
+        const res = await authAPI.register(addr, referralCode.trim() || undefined);
         const { token, user } = res.data;
         await setAuth(token, user);
       } else {
-        // For demo: login directly (production would use SIWE signature)
-        const res = await authAPI.login(walletAddress.trim().toLowerCase(), 'demo-sig');
-        const { token, user } = res.data;
-        await setAuth(token, user);
+        // Try login first
+        try {
+          const res = await authAPI.login(addr, 'demo-sig');
+          const { token, user } = res.data;
+          await setAuth(token, user);
+        } catch (loginErr: any) {
+          const loginMsg = loginErr?.response?.data?.message ?? '';
+          const isNewUser =
+            loginErr?.response?.status === 404 ||
+            loginMsg.toLowerCase().includes('not found') ||
+            loginMsg.toLowerCase().includes('register') ||
+            loginMsg.toLowerCase().includes('does not exist');
+
+          if (isNewUser) {
+            // Auto-register new wallet seamlessly
+            try {
+              const res = await authAPI.register(addr, referralCode.trim() || undefined);
+              const { token, user } = res.data;
+              await setAuth(token, user);
+            } catch (regErr: any) {
+              const regMsg = regErr?.response?.data?.message || 'Registration failed.';
+              if (regMsg.toLowerCase().includes('referral') || regMsg.toLowerCase().includes('code')) {
+                // Referral code required or invalid — show register tab
+                setMode('register');
+                Alert.alert(
+                  'Enter Referral Code',
+                  'A valid referral code is required to register. Please enter one below.',
+                );
+              } else {
+                Alert.alert('Registration Failed', regMsg);
+              }
+            }
+          } else {
+            Alert.alert('Connection Failed', loginMsg || 'Could not connect. Please try again.');
+          }
+        }
       }
     } catch (err: any) {
-      const msg = err?.response?.data?.message || 'Connection failed. Please try again.';
-      if (msg.includes('not found') || msg.includes('register')) {
-        setMode('register');
-        Alert.alert('New Wallet', 'This wallet is not registered. Please register below.');
-      } else {
-        Alert.alert('Error', msg);
-      }
+      const msg = err?.response?.data?.message || 'Something went wrong. Please try again.';
+      Alert.alert('Error', msg);
     } finally {
       setLoading(false);
     }
@@ -78,11 +107,16 @@ export default function ConnectWalletScreen() {
             {(['connect', 'register'] as const).map((m) => (
               <TouchableOpacity key={m} onPress={() => setMode(m)} style={[styles.tab, mode === m && styles.tabActive]}>
                 <Text style={[styles.tabText, mode === m && styles.tabTextActive]}>
-                  {m === 'connect' ? 'Connect' : 'Register'}
+                  {m === 'connect' ? '🔗 Connect' : '✨ Register'}
                 </Text>
               </TouchableOpacity>
             ))}
           </View>
+          <Text style={styles.modeHint}>
+            {mode === 'connect'
+              ? 'New wallet? No worries — we\'ll register you automatically.'
+              : 'Creating a new account. Referral code is optional.'}
+          </Text>
 
           {/* Input */}
           <View style={styles.inputGroup}>
@@ -121,7 +155,7 @@ export default function ConnectWalletScreen() {
           )}
 
           <Button
-            label={mode === 'connect' ? 'Connect Wallet' : 'Create Account'}
+            label={mode === 'connect' ? 'Connect / Get Started' : 'Create Account'}
             onPress={handleConnect}
             loading={loading}
             fullWidth
@@ -213,4 +247,5 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
   },
   featureLabel: { fontSize: FontSize.sm, color: Colors.textSecondary, fontWeight: '500' },
+  modeHint: { fontSize: FontSize.xs, color: Colors.textMuted, textAlign: 'center', marginTop: -Spacing.sm },
 });
