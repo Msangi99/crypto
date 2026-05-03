@@ -39,7 +39,7 @@ export const Colors = {
 
   // Gradients (stop arrays for expo-linear-gradient) - more vibrant
   gradientPrimary: ['#F0B90B', '#C99A00'] as const,
-  gradientGold: ['#FCD535', '#F0B90B'] as const,
+  gradientGold: ['#C99A00', '#A67C00'] as const,  // Darker gold, less eye-straining
   gradientCard: ['#1F1F1F', '#141414'] as const,
   gradientDark: ['#000000', '#141414'] as const,
   gradientSuccess: ['#00D26A', '#00A852'] as const,

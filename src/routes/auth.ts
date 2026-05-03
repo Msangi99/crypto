@@ -56,6 +56,16 @@ function generateSecretKey(): string {
   return words.join(' ');
 }
 
+// Generate a 6-character alphanumeric referral code
+function generateReferralCode(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // No I, O, 0, 1 to avoid confusion
+  let code = '';
+  for (let i = 0; i < 6; i++) {
+    code += chars[crypto.randomInt(0, chars.length)];
+  }
+  return code;
+}
+
 // Simple encryption for storing secret key (AES-256-GCM)
 const ENCRYPTION_KEY = crypto.scryptSync(
   env.JWT_SECRET || 'clb-default-secret-key-change-me',
@@ -215,8 +225,9 @@ export default async function authRoutes(fastify: FastifyInstance) {
       if (!user) {
         const secretKey = generateSecretKey();
         const { encrypted, iv } = encryptSecretKey(secretKey);
+        const referralCode = generateReferralCode();
         user = await prisma.user.create({
-          data: { walletAddress: normalized, secretKey: encrypted, secretKeyIv: iv },
+          data: { walletAddress: normalized, secretKey: encrypted, secretKeyIv: iv, referralCode },
         });
       }
 
@@ -329,8 +340,9 @@ export default async function authRoutes(fastify: FastifyInstance) {
       if (!user) {
         const secretKey = generateSecretKey();
         const { encrypted, iv } = encryptSecretKey(secretKey);
-        user = await prisma.user.create({ data: { walletAddress: normalized, secretKey: encrypted, secretKeyIv: iv } });
-        fastify.log.info(`🆕 New user created via dev-login: ${normalized}`);
+        const referralCode = generateReferralCode();
+        user = await prisma.user.create({ data: { walletAddress: normalized, secretKey: encrypted, secretKeyIv: iv, referralCode } });
+        fastify.log.info(`🆕 New user created via dev-login: ${normalized} (referral: ${referralCode})`);
       }
 
       // Increment tokenVersion (invalidates old tokens on other devices)
