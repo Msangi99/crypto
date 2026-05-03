@@ -115,25 +115,65 @@ export default function ReferralsScreen() {
 
 function EarningsView({ earnings }: { earnings: any }) {
   if (!earnings) return <SkeletonBlock />;
-  const levels = earnings.levels ?? [];
+  const earningsData = earnings.earnings ?? {};
+  const rates = earningsData.commissionRates ?? [];
+  const recentBonuses = earningsData.recentBonuses ?? [];
+  const referralList = earningsData.referralList ?? [];
+
   return (
     <View style={{ gap: Spacing.sm }}>
+      {/* Total Earnings Card */}
       <LinearGradient colors={Colors.gradientCard} style={styles.totalCard}>
         <Text style={styles.totalLabel}>Total Referral Earnings</Text>
-        <Text style={styles.totalValue}>${(earnings.totalEarnings ?? 0).toFixed(4)} BNB</Text>
-      </LinearGradient>
-      {levels.map((lv: any, i: number) => (
-        <LinearGradient key={i} colors={Colors.gradientCard} style={styles.levelRow}>
-          <View style={[styles.levelIndicator, { backgroundColor: LEVEL_COLORS[i] }]} />
-          <View style={{ flex: 1 }}>
-            <Text style={styles.levelName}>Level {lv.level}</Text>
-            <Text style={styles.levelCount}>{lv.referralCount ?? 0} referrals · {LEVEL_RATES[i]} commission</Text>
+        <Text style={styles.totalValue}>{(earningsData.totalBonusReceived ?? 0).toFixed(4)} BNB</Text>
+        <View style={styles.totalStats}>
+          <View style={styles.totalStatItem}>
+            <Text style={styles.totalStatLabel}>Direct Referrals</Text>
+            <Text style={styles.totalStatValue}>{earningsData.directReferrals ?? 0}</Text>
           </View>
-          <Text style={[styles.levelEarning, { color: LEVEL_COLORS[i] }]}>
-            ${(lv.earnings ?? 0).toFixed(4)}
-          </Text>
-        </LinearGradient>
-      ))}
+          <View style={styles.totalStatDivider} />
+          <View style={styles.totalStatItem}>
+            <Text style={styles.totalStatLabel}>Network Size</Text>
+            <Text style={styles.totalStatValue}>{referralList.length}</Text>
+          </View>
+        </View>
+      </LinearGradient>
+
+      {/* Commission Rates */}
+      <View style={styles.ratesCard}>
+        <Text style={styles.ratesTitle}>Commission Rates</Text>
+        <View style={styles.ratesGrid}>
+          {rates.map((rate: any, i: number) => (
+            <View key={i} style={styles.rateCard}>
+              <View style={[styles.rateDot, { backgroundColor: LEVEL_COLORS[i] }]} />
+              <Text style={[styles.rateLevel, { color: LEVEL_COLORS[i] }]}>L{i + 1}</Text>
+              <Text style={styles.rateValue}>{rate.rate}</Text>
+              <Text style={styles.rateDesc}>{rate.description}</Text>
+            </View>
+          ))}
+        </View>
+      </View>
+
+      {/* Recent Bonuses */}
+      {recentBonuses.length > 0 && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Recent Bonuses</Text>
+          {recentBonuses.slice(0, 5).map((bonus: any, i: number) => (
+            <View key={i} style={styles.bonusRow}>
+              <View style={[styles.bonusIcon, { backgroundColor: Colors.gold + '22' }]}>
+                <Ionicons name="gift-outline" size={16} color={Colors.gold} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.bonusType}>Referral Bonus</Text>
+                <Text style={styles.bonusDate}>{new Date(bonus.createdAt).toLocaleDateString()}</Text>
+              </View>
+              <Text style={[styles.bonusAmount, { color: Colors.gold }]}>
+                +{bonus.amount.toFixed(4)} BNB
+              </Text>
+            </View>
+          ))}
+        </View>
+      )}
     </View>
   );
 }
@@ -141,28 +181,64 @@ function EarningsView({ earnings }: { earnings: any }) {
 function TreeView({ tree }: { tree: any }) {
   if (!tree) return <SkeletonBlock />;
   const levels = tree.levels ?? [];
+  const totalNetwork = tree.totalNetwork ?? 0;
+  const totalEarnings = tree.totalEarnings ?? 0;
+
   return (
     <View style={{ gap: Spacing.md }}>
+      {/* Network Summary */}
+      <LinearGradient colors={Colors.gradientCard} style={styles.networkSummary}>
+        <View style={styles.networkStat}>
+          <Text style={styles.networkStatLabel}>Total Network</Text>
+          <Text style={styles.networkStatValue}>{totalNetwork} members</Text>
+        </View>
+        <View style={styles.networkDivider} />
+        <View style={styles.networkStat}>
+          <Text style={styles.networkStatLabel}>Total Earnings</Text>
+          <Text style={[styles.networkStatValue, { color: Colors.gold }]}>{totalEarnings.toFixed(4)} BNB</Text>
+        </View>
+      </LinearGradient>
+
+      {/* Level Cards */}
       {levels.map((lv: any, i: number) => (
-        <View key={i}>
-          <View style={styles.treeHeader}>
-            <View style={[styles.treeLevelDot, { backgroundColor: LEVEL_COLORS[i] }]} />
-            <Text style={styles.treeLevelTitle}>Level {lv.level}</Text>
-            <Text style={styles.treeLevelCount}>{lv.users?.length ?? 0} members</Text>
+        <View key={i} style={styles.levelCard}>
+          <View style={styles.levelHeader}>
+            <View style={[styles.levelDot, { backgroundColor: LEVEL_COLORS[i] }]} />
+            <Text style={styles.levelTitle}>Level {lv.level}</Text>
+            <Text style={styles.levelRate}>{lv.commissionRate}</Text>
           </View>
-          {(lv.users ?? []).slice(0, 3).map((u: any, j: number) => (
-            <View key={j} style={styles.treeUserRow}>
-              <View style={styles.treeAvatar}>
-                <Text style={styles.treeAvatarText}>{(u.username ?? u.walletAddress ?? '?')[0].toUpperCase()}</Text>
-              </View>
-              <Text style={styles.treeUserAddr}>
-                {u.walletAddress ? `${u.walletAddress.slice(0, 8)}...${u.walletAddress.slice(-4)}` : u.username}
-              </Text>
-              <Text style={styles.treeUserJoined}>{u.joinedAt ? new Date(u.joinedAt).toLocaleDateString() : ''}</Text>
+          <View style={styles.levelStats}>
+            <View style={styles.levelStatItem}>
+              <Text style={styles.levelStatLabel}>Members</Text>
+              <Text style={styles.levelStatValue}>{lv.totalMembers}</Text>
             </View>
-          ))}
-          {(lv.users?.length ?? 0) > 3 && (
-            <Text style={styles.treeMore}>+{lv.users.length - 3} more</Text>
+            <View style={styles.levelStatItem}>
+              <Text style={styles.levelStatLabel}>Earnings</Text>
+              <Text style={[styles.levelStatValue, { color: LEVEL_COLORS[i] }]}>{lv.totalEarnings.toFixed(4)}</Text>
+            </View>
+          </View>
+          {lv.members?.length > 0 && (
+            <View style={styles.membersList}>
+              {lv.members.slice(0, 3).map((u: any, j: number) => (
+                <View key={j} style={styles.memberRow}>
+                  <View style={styles.memberAvatar}>
+                    <Text style={styles.memberAvatarText}>
+                      {(u.username ?? u.walletAddress ?? '?')[0].toUpperCase()}
+                    </Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.memberName}>{u.username || 'Anonymous'}</Text>
+                    <Text style={styles.memberAddr}>
+                      {u.walletAddress ? `${u.walletAddress.slice(0, 8)}...${u.walletAddress.slice(-4)}` : ''}
+                    </Text>
+                  </View>
+                  <Text style={styles.memberJoined}>{new Date(u.joinedAt).toLocaleDateString()}</Text>
+                </View>
+              ))}
+              {lv.members.length > 3 && (
+                <Text style={styles.membersMore}>+{lv.members.length - 3} more</Text>
+              )}
+            </View>
           )}
         </View>
       ))}
@@ -210,19 +286,31 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: Colors.border, padding: Spacing.md, gap: Spacing.sm,
   },
   ratesTitle: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.textSecondary },
+  ratesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
   ratesRow: { flexDirection: 'row', justifyContent: 'space-between' },
   rateItem: { alignItems: 'center', gap: 4 },
+  rateCard: {
+    flex: 1, minWidth: '45%', backgroundColor: Colors.bg,
+    borderRadius: Radius.md, padding: Spacing.sm, gap: 4,
+    borderWidth: 1, borderColor: Colors.border,
+  },
   rateDot: { width: 8, height: 8, borderRadius: 4 },
   rateLevel: { fontSize: FontSize.xs, fontWeight: '700' },
   rateValue: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.textPrimary },
+  rateDesc: { fontSize: 9, color: Colors.textMuted, marginTop: 2 },
   tabRow: { flexDirection: 'row', backgroundColor: Colors.bgCard, borderRadius: Radius.full, padding: 4 },
   tab: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: Radius.full },
   tabActive: { backgroundColor: Colors.primary },
   tabText: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.textMuted },
   tabTextActive: { color: '#fff' },
-  totalCard: { borderRadius: Radius.md, padding: Spacing.md, borderWidth: 1, borderColor: Colors.border, gap: 4 },
+  totalCard: { borderRadius: Radius.md, padding: Spacing.md, borderWidth: 1, borderColor: Colors.border, gap: 12 },
   totalLabel: { fontSize: FontSize.sm, color: Colors.textSecondary },
   totalValue: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.gold },
+  totalStats: { flexDirection: 'row', alignItems: 'center', paddingTop: 8, borderTopWidth: 1, borderTopColor: Colors.border + '40' },
+  totalStatItem: { flex: 1, alignItems: 'center', gap: 2 },
+  totalStatLabel: { fontSize: FontSize.xs, color: Colors.textMuted },
+  totalStatValue: { fontSize: FontSize.md, fontWeight: '700', color: Colors.textPrimary },
+  totalStatDivider: { width: 1, height: 24, backgroundColor: Colors.border },
   levelRow: {
     flexDirection: 'row', alignItems: 'center', gap: Spacing.md,
     borderRadius: Radius.md, padding: Spacing.md, borderWidth: 1, borderColor: Colors.border,
@@ -248,4 +336,50 @@ const styles = StyleSheet.create({
   treeUserJoined: { fontSize: FontSize.xs, color: Colors.textMuted },
   treeMore: { fontSize: FontSize.xs, color: Colors.primary, marginTop: 4, textAlign: 'center' },
   skeleton: { borderRadius: Radius.md, backgroundColor: Colors.bgCard, width: '100%' },
+  // Bonus rows
+  section: { gap: Spacing.sm },
+  sectionTitle: { fontSize: FontSize.md, fontWeight: '700', color: Colors.textPrimary, marginBottom: Spacing.sm },
+  bonusRow: {
+    flexDirection: 'row', alignItems: 'center', gap: Spacing.md,
+    paddingVertical: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.border + '40',
+  },
+  bonusIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  bonusType: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.textPrimary },
+  bonusDate: { fontSize: FontSize.xs, color: Colors.textMuted },
+  bonusAmount: { fontSize: FontSize.md, fontWeight: '700' },
+  // Network Tree
+  networkSummary: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    borderRadius: Radius.lg, padding: Spacing.md, borderWidth: 1, borderColor: Colors.border,
+  },
+  networkStat: { flex: 1, alignItems: 'center', gap: 4 },
+  networkStatLabel: { fontSize: FontSize.xs, color: Colors.textMuted },
+  networkStatValue: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.textPrimary },
+  networkDivider: { width: 1, height: 32, backgroundColor: Colors.border },
+  levelCard: {
+    backgroundColor: Colors.bgCard, borderRadius: Radius.lg,
+    borderWidth: 1, borderColor: Colors.border, padding: Spacing.md, gap: Spacing.sm,
+  },
+  levelHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  levelDot: { width: 10, height: 10, borderRadius: 5 },
+  levelTitle: { fontSize: FontSize.md, fontWeight: '700', color: Colors.textPrimary, flex: 1 },
+  levelRate: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.textSecondary },
+  levelStats: { flexDirection: 'row', gap: Spacing.md, paddingTop: 4 },
+  levelStatItem: { flex: 1, alignItems: 'center', gap: 2 },
+  levelStatLabel: { fontSize: FontSize.xs, color: Colors.textMuted },
+  levelStatValue: { fontSize: FontSize.md, fontWeight: '700', color: Colors.textPrimary },
+  membersList: { gap: Spacing.xs, marginTop: Spacing.sm },
+  memberRow: {
+    flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
+    paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: Colors.border + '40',
+  },
+  memberAvatar: {
+    width: 28, height: 28, borderRadius: 8, backgroundColor: Colors.bgElevated,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  memberAvatarText: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.primary },
+  memberName: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.textPrimary },
+  memberAddr: { fontSize: FontSize.xs, color: Colors.textMuted },
+  memberJoined: { fontSize: FontSize.xs, color: Colors.textMuted },
+  membersMore: { fontSize: FontSize.xs, color: Colors.primary, marginTop: 4, textAlign: 'center' },
 });
