@@ -48,7 +48,7 @@ model Pool {
   id              String      @id @default(uuid())
   name            String
   description     String?
-  contractAddress String?     @unique
+  contractAddress String?
   tokenSymbol     String      @default("BNB")
   minDeposit      Decimal     @default(0)
   maxDeposit      Decimal?
