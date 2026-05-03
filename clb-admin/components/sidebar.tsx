@@ -5,8 +5,11 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   Waves,
-  ArrowLeftRight,
+  Package,
   Users,
+  CreditCard,
+  TrendingUp,
+  ArrowLeftRight,
   Settings,
   LogOut,
   Shield,
@@ -19,7 +22,11 @@ import { cn } from "@/lib/utils";
 
 const navItems = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
+  { href: "/dashboard/packages", label: "Packages", icon: Package },
   { href: "/dashboard/pools", label: "Pools", icon: Waves },
+  { href: "/dashboard/users", label: "Users", icon: Users },
+  { href: "/dashboard/investments", label: "Investments", icon: TrendingUp },
+  { href: "/dashboard/payments", label: "Payments", icon: CreditCard },
   { href: "/dashboard/transactions", label: "Transactions", icon: ArrowLeftRight },
   { href: "/dashboard/referrals", label: "Referrals", icon: Users },
   { href: "/dashboard/settings", label: "Settings", icon: Settings },
