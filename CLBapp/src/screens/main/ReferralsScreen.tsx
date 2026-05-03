@@ -50,46 +50,56 @@ export default function ReferralsScreen() {
   };
 
   return (
-    <LinearGradient colors={['#0D0D0D', '#0D0D0D']} style={styles.container}>
+    <View style={styles.container}>
+      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>Referrals</Text>
+        <TouchableOpacity style={styles.refreshBtn} onPress={onRefresh}>
+          <Ionicons name="refresh-outline" size={20} color={Colors.textSecondary} />
+        </TouchableOpacity>
       </View>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
-        contentContainerStyle={{ padding: Spacing.lg, paddingTop: 0, gap: Spacing.lg }}
+        contentContainerStyle={{ padding: Spacing.lg, paddingTop: 0, gap: Spacing.lg, paddingBottom: 100 }}
       >
         {/* Referral Code Card */}
-        <LinearGradient colors={['#222222', '#1A1A1A']} style={styles.codeCard}>
+        <LinearGradient colors={Colors.gradientGold} style={styles.codeCard}>
           <View style={styles.codeGlow} />
+          <View style={styles.codeHeader}>
+            <Ionicons name="gift-outline" size={24} color="#fff" />
+            <Text style={styles.codeHeaderTitle}>Invite & Earn</Text>
+          </View>
           <Text style={styles.codeLabel}>Your Referral Code</Text>
           <Text style={styles.codeValue}>{user?.referralCode ?? '——'}</Text>
           <Text style={styles.codeLink} numberOfLines={1}>{referralLink}</Text>
           <View style={styles.codeActions}>
             <TouchableOpacity onPress={copyCode} style={styles.codeBtn}>
-              <Ionicons name="copy-outline" size={16} color={Colors.primary} />
+              <Ionicons name="copy-outline" size={18} color="#000" />
               <Text style={styles.codeBtnText}>Copy Code</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={shareLink} style={[styles.codeBtn, styles.codeBtnGold]}>
-              <Ionicons name="share-social-outline" size={16} color={Colors.gold} />
-              <Text style={[styles.codeBtnText, { color: Colors.gold }]}>Share Link</Text>
+            <TouchableOpacity onPress={shareLink} style={[styles.codeBtn, styles.codeBtnOutline]}>
+              <Ionicons name="share-social-outline" size={18} color="#fff" />
+              <Text style={[styles.codeBtnText, { color: '#fff' }]}>Share Link</Text>
             </TouchableOpacity>
           </View>
         </LinearGradient>
 
-        {/* Commission rates */}
-        <View style={styles.ratesCard}>
-          <Text style={styles.ratesTitle}>Commission Structure</Text>
-          <View style={styles.ratesRow}>
-            {LEVEL_RATES.map((rate, i) => (
-              <View key={i} style={styles.rateItem}>
-                <View style={[styles.rateDot, { backgroundColor: LEVEL_COLORS[i] }]} />
-                <Text style={[styles.rateLevel, { color: LEVEL_COLORS[i] }]}>L{i + 1}</Text>
-                <Text style={styles.rateValue}>{rate}</Text>
-              </View>
-            ))}
-          </View>
+        {/* Stats Overview */}
+        <View style={styles.statsRow}>
+          <LinearGradient colors={Colors.gradientCard} style={styles.statCard}>
+            <Ionicons name="people-outline" size={20} color={Colors.primary} />
+            <Text style={styles.statLabel}>Direct Referrals</Text>
+            <Text style={styles.statValue}>{earnings?.earnings?.directReferrals ?? 0}</Text>
+          </LinearGradient>
+          <LinearGradient colors={Colors.gradientCard} style={styles.statCard}>
+            <Ionicons name="wallet-outline" size={20} color={Colors.gold} />
+            <Text style={styles.statLabel}>Total Earnings</Text>
+            <Text style={[styles.statValue, { color: Colors.gold }]}>
+              {(earnings?.earnings?.totalBonusReceived ?? 0).toFixed(4)} BNB
+            </Text>
+          </LinearGradient>
         </View>
 
         {/* Tabs */}
@@ -109,7 +119,7 @@ export default function ReferralsScreen() {
           <TreeView tree={tree} />
         )}
       </ScrollView>
-    </LinearGradient>
+    </View>
   );
 }
 
@@ -257,30 +267,48 @@ function SkeletonBlock() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  header: { paddingHorizontal: Spacing.lg, paddingTop: 56, paddingBottom: Spacing.lg },
-  title: { fontSize: FontSize.xxl, fontWeight: '800', color: Colors.textPrimary },
+  container: { flex: 1, backgroundColor: Colors.bg },
+  header: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: Spacing.lg, paddingTop: 56, paddingBottom: Spacing.sm,
+  },
+  title: { fontSize: 28, fontWeight: '900', color: Colors.textPrimary, letterSpacing: 0.5 },
+  refreshBtn: {
+    width: 40, height: 40, borderRadius: 12,
+    backgroundColor: Colors.bgCard, borderWidth: 1, borderColor: Colors.border,
+    alignItems: 'center', justifyContent: 'center',
+  },
   codeCard: {
     borderRadius: Radius.xl, padding: Spacing.lg,
-    borderWidth: 1, borderColor: 'rgba(240,185,11,0.2)',
+    borderWidth: 1, borderColor: 'rgba(240,185,11,0.3)',
     gap: Spacing.sm, overflow: 'hidden',
   },
   codeGlow: {
-    position: 'absolute', top: -30, right: -30,
-    width: 120, height: 120, borderRadius: 60,
-    backgroundColor: 'rgba(240,185,11,0.06)',
+    position: 'absolute', top: -40, right: -40,
+    width: 140, height: 140, borderRadius: 70,
+    backgroundColor: 'rgba(240,185,11,0.15)',
   },
-  codeLabel: { fontSize: FontSize.xs, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: 1 },
-  codeValue: { fontSize: 28, fontWeight: '900', color: Colors.gold, letterSpacing: 4 },
-  codeLink: { fontSize: FontSize.xs, color: Colors.textSecondary },
+  codeHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
+  codeHeaderTitle: { fontSize: FontSize.md, fontWeight: '700', color: '#fff' },
+  codeLabel: { fontSize: FontSize.xs, color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', letterSpacing: 1 },
+  codeValue: { fontSize: 32, fontWeight: '900', color: '#fff', letterSpacing: 6, textAlign: 'center', marginVertical: 4 },
+  codeLink: { fontSize: FontSize.xs, color: 'rgba(255,255,255,0.6)', textAlign: 'center' },
   codeActions: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.sm },
   codeBtn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    backgroundColor: 'rgba(240,185,11,0.12)', borderWidth: 1, borderColor: 'rgba(240,185,11,0.25)',
-    borderRadius: Radius.full, paddingVertical: 10,
+    backgroundColor: '#fff', borderRadius: Radius.full, paddingVertical: 12,
   },
-  codeBtnGold: { backgroundColor: 'rgba(240,185,11,0.12)', borderColor: 'rgba(240,185,11,0.25)' },
-  codeBtnText: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.primary },
+  codeBtnOutline: {
+    backgroundColor: 'transparent', borderWidth: 1.5, borderColor: '#fff',
+  },
+  codeBtnText: { fontSize: FontSize.sm, fontWeight: '700', color: '#000' },
+  statsRow: { flexDirection: 'row', gap: Spacing.sm },
+  statCard: {
+    flex: 1, borderRadius: Radius.lg, padding: Spacing.md, gap: 8,
+    borderWidth: 1, borderColor: Colors.border, alignItems: 'center',
+  },
+  statLabel: { fontSize: FontSize.xs, color: Colors.textMuted, fontWeight: '600' },
+  statValue: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.textPrimary },
   ratesCard: {
     backgroundColor: Colors.bgCard, borderRadius: Radius.lg,
     borderWidth: 1, borderColor: Colors.border, padding: Spacing.md, gap: Spacing.sm,
