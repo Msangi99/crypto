@@ -6,6 +6,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
+import * as LocalAuthentication from 'expo-local-authentication';
 import { Colors, FontSize, Spacing, Radius } from '../../constants/theme';
 import { useAuthStore } from '../../store/authStore';
 import { authAPI } from '../../services/api';
@@ -82,6 +83,43 @@ export default function ProfileScreen({ navigation }: any) {
     if (secretKey) {
       await Clipboard.setStringAsync(secretKey);
       Alert.alert('Copied', 'Secret key copied to clipboard. Store it safely!');
+    }
+  };
+
+  const handleBiometricToggle = async (value: boolean) => {
+    if (value) {
+      // Check if biometric is available
+      const hasHardware = await LocalAuthentication.hasHardwareAsync();
+      const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+      
+      if (!hasHardware || !isEnrolled) {
+        Alert.alert('Biometric Not Available', 'Your device does not support biometric authentication or no biometric is enrolled.');
+        return;
+      }
+      
+      // Require authentication to enable
+      try {
+        const result = await LocalAuthentication.authenticateAsync({
+          promptMessage: 'Enable Biometric Unlock',
+          fallbackLabel: 'Use PIN',
+          cancelLabel: 'Cancel',
+        });
+        
+        if (result.success) {
+          const { token } = useAuthStore.getState();
+          await setAuth(token!, { ...user!, biometricEnabled: true });
+          setBiometrics(true);
+          Alert.alert('Success', 'Biometric unlock enabled');
+        }
+      } catch (error) {
+        // User cancelled or authentication failed
+        console.log('Biometric auth failed:', error);
+      }
+    } else {
+      // Disable without authentication
+      const { token } = useAuthStore.getState();
+      await setAuth(token!, { ...user!, biometricEnabled: false });
+      setBiometrics(false);
     }
   };
 
@@ -171,7 +209,7 @@ export default function ProfileScreen({ navigation }: any) {
             <SettingRow
               icon="finger-print-outline"
               label="Biometric Unlock"
-              right={<Switch value={biometrics} onValueChange={setBiometrics} thumbColor={Colors.primary} trackColor={{ true: Colors.primaryLight, false: Colors.border }} />}
+              right={<Switch value={biometrics} onValueChange={handleBiometricToggle} thumbColor={Colors.primary} trackColor={{ true: Colors.primaryLight, false: Colors.border }} />}
             />
           </LinearGradient>
         </View>

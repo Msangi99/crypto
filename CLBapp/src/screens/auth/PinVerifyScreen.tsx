@@ -26,26 +26,38 @@ export default function PinVerifyScreen({ onVerified }: PinVerifyScreenProps) {
   // Check biometric availability and attempt authentication on mount
   useEffect(() => {
     const checkBiometric = async () => {
+      console.log('[Biometric] Checking biometric availability...');
+      console.log('[Biometric] User biometricEnabled:', user?.biometricEnabled);
+      
       const hasHardware = await LocalAuthentication.hasHardwareAsync();
+      console.log('[Biometric] Has hardware:', hasHardware);
+      
       const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+      console.log('[Biometric] Is enrolled:', isEnrolled);
       
       if (hasHardware && isEnrolled && user?.biometricEnabled) {
         setBiometricAvailable(true);
+        console.log('[Biometric] Attempting biometric authentication...');
         try {
           const result = await LocalAuthentication.authenticateAsync({
             promptMessage: 'Unlock CLB App',
             fallbackLabel: 'Use PIN',
             cancelLabel: 'Cancel',
           });
+          console.log('[Biometric] Auth result:', result);
           if (result.success) {
+            console.log('[Biometric] Authentication successful, unlocking...');
             onVerified();
           } else {
+            console.log('[Biometric] Authentication failed, showing PIN pad');
             setShowPinPad(true);
           }
         } catch (error) {
+          console.log('[Biometric] Authentication error:', error);
           setShowPinPad(true);
         }
       } else {
+        console.log('[Biometric] Biometric not available or not enabled, showing PIN pad');
         setShowPinPad(true);
       }
     };
