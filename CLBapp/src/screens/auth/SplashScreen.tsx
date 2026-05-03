@@ -174,7 +174,7 @@ const styles = StyleSheet.create({
     height: LOGO_SIZE,
     borderRadius: LOGO_SIZE * 0.22,
     overflow: 'hidden',
-    backgroundColor: '#0D0D0D',
+    backgroundColor: '#FFFFFF',
     shadowColor: '#F0B90B',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.6,

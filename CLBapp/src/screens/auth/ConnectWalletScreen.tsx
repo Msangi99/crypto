@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   scroll: { padding: Spacing.lg, paddingTop: 60, gap: Spacing.lg },
   header: { alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.sm },
-  logo: { width: 80, height: 80, marginBottom: Spacing.sm },
+  logo: { width: 80, height: 80, marginBottom: Spacing.sm, backgroundColor: '#FFFFFF', borderRadius: 16 },
   logoContainer: {
     width: 100, height: 100,
     alignItems: 'center', justifyContent: 'center',
