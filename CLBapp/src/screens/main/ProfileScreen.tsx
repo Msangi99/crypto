@@ -115,32 +115,47 @@ export default function ProfileScreen({ navigation }: any) {
     : '';
 
   return (
-    <LinearGradient colors={[Colors.bg, Colors.bg]} style={styles.container}>
+    <View style={styles.container}>
+      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>Profile</Text>
+        <TouchableOpacity style={styles.settingsBtn}>
+          <Ionicons name="settings-outline" size={22} color={Colors.textSecondary} />
+        </TouchableOpacity>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: Spacing.lg, paddingTop: 0, gap: Spacing.lg }}>
-        {/* Avatar & wallet */}
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: Spacing.lg, paddingTop: 0, gap: Spacing.lg, paddingBottom: 100 }}>
+        {/* Profile Card */}
         <LinearGradient colors={Colors.gradientCard} style={styles.profileCard}>
-          <View style={styles.avatar}>
+          <View style={styles.avatarSection}>
             <LinearGradient colors={Colors.gradientPrimary} style={styles.avatarGrad}>
-              <Text style={styles.avatarText}>{(user?.walletAddress ?? 'W')[2].toUpperCase()}</Text>
+              <Text style={styles.avatarText}>{(user?.username ?? user?.walletAddress ?? 'U')[0].toUpperCase()}</Text>
             </LinearGradient>
+            <TouchableOpacity onPress={handleEditProfile} style={styles.editAvatarBtn}>
+              <Ionicons name="camera-outline" size={16} color="#fff" />
+            </TouchableOpacity>
           </View>
           <Text style={styles.username}>{user?.username ?? 'CLB User'}</Text>
-          <TouchableOpacity onPress={copyAddress} style={styles.addrRow}>
-            <Text style={styles.addrText}>{shortAddr}</Text>
-            <Ionicons name="copy-outline" size={14} color={Colors.textMuted} />
-          </TouchableOpacity>
-          <View style={styles.refRow}>
-            <Ionicons name="gift-outline" size={14} color={Colors.gold} />
+          <Text style={styles.memberSince}>Member since {new Date(user?.createdAt || Date.now()).getFullYear()}</Text>
+          
+          <View style={styles.walletCard}>
+            <View style={styles.walletRow}>
+              <Ionicons name="wallet-outline" size={16} color={Colors.primary} />
+              <Text style={styles.walletLabel}>Wallet Address</Text>
+            </View>
+            <TouchableOpacity onPress={copyAddress} style={styles.addrRow}>
+              <Text style={styles.addrText}>{shortAddr}</Text>
+              <Ionicons name="copy-outline" size={14} color={Colors.primary} />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.referralCard}>
+            <View style={styles.refHeader}>
+              <Ionicons name="gift-outline" size={16} color={Colors.gold} />
+              <Text style={styles.refLabel}>Referral Code</Text>
+            </View>
             <Text style={styles.refCode}>{user?.referralCode ?? '——'}</Text>
           </View>
-          <TouchableOpacity onPress={handleEditProfile} style={styles.editBtn}>
-            <Ionicons name="create-outline" size={16} color={Colors.primary} />
-            <Text style={styles.editBtnText}>Edit Profile</Text>
-          </TouchableOpacity>
         </LinearGradient>
 
         {/* Settings */}
@@ -333,7 +348,7 @@ export default function ProfileScreen({ navigation }: any) {
           </View>
         </KeyboardAvoidingView>
       </Modal>
-    </LinearGradient>
+    </View>
   );
 }
 
@@ -348,29 +363,48 @@ function SettingRow({ icon, label, right }: { icon: string; label: string; right
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  header: { paddingHorizontal: Spacing.lg, paddingTop: 56, paddingBottom: Spacing.lg },
-  title: { fontSize: FontSize.xxl, fontWeight: '800', color: Colors.textPrimary },
+  container: { flex: 1, backgroundColor: Colors.bg },
+  header: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: Spacing.lg, paddingTop: 56, paddingBottom: Spacing.sm,
+  },
+  title: { fontSize: 28, fontWeight: '900', color: Colors.textPrimary },
+  settingsBtn: {
+    width: 40, height: 40, borderRadius: 12,
+    backgroundColor: Colors.bgCard, borderWidth: 1, borderColor: Colors.border,
+    alignItems: 'center', justifyContent: 'center',
+  },
   profileCard: {
     borderRadius: Radius.xl, padding: Spacing.xl,
     borderWidth: 1, borderColor: Colors.border,
-    alignItems: 'center', gap: Spacing.sm,
+    alignItems: 'center', gap: Spacing.md,
   },
-  avatar: { marginBottom: Spacing.sm },
-  avatarGrad: { width: 72, height: 72, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
-  avatarText: { fontSize: 28, fontWeight: '900', color: '#fff' },
+  avatarSection: { position: 'relative', marginBottom: Spacing.sm },
+  avatarGrad: { width: 80, height: 80, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
+  avatarText: { fontSize: 32, fontWeight: '900', color: '#fff' },
+  editAvatarBtn: {
+    position: 'absolute', bottom: 0, right: 0,
+    width: 28, height: 28, borderRadius: 14,
+    backgroundColor: Colors.primary, borderWidth: 2, borderColor: Colors.bgCard,
+    alignItems: 'center', justifyContent: 'center',
+  },
   username: { fontSize: FontSize.xl, fontWeight: '700', color: Colors.textPrimary },
+  memberSince: { fontSize: FontSize.sm, color: Colors.textMuted },
+  walletCard: {
+    width: '100%', backgroundColor: Colors.bg, borderRadius: Radius.lg,
+    padding: Spacing.md, gap: Spacing.sm,
+  },
+  walletRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  walletLabel: { fontSize: FontSize.xs, color: Colors.textMuted, fontWeight: '600' },
   addrRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   addrText: { fontSize: FontSize.sm, color: Colors.textSecondary, fontFamily: 'monospace' },
-  refRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
-  refCode: { fontSize: FontSize.md, fontWeight: '700', color: Colors.gold, letterSpacing: 2 },
-  editBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: Spacing.md,
-    paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm,
-    backgroundColor: 'rgba(240,185,11,0.1)', borderRadius: Radius.md,
-    borderWidth: 1, borderColor: Colors.primary,
+  referralCard: {
+    width: '100%', backgroundColor: 'rgba(240,185,11,0.08)', borderRadius: Radius.lg,
+    padding: Spacing.md, gap: Spacing.xs, borderWidth: 1, borderColor: 'rgba(240,185,11,0.2)',
   },
-  editBtnText: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.primary },
+  refHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  refLabel: { fontSize: FontSize.xs, color: Colors.textMuted, fontWeight: '600' },
+  refCode: { fontSize: FontSize.md, fontWeight: '700', color: Colors.gold, letterSpacing: 2 },
   section: { gap: Spacing.sm },
   sectionTitle: { fontSize: FontSize.md, fontWeight: '700', color: Colors.textSecondary, paddingHorizontal: 4 },
   settingsList: { borderRadius: Radius.lg, borderWidth: 1, borderColor: Colors.border, overflow: 'hidden' },
