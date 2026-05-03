@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, Alert, Modal, Image,
+  TextInput, Alert, Modal,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,22 +9,6 @@ import { Colors, FontSize, Spacing, Radius } from '../../constants/theme';
 import Badge from '../../components/ui/Badge';
 import Button from '../../components/ui/Button';
 import { poolsAPI, userAPI } from '../../services/api';
-
-const COIN_ICONS: Record<string, any> = {
-  BTC: require('../../../assets/coins/btc.png'),
-  ETH: require('../../../assets/coins/eth.png'),
-  BNB: require('../../../assets/coins/bnb.png'),
-  SOL: require('../../../assets/coins/sol.png'),
-  ADA: require('../../../assets/coins/ada.png'),
-  DOGE: require('../../../assets/coins/doge.png'),
-  DOT: require('../../../assets/coins/dot.png'),
-  MATIC: require('../../../assets/coins/matic.png'),
-  AVAX: require('../../../assets/coins/avax.png'),
-  LINK: require('../../../assets/coins/link.png'),
-  UNI: require('../../../assets/coins/uni.png'),
-  XRP: require('../../../assets/coins/xrp.png'),
-  LTC: require('../../../assets/coins/ltc.png'),
-};
 
 export default function PoolDetailScreen({ route, navigation }: any) {
   const { poolId } = route.params;
@@ -115,11 +99,7 @@ export default function PoolDetailScreen({ route, navigation }: any) {
         <LinearGradient colors={Colors.gradientCard} style={styles.poolCard}>
           <View style={styles.poolHeader}>
             <View style={styles.poolIcon}>
-              <Image
-                source={COIN_ICONS[pool.tokenSymbol] || COIN_ICONS.BNB}
-                style={styles.coinIcon}
-                resizeMode="contain"
-              />
+              <Ionicons name="wallet-outline" size={28} color={Colors.primary} />
             </View>
             <View style={{ flex: 1, marginLeft: Spacing.md }}>
               <Text style={styles.poolName}>{pool.name}</Text>
@@ -340,7 +320,6 @@ const styles = StyleSheet.create({
     width: 56, height: 56, borderRadius: 16,
     backgroundColor: Colors.bgElevated, alignItems: 'center', justifyContent: 'center',
   },
-  coinIcon: { width: 36, height: 36 },
   poolName: { fontSize: FontSize.lg, fontWeight: '700', color: Colors.textPrimary },
   poolToken: { fontSize: FontSize.sm, color: Colors.textSecondary },
   poolStats: {

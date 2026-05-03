@@ -1,29 +1,13 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, RefreshControl,
-  TouchableOpacity, Image,
+  TouchableOpacity,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, FontSize, Spacing, Radius } from '../../constants/theme';
 import Badge from '../../components/ui/Badge';
 import { poolsAPI } from '../../services/api';
-
-const COIN_ICONS: Record<string, any> = {
-  BTC: require('../../../assets/coins/btc.png'),
-  ETH: require('../../../assets/coins/eth.png'),
-  BNB: require('../../../assets/coins/bnb.png'),
-  SOL: require('../../../assets/coins/sol.png'),
-  ADA: require('../../../assets/coins/ada.png'),
-  DOGE: require('../../../assets/coins/doge.png'),
-  DOT: require('../../../assets/coins/dot.png'),
-  MATIC: require('../../../assets/coins/matic.png'),
-  AVAX: require('../../../assets/coins/avax.png'),
-  LINK: require('../../../assets/coins/link.png'),
-  UNI: require('../../../assets/coins/uni.png'),
-  XRP: require('../../../assets/coins/xrp.png'),
-  LTC: require('../../../assets/coins/ltc.png'),
-};
 
 export default function PoolsScreen({ navigation }: any) {
   const [pools, setPools] = useState<any>([]);
@@ -78,11 +62,7 @@ export default function PoolsScreen({ navigation }: any) {
               </View>
               <View style={styles.featuredContent}>
                 <View style={styles.featuredIcon}>
-                  <Image
-                    source={COIN_ICONS[pools[0].tokenSymbol] || COIN_ICONS.BNB}
-                    style={styles.coinIcon}
-                    resizeMode="contain"
-                  />
+                  <Ionicons name="wallet-outline" size={28} color="#000" />
                 </View>
                 <View style={{ flex: 1, marginLeft: Spacing.md }}>
                   <Text style={styles.featuredTitle}>{pools[0].name}</Text>
@@ -124,11 +104,7 @@ export default function PoolsScreen({ navigation }: any) {
               <LinearGradient colors={Colors.gradientCard} style={styles.poolCard}>
                 <View style={styles.poolHeader}>
                   <View style={styles.poolIcon}>
-                    <Image
-                      source={COIN_ICONS[pool.tokenSymbol] || COIN_ICONS.BNB}
-                      style={styles.coinIcon}
-                      resizeMode="contain"
-                    />
+                    <Ionicons name="wallet-outline" size={24} color={Colors.primary} />
                   </View>
                   <View style={{ flex: 1, marginLeft: Spacing.sm }}>
                     <Text style={styles.poolName}>{pool.name}</Text>
