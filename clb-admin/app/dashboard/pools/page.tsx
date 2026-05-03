@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, Waves, TrendingUp, Users as UsersIcon, Loader2 } from "lucide-react";
+import { Plus, Waves, TrendingUp, Users as UsersIcon, Loader2, Pencil, Trash2, Pause, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -43,6 +43,9 @@ export default function PoolsPage() {
     contractAddress: "0x5fA4d61B529F88069a46B83451540aC4c2f96200",
   });
 
+  const [editPool, setEditPool] = useState<Pool | null>(null);
+  const [editForm, setEditForm] = useState({ name: "", description: "", apy: "", minDeposit: "", status: "" });
+
   const loadPools = async () => {
     try {
       const res = await api.getPools(1, 50);
@@ -55,6 +58,57 @@ export default function PoolsPage() {
   };
 
   useEffect(() => { loadPools(); }, []);
+
+  const handleEditOpen = (pool: Pool) => {
+    setEditPool(pool);
+    setEditForm({
+      name: pool.name,
+      description: pool.description || "",
+      apy: String(pool.apy),
+      minDeposit: String(pool.minDeposit),
+      status: pool.status,
+    });
+  };
+
+  const handleEditSave = async () => {
+    if (!editPool) return;
+    try {
+      await api.updatePool(editPool.id, {
+        name: editForm.name,
+        description: editForm.description || undefined,
+        apy: parseFloat(editForm.apy),
+        minDeposit: parseFloat(editForm.minDeposit),
+        status: editForm.status as "ACTIVE" | "PAUSED" | "COMPLETED" | "CANCELLED",
+      });
+      toast.success("Pool updated");
+      setEditPool(null);
+      loadPools();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update");
+    }
+  };
+
+  const handleDelete = async (pool: Pool) => {
+    if (!confirm(`Delete "${pool.name}"? This will remove all associated deposits and memberships.`)) return;
+    try {
+      await api.deletePool(pool.id);
+      toast.success("Pool deleted");
+      loadPools();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to delete");
+    }
+  };
+
+  const handleStatusToggle = async (pool: Pool) => {
+    const newStatus = pool.status === "ACTIVE" ? "PAUSED" : "ACTIVE";
+    try {
+      await api.updatePool(pool.id, { status: newStatus });
+      toast.success(`Pool ${newStatus.toLowerCase()}`);
+      loadPools();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to toggle status");
+    }
+  };
 
   const handleCreate = async () => {
     if (!form.name) { toast.error("Pool name is required"); return; }
@@ -165,6 +219,7 @@ export default function PoolsPage() {
                   <TableHead className="text-[#999]">Min/Max</TableHead>
                   <TableHead className="text-[#999]">Status</TableHead>
                   <TableHead className="text-[#999]">Created</TableHead>
+                  <TableHead className="text-[#999]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -198,6 +253,19 @@ export default function PoolsPage() {
                     <TableCell className="text-xs text-[#666]">
                       {new Date(pool.startDate).toLocaleDateString()}
                     </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => handleStatusToggle(pool)} className="p-1.5 rounded hover:bg-[#2A2A2A] text-[#999] hover:text-white" title={pool.status === "ACTIVE" ? "Pause" : "Activate"}>
+                          {pool.status === "ACTIVE" ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+                        </button>
+                        <button onClick={() => handleEditOpen(pool)} className="p-1.5 rounded hover:bg-[#2A2A2A] text-[#999] hover:text-white" title="Edit">
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button onClick={() => handleDelete(pool)} className="p-1.5 rounded hover:bg-[#2A2A2A] text-[#999] hover:text-[#FF3D57]" title="Delete">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -205,6 +273,47 @@ export default function PoolsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Edit Dialog */}
+      <Dialog open={!!editPool} onOpenChange={() => setEditPool(null)}>
+        <DialogContent className="bg-[#1A1A1A] border-[#2A2A2A] text-white">
+          <DialogHeader>
+            <DialogTitle>Edit Pool</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            <div className="space-y-2">
+              <Label>Pool Name</Label>
+              <Input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} className="bg-[#0D0D0D] border-[#2A2A2A]" />
+            </div>
+            <div className="space-y-2">
+              <Label>Description</Label>
+              <Textarea value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} className="bg-[#0D0D0D] border-[#2A2A2A]" />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>APY (%)</Label>
+                <Input type="number" value={editForm.apy} onChange={(e) => setEditForm({ ...editForm, apy: e.target.value })} className="bg-[#0D0D0D] border-[#2A2A2A]" />
+              </div>
+              <div className="space-y-2">
+                <Label>Min Deposit</Label>
+                <Input type="number" step="0.01" value={editForm.minDeposit} onChange={(e) => setEditForm({ ...editForm, minDeposit: e.target.value })} className="bg-[#0D0D0D] border-[#2A2A2A]" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Status</Label>
+              <select value={editForm.status} onChange={(e) => setEditForm({ ...editForm, status: e.target.value })} className="w-full h-10 rounded-md border border-[#2A2A2A] bg-[#0D0D0D] px-3 text-sm text-white">
+                <option value="ACTIVE">Active</option>
+                <option value="PAUSED">Paused</option>
+                <option value="COMPLETED">Completed</option>
+                <option value="CANCELLED">Cancelled</option>
+              </select>
+            </div>
+            <Button onClick={handleEditSave} className="w-full bg-[#F0B90B] text-[#0D0D0D] hover:bg-[#FCD535] font-semibold">
+              Save Changes
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

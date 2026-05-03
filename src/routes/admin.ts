@@ -2,20 +2,102 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import prisma from '../config/db';
 import { authMiddleware } from '../middleware/auth';
 
-// Admin-only middleware
+// Admin-only middleware — reads role from JWT (no extra DB query)
 async function adminMiddleware(request: FastifyRequest, reply: FastifyReply): Promise<void> {
   await authMiddleware(request, reply);
   if (reply.sent) return;
 
-  const user = await prisma.user.findUnique({
-    where: { id: request.userId },
-    select: { role: true },
-  });
-
-  if (!user || user.role !== 'ADMIN') {
+  if (request.userRole !== 'ADMIN') {
     reply.status(403).send({ success: false, error: 'Forbidden — admin access required' });
   }
 }
+
+// ─── Swagger Schema Definitions ─────────────────────
+const adminSchemas = {
+  listUsers: {
+    tags: ['Admin'],
+    summary: 'List all users',
+    description: 'Paginated list of all users with optional search',
+    querystring: {
+      type: 'object',
+      properties: {
+        page: { type: 'string', description: 'Page number' },
+        limit: { type: 'string', description: 'Items per page' },
+        search: { type: 'string', description: 'Search by wallet, username, or email' },
+      },
+    },
+  },
+  getUser: {
+    tags: ['Admin'],
+    summary: 'Get user details',
+    description: 'Get a single user with memberships, transactions, deposits, and referrals',
+    params: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] },
+  },
+  updateUser: {
+    tags: ['Admin'],
+    summary: 'Update user',
+    description: 'Update user profile, role, or active status',
+    params: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] },
+    body: {
+      type: 'object',
+      properties: {
+        username: { type: 'string' },
+        email: { type: 'string' },
+        role: { type: 'string', enum: ['USER', 'ADMIN', 'MODERATOR'] },
+        isActive: { type: 'boolean' },
+      },
+    },
+  },
+  deleteUser: {
+    tags: ['Admin'],
+    summary: 'Delete user',
+    description: 'Delete a user and all dependent records (deposits, transactions, memberships, referrals)',
+    params: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] },
+  },
+  listInvestments: {
+    tags: ['Admin'],
+    summary: 'List investments',
+    description: 'Paginated list of all pool memberships with user and pool details',
+    querystring: {
+      type: 'object',
+      properties: {
+        page: { type: 'string' },
+        limit: { type: 'string' },
+      },
+    },
+  },
+  listTransactions: {
+    tags: ['Admin'],
+    summary: 'List transactions',
+    description: 'Paginated list of all transactions with optional type/status filters',
+    querystring: {
+      type: 'object',
+      properties: {
+        page: { type: 'string' },
+        limit: { type: 'string' },
+        type: { type: 'string', enum: ['DEPOSIT', 'WITHDRAWAL', 'REWARD', 'REFERRAL_BONUS', 'FEE'] },
+        status: { type: 'string', enum: ['PENDING', 'SUCCESS', 'FAILED'] },
+      },
+    },
+  },
+  listReceipts: {
+    tags: ['Admin'],
+    summary: 'List receipt tokens',
+    description: 'Paginated list of deposit-based receipt tokens',
+    querystring: {
+      type: 'object',
+      properties: {
+        page: { type: 'string' },
+        limit: { type: 'string' },
+      },
+    },
+  },
+  getStats: {
+    tags: ['Admin'],
+    summary: 'Dashboard stats',
+    description: 'Aggregated platform statistics (users, pools, transactions, deposits)',
+  },
+};
 
 export default async function adminRoutes(fastify: FastifyInstance) {
   // ─── GET /admin/users — list all users with search & pagination ─────
@@ -23,7 +105,7 @@ export default async function adminRoutes(fastify: FastifyInstance) {
     Querystring: { page?: string; limit?: string; search?: string };
   }>(
     '/users',
-    { preHandler: [adminMiddleware] },
+    { schema: adminSchemas.listUsers, preHandler: [adminMiddleware] },
     async (request) => {
       const page = parseInt(request.query.page || '1', 10);
       const limit = parseInt(request.query.limit || '15', 10);
@@ -66,7 +148,7 @@ export default async function adminRoutes(fastify: FastifyInstance) {
   // ─── GET /admin/users/:id — get single user detail ─────
   fastify.get<{ Params: { id: string } }>(
     '/users/:id',
-    { preHandler: [adminMiddleware] },
+    { schema: adminSchemas.getUser, preHandler: [adminMiddleware] },
     async (request, reply) => {
       const user = await prisma.user.findUnique({
         where: { id: request.params.id },
@@ -93,7 +175,7 @@ export default async function adminRoutes(fastify: FastifyInstance) {
     Body: { username?: string; email?: string; role?: string; isActive?: boolean };
   }>(
     '/users/:id',
-    { preHandler: [adminMiddleware] },
+    { schema: adminSchemas.updateUser, preHandler: [adminMiddleware] },
     async (request, reply) => {
       const { username, email, role, isActive } = request.body;
       const existing = await prisma.user.findUnique({ where: { id: request.params.id } });
@@ -128,7 +210,7 @@ export default async function adminRoutes(fastify: FastifyInstance) {
   // ─── DELETE /admin/users/:id — delete user ─────
   fastify.delete<{ Params: { id: string } }>(
     '/users/:id',
-    { preHandler: [adminMiddleware] },
+    { schema: adminSchemas.deleteUser, preHandler: [adminMiddleware] },
     async (request, reply) => {
       const existing = await prisma.user.findUnique({ where: { id: request.params.id } });
 
@@ -157,7 +239,7 @@ export default async function adminRoutes(fastify: FastifyInstance) {
     Querystring: { page?: string; limit?: string };
   }>(
     '/investments',
-    { preHandler: [adminMiddleware] },
+    { schema: adminSchemas.listInvestments, preHandler: [adminMiddleware] },
     async (request) => {
       const page = parseInt(request.query.page || '1', 10);
       const limit = parseInt(request.query.limit || '20', 10);
@@ -185,7 +267,7 @@ export default async function adminRoutes(fastify: FastifyInstance) {
     Querystring: { page?: string; limit?: string; type?: string; status?: string };
   }>(
     '/transactions',
-    { preHandler: [adminMiddleware] },
+    { schema: adminSchemas.listTransactions, preHandler: [adminMiddleware] },
     async (request) => {
       const page = parseInt(request.query.page || '1', 10);
       const limit = parseInt(request.query.limit || '20', 10);
@@ -214,10 +296,52 @@ export default async function adminRoutes(fastify: FastifyInstance) {
     }
   );
 
+  // ─── GET /admin/receipts — deposit-based receipt tokens ─────
+  fastify.get<{
+    Querystring: { page?: string; limit?: string };
+  }>(
+    '/receipts',
+    { schema: adminSchemas.listReceipts, preHandler: [adminMiddleware] },
+    async (request) => {
+      const page = parseInt(request.query.page || '1', 10);
+      const limit = parseInt(request.query.limit || '20', 10);
+      const skip = (page - 1) * limit;
+
+      const [deposits, total] = await Promise.all([
+        prisma.deposit.findMany({
+          skip,
+          take: limit,
+          orderBy: { createdAt: 'desc' },
+          include: {
+            user: { select: { id: true, walletAddress: true, username: true } },
+            pool: { select: { id: true, name: true, tokenSymbol: true } },
+          },
+        }),
+        prisma.deposit.count(),
+      ]);
+
+      // Map deposits to receipt tokens
+      const receipts = deposits.map((d, idx) => ({
+        id: d.id,
+        tokenId: `CLB-R-${d.id.slice(0, 8).toUpperCase()}`,
+        holder: d.user.walletAddress,
+        holderName: d.user.username,
+        poolName: d.pool.name,
+        poolSymbol: d.pool.tokenSymbol,
+        amount: Number(d.amount),
+        txHash: d.txHash,
+        status: d.status,
+        mintedAt: d.createdAt,
+      }));
+
+      return { receipts, total, page, limit };
+    }
+  );
+
   // ─── GET /admin/stats — aggregated dashboard stats ─────
   fastify.get(
     '/stats',
-    { preHandler: [adminMiddleware] },
+    { schema: adminSchemas.getStats, preHandler: [adminMiddleware] },
     async () => {
       const [totalUsers, activeUsers, totalPools, totalTransactions, totalDeposits] = await Promise.all([
         prisma.user.count(),

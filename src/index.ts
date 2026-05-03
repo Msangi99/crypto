@@ -15,6 +15,7 @@ import referralRoutes from './routes/referral';
 import priceRoutes from './routes/price';
 import transactionRoutes from './routes/transaction';
 import adminRoutes from './routes/admin';
+import userDashboardRoutes from './routes/userDashboard';
 
 const buildApp = async () => {
   const fastify = Fastify({
@@ -71,6 +72,7 @@ const buildApp = async () => {
         { name: 'Referrals', description: 'Referral system & rewards' },
         { name: 'Prices', description: 'Live cryptocurrency prices' },
         { name: 'Transactions', description: 'Transaction history' },
+        { name: 'User Dashboard', description: 'User personal dashboard, portfolio, referrals & market data' },
         { name: 'Health', description: 'System health checks' },
       ],
     },
@@ -143,6 +145,7 @@ const buildApp = async () => {
   await fastify.register(priceRoutes, { prefix: '/api/prices' });
   await fastify.register(transactionRoutes, { prefix: '/api/transactions' });
   await fastify.register(adminRoutes, { prefix: '/api/admin' });
+  await fastify.register(userDashboardRoutes, { prefix: '/api/user' });
 
   // ─── Root Route ────────────────────────────────
   fastify.get('/', async () => {
@@ -158,6 +161,7 @@ const buildApp = async () => {
         prices: '/api/prices',
         transactions: '/api/transactions',
         admin: '/api/admin',
+        user: '/api/user',
       },
     };
   });

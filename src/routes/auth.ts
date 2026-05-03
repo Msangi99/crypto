@@ -177,9 +177,9 @@ export default async function authRoutes(fastify: FastifyInstance) {
         data: { nonce: crypto.randomUUID() },
       });
 
-      // Generate JWT
+      // Generate JWT (include role for admin middleware)
       const token = fastify.jwt.sign(
-        { id: user.id, walletAddress: normalized },
+        { id: user.id, walletAddress: normalized, role: user.role },
         { expiresIn: '7d' }
       );
 
@@ -274,7 +274,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
       }
 
       const token = fastify.jwt.sign(
-        { id: user.id, walletAddress: user.walletAddress },
+        { id: user.id, walletAddress: user.walletAddress, role: user.role },
         { expiresIn: '7d' }
       );
 

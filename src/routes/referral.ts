@@ -132,9 +132,22 @@ export default async function referralRoutes(fastify: FastifyInstance) {
     async (request: FastifyRequest, reply: FastifyReply) => {
       const userId = request.userId!;
 
-      // Check if user already has a referral code (as referrer with a pending referral)
-      // Generate a unique code
+      // Check if user already has a referral code
+      const user = await prisma.user.findUnique({ where: { id: userId }, select: { referralCode: true } });
+      if (user?.referralCode) {
+        return {
+          success: true,
+          code: user.referralCode,
+          referralLink: `https://clb.app/ref/${user.referralCode}`,
+        };
+      }
+
+      // Generate and persist a unique referral code
       const code = `CLB-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
+      await prisma.user.update({
+        where: { id: userId },
+        data: { referralCode: code },
+      });
 
       return {
         success: true,
@@ -160,30 +173,25 @@ export default async function referralRoutes(fastify: FastifyInstance) {
         return reply.status(400).send({ success: false, error: 'You have already been referred' });
       }
 
-      // Find referrer by code — look up the most recent referral with this code
-      // In practice, the code should be stored separately; here we create a new referral record
-      // We need to find who owns this code. Let's look for any referral with this code.
-      const existingReferral = await prisma.referral.findUnique({
-        where: { code },
+      // Find referrer by their stored referral code on User model
+      const referrer = await prisma.user.findUnique({
+        where: { referralCode: code },
+        select: { id: true },
       });
 
-      let referrerId: string;
-
-      if (existingReferral) {
-        referrerId = existingReferral.referrerId;
-      } else {
+      if (!referrer) {
         return reply.status(404).send({ success: false, error: 'Invalid referral code' });
       }
 
       // Can't refer yourself
-      if (referrerId === userId) {
+      if (referrer.id === userId) {
         return reply.status(400).send({ success: false, error: 'Cannot refer yourself' });
       }
 
-      // Create new referral record
+      // Create referral record
       const referral = await prisma.referral.create({
         data: {
-          referrerId,
+          referrerId: referrer.id,
           referredId: userId,
           code: `${code}-${crypto.randomBytes(2).toString('hex')}`,
           status: 'ACTIVE',

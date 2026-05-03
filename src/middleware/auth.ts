@@ -5,6 +5,7 @@ declare module 'fastify' {
   interface FastifyRequest {
     userId?: string;
     walletAddress?: string;
+    userRole?: string;
   }
 }
 
@@ -16,9 +17,11 @@ export async function authMiddleware(
     const decoded = await request.jwtVerify<{
       id: string;
       walletAddress: string;
+      role?: string;
     }>();
     request.userId = decoded.id;
     request.walletAddress = decoded.walletAddress;
+    request.userRole = decoded.role;
   } catch (err) {
     reply.status(401).send({
       success: false,

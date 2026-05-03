@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from "react";
 import {
   CreditCard, Search, Loader2, ArrowUpRight, ArrowDownRight,
   CheckCircle2, Clock, XCircle, Download, RefreshCw, Eye,
+  ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,65 +13,74 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { StatsCard } from "@/components/stats-card";
 import { api } from "@/lib/api";
-import { toast } from "sonner";
 
 interface Payment {
   id: string;
   userId: string;
-  userWallet: string;
-  type: "DEPOSIT" | "WITHDRAWAL" | "REWARD" | "REFERRAL_BONUS" | "FEE";
+  type: string;
   amount: number;
-  currency: string;
-  status: "PENDING" | "SUCCESS" | "FAILED";
   txHash: string | null;
   fromAddress: string | null;
   toAddress: string | null;
-  createdAt: string;
+  status: string;
   metadata: Record<string, unknown> | null;
+  createdAt: string;
+  user: { id: string; walletAddress: string; username: string | null };
 }
-
-// Mock payment data — will be replaced with real API
-const mockPayments: Payment[] = [
-  { id: "1", userId: "u1", userWallet: "0xfde8...aafb", type: "DEPOSIT", amount: 500, currency: "BNB", status: "SUCCESS", txHash: "0xabc123...", fromAddress: "0xfde8...aafb", toAddress: "0x5fA4...6200", createdAt: "2026-05-03T10:00:00Z", metadata: { poolName: "Gold BTC Pool", leverage: "60x" } },
-  { id: "2", userId: "u2", userWallet: "0xa1b2...c3d4", type: "DEPOSIT", amount: 250, currency: "BNB", status: "SUCCESS", txHash: "0xdef456...", fromAddress: "0xa1b2...c3d4", toAddress: "0x5fA4...6200", createdAt: "2026-05-02T14:30:00Z", metadata: { poolName: "Silver ETH Pool", leverage: "60x" } },
-  { id: "3", userId: "u1", userWallet: "0xfde8...aafb", type: "REFERRAL_BONUS", amount: 12.5, currency: "BNB", status: "SUCCESS", txHash: "0xghi789...", fromAddress: null, toAddress: "0xfde8...aafb", createdAt: "2026-05-03T11:00:00Z", metadata: { referredUser: "0xe5f6...7890", level: "L1", percentage: "20%" } },
-  { id: "4", userId: "u3", userWallet: "0xe5f6...7890", type: "DEPOSIT", amount: 1000, currency: "BNB", status: "PENDING", txHash: null, fromAddress: "0xe5f6...7890", toAddress: "0x5fA4...6200", createdAt: "2026-05-03T12:00:00Z", metadata: { poolName: "Platinum BTC Pool", leverage: "60x" } },
-  { id: "5", userId: "u2", userWallet: "0xa1b2...c3d4", type: "WITHDRAWAL", amount: 85, currency: "BNB", status: "PENDING", txHash: null, fromAddress: "0x5fA4...6200", toAddress: "0xa1b2...c3d4", createdAt: "2026-05-02T16:00:00Z", metadata: { poolName: "Silver ETH Pool", phase: "Phase 1 partial liquidation" } },
-  { id: "6", userId: "u1", userWallet: "0xfde8...aafb", type: "FEE", amount: 75, currency: "BNB", status: "SUCCESS", txHash: "0xjkl012...", fromAddress: "0x5fA4...6200", toAddress: "0xPLATFORM...", createdAt: "2026-05-03T10:05:00Z", metadata: { poolName: "Gold BTC Pool", feeType: "Platform fee (15%)" } },
-  { id: "7", userId: "u4", userWallet: "0x1234...5678", type: "DEPOSIT", amount: 100, currency: "BNB", status: "FAILED", txHash: "0xmnr345...", fromAddress: "0x1234...5678", toAddress: "0x5fA4...6200", createdAt: "2026-05-01T09:00:00Z", metadata: { reason: "Insufficient gas", poolName: "Starter BTC Pool" } },
-  { id: "8", userId: "u2", userWallet: "0xa1b2...c3d4", type: "REWARD", amount: 150, currency: "BNB", status: "SUCCESS", txHash: "0xstu678...", fromAddress: "0x5fA4...6200", toAddress: "0xa1b2...c3d4", createdAt: "2026-05-02T18:00:00Z", metadata: { poolName: "Silver ETH Pool", rewardType: "Phase 1 profit share (85%)" } },
-];
 
 function shortTx(hash: string | null) {
   if (!hash) return "—";
   return `${hash.slice(0, 10)}...${hash.slice(-4)}`;
 }
 
+function shortAddr(addr: string) {
+  return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+}
+
 export default function PaymentsPage() {
-  const [payments] = useState<Payment[]>(mockPayments);
-  const [filtered, setFiltered] = useState<Payment[]>(mockPayments);
+  const [payments, setPayments] = useState<Payment[]>([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [typeFilter, setTypeFilter] = useState<string>("ALL");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [viewPayment, setViewPayment] = useState<Payment | null>(null);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const limit = 20;
 
-  const applyFilters = useCallback(() => {
-    let result = [...payments];
-    if (search) {
-      const q = search.toLowerCase();
-      result = result.filter((p) =>
-        p.userWallet.toLowerCase().includes(q) ||
-        (p.txHash && p.txHash.toLowerCase().includes(q)) ||
-        p.id.toLowerCase().includes(q)
-      );
+  const loadPayments = useCallback(async () => {
+    setLoading(true);
+    try {
+      const typeParam = typeFilter !== "ALL" ? typeFilter : undefined;
+      const statusParam = statusFilter !== "ALL" ? statusFilter : undefined;
+      const res = await api.getAdminTransactions(page, limit, typeParam, statusParam);
+      setPayments(res.transactions);
+      setTotal(res.total);
+    } catch (err) {
+      console.error("Failed to load payments:", err);
+    } finally {
+      setLoading(false);
     }
-    if (statusFilter !== "ALL") result = result.filter((p) => p.status === statusFilter);
-    if (typeFilter !== "ALL") result = result.filter((p) => p.type === typeFilter);
-    setFiltered(result);
-  }, [payments, search, statusFilter, typeFilter]);
+  }, [page, typeFilter, statusFilter]);
 
-  useEffect(() => { applyFilters(); }, [applyFilters]);
+  useEffect(() => { loadPayments(); }, [loadPayments]);
+
+  // Reset page when filter changes
+  useEffect(() => { setPage(1); }, [typeFilter, statusFilter]);
+
+  const totalPages = Math.ceil(total / limit);
+
+  // Client-side search filter on loaded results
+  const filtered = search
+    ? payments.filter((p) => {
+        const q = search.toLowerCase();
+        return (
+          p.user.walletAddress.toLowerCase().includes(q) ||
+          (p.txHash && p.txHash.toLowerCase().includes(q)) ||
+          p.id.toLowerCase().includes(q)
+        );
+      })
+    : payments;
 
   const statusConfig: Record<string, { color: string; bg: string; icon: typeof CheckCircle2 }> = {
     SUCCESS: { color: "text-[#00C853]", bg: "bg-[#00C853]/10", icon: CheckCircle2 },
@@ -86,9 +96,9 @@ export default function PaymentsPage() {
     FEE: { label: "Fee", icon: CreditCard },
   };
 
-  const totalDeposits = payments.filter((p) => p.type === "DEPOSIT" && p.status === "SUCCESS").reduce((sum, p) => sum + p.amount, 0);
-  const totalWithdrawals = payments.filter((p) => p.type === "WITHDRAWAL" && p.status === "SUCCESS").reduce((sum, p) => sum + p.amount, 0);
-  const totalReferrals = payments.filter((p) => p.type === "REFERRAL_BONUS" && p.status === "SUCCESS").reduce((sum, p) => sum + p.amount, 0);
+  const totalDeposits = payments.filter((p) => p.type === "DEPOSIT" && p.status === "SUCCESS").reduce((sum, p) => sum + Number(p.amount), 0);
+  const totalWithdrawals = payments.filter((p) => p.type === "WITHDRAWAL" && p.status === "SUCCESS").reduce((sum, p) => sum + Number(p.amount), 0);
+  const totalReferrals = payments.filter((p) => p.type === "REFERRAL_BONUS" && p.status === "SUCCESS").reduce((sum, p) => sum + Number(p.amount), 0);
   const pendingCount = payments.filter((p) => p.status === "PENDING").length;
 
   return (
@@ -98,11 +108,10 @@ export default function PaymentsPage() {
         <p className="text-sm text-[#888] mt-1">View all deposits, withdrawals, rewards, referral bonuses, and platform fees</p>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatsCard title="Total Deposits" value={`${totalDeposits} BNB`} icon={ArrowDownRight} color="green" />
-        <StatsCard title="Total Withdrawals" value={`${totalWithdrawals} BNB`} icon={ArrowUpRight} color="gold" />
-        <StatsCard title="Referral Payouts" value={`${totalReferrals} BNB`} icon={CheckCircle2} color="blue" />
+        <StatsCard title="Total Deposits" value={`${totalDeposits.toFixed(2)} BNB`} icon={ArrowDownRight} color="green" />
+        <StatsCard title="Total Withdrawals" value={`${totalWithdrawals.toFixed(2)} BNB`} icon={ArrowUpRight} color="gold" />
+        <StatsCard title="Referral Payouts" value={`${totalReferrals.toFixed(2)} BNB`} icon={CheckCircle2} color="blue" />
         <StatsCard title="Pending" value={pendingCount} icon={Clock} color="red" />
       </div>
 
@@ -110,7 +119,7 @@ export default function PaymentsPage() {
       <Card className="bg-[#1A1A1A] border-[#2A2A2A]">
         <CardContent className="p-4">
           <div className="flex flex-wrap items-center gap-3">
-            <div className="relative flex-1 min-w-[200px]">
+            <div className="relative flex-1 min-w-50">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#666]" />
               <input
                 type="text"
@@ -161,11 +170,8 @@ export default function PaymentsPage() {
             <CardTitle className="text-white text-base flex items-center gap-2">
               <CreditCard className="w-4 h-4 text-[#F0B90B]" />
               Payment History
-              <Badge className="bg-[#2A2A2A] text-[#999] text-xs ml-2">{filtered.length} total</Badge>
+              <Badge className="bg-[#2A2A2A] text-[#999] text-xs ml-2">{total} total</Badge>
             </CardTitle>
-            <Button variant="outline" size="sm" className="border-[#2A2A2A] text-[#999] hover:text-white hover:bg-[#2A2A2A]">
-              <Download className="w-3.5 h-3.5 mr-1.5" /> Export CSV
-            </Button>
           </div>
         </CardHeader>
         <CardContent>
@@ -174,14 +180,14 @@ export default function PaymentsPage() {
           ) : filtered.length === 0 ? (
             <div className="text-center py-12">
               <CreditCard className="w-12 h-12 text-[#2A2A2A] mx-auto mb-4" />
-              <p className="text-[#999]">No payments match your filters</p>
+              <p className="text-[#999]">No transactions found</p>
+              <p className="text-xs text-[#666] mt-1">Transactions appear when users interact with pools</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow className="border-[#2A2A2A] hover:bg-transparent">
-                    <TableHead className="text-[#999]">ID</TableHead>
                     <TableHead className="text-[#999]">Type</TableHead>
                     <TableHead className="text-[#999]">Amount</TableHead>
                     <TableHead className="text-[#999]">User</TableHead>
@@ -199,15 +205,19 @@ export default function PaymentsPage() {
                     const TpIcon = tp.icon;
                     return (
                       <TableRow key={payment.id} className="border-[#2A2A2A] hover:bg-[#0D0D0D]">
-                        <TableCell className="text-xs font-mono text-[#666]">#{payment.id}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1.5">
                             <TpIcon className="w-3.5 h-3.5 text-[#999]" />
                             <span className="text-xs text-white">{tp.label}</span>
                           </div>
                         </TableCell>
-                        <TableCell className="font-semibold text-white">{payment.amount} {payment.currency}</TableCell>
-                        <TableCell className="font-mono text-xs text-[#F0B90B]">{payment.userWallet}</TableCell>
+                        <TableCell className="font-semibold text-white">{Number(payment.amount).toFixed(4)} BNB</TableCell>
+                        <TableCell>
+                          <div>
+                            <p className="font-mono text-xs text-[#F0B90B]">{shortAddr(payment.user.walletAddress)}</p>
+                            {payment.user.username && <p className="text-[10px] text-[#666]">{payment.user.username}</p>}
+                          </div>
+                        </TableCell>
                         <TableCell className="font-mono text-xs text-[#666]">
                           {payment.txHash ? (
                             <a href={`https://testnet.bscscan.com/tx/${payment.txHash}`} target="_blank" rel="noopener noreferrer" className="hover:text-[#F0B90B] hover:underline">
@@ -231,6 +241,17 @@ export default function PaymentsPage() {
                   })}
                 </TableBody>
               </Table>
+              {totalPages > 1 && (
+                <div className="flex items-center justify-center gap-2 mt-4">
+                  <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)} className="border-[#2A2A2A] text-[#999]">
+                    <ChevronLeft className="w-4 h-4" />
+                  </Button>
+                  <span className="text-sm text-[#999]">Page {page} of {totalPages}</span>
+                  <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(page + 1)} className="border-[#2A2A2A] text-[#999]">
+                    <ChevronRight className="w-4 h-4" />
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </CardContent>
@@ -242,15 +263,15 @@ export default function PaymentsPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <CreditCard className="w-5 h-5 text-[#F0B90B]" />
-              Payment Details #{viewPayment?.id}
+              Transaction Details
             </DialogTitle>
           </DialogHeader>
           {viewPayment && (
             <div className="space-y-3 mt-2">
               {[
                 { label: "Type", value: viewPayment.type },
-                { label: "Amount", value: `${viewPayment.amount} ${viewPayment.currency}` },
-                { label: "User Wallet", value: viewPayment.userWallet },
+                { label: "Amount", value: `${Number(viewPayment.amount).toFixed(4)} BNB` },
+                { label: "User", value: viewPayment.user.walletAddress },
                 { label: "From", value: viewPayment.fromAddress || "—" },
                 { label: "To", value: viewPayment.toAddress || "—" },
                 { label: "Transaction Hash", value: viewPayment.txHash || "—" },
@@ -259,10 +280,10 @@ export default function PaymentsPage() {
               ].map((item) => (
                 <div key={item.label} className="flex justify-between p-2.5 rounded bg-[#0D0D0D]">
                   <span className="text-xs text-[#999]">{item.label}</span>
-                  <span className="text-xs text-white font-mono truncate max-w-[250px]">{item.value}</span>
+                  <span className="text-xs text-white font-mono truncate max-w-62.5">{item.value}</span>
                 </div>
               ))}
-              {viewPayment.metadata && (
+              {viewPayment.metadata && Object.keys(viewPayment.metadata).length > 0 && (
                 <div className="p-3 rounded bg-[#0D0D0D] space-y-2">
                   <p className="text-xs text-[#888] font-medium uppercase">Metadata</p>
                   {Object.entries(viewPayment.metadata).map(([k, v]) => (

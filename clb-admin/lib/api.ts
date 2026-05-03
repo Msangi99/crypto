@@ -127,6 +127,22 @@ export const api = {
       method: "DELETE",
     }),
 
+  // Admin
+  getAdminUsers: (page = 1, limit = 15, search = "") =>
+    request<{ users: Array<{ id: string; walletAddress: string; username: string | null; email: string | null; role: string; isActive: boolean; createdAt: string }>; total: number }>(`/api/admin/users?page=${page}&limit=${limit}&search=${search}`),
+  getAdminInvestments: (page = 1, limit = 20) =>
+    request<{ investments: Array<{ id: string; userId: string; poolId: string; joinedAt: string; share: number; user: { id: string; walletAddress: string; username: string | null }; pool: { id: string; name: string; tokenSymbol: string; apy: number; status: string } }>; total: number }>(`/api/admin/investments?page=${page}&limit=${limit}`),
+  getAdminTransactions: (page = 1, limit = 20, type?: string, status?: string) => {
+    let url = `/api/admin/transactions?page=${page}&limit=${limit}`;
+    if (type) url += `&type=${type}`;
+    if (status) url += `&status=${status}`;
+    return request<{ transactions: Array<{ id: string; userId: string; type: string; amount: number; txHash: string | null; fromAddress: string | null; toAddress: string | null; status: string; metadata: Record<string, unknown> | null; createdAt: string; user: { id: string; walletAddress: string; username: string | null } }>; total: number }>(url);
+  },
+  getAdminStats: () =>
+    request<{ success: boolean; stats: { totalUsers: number; activeUsers: number; totalPools: number; totalTransactions: number; totalDeposits: number } }>("/api/admin/stats"),
+  getAdminReceipts: (page = 1, limit = 20) =>
+    request<{ receipts: Array<{ id: string; tokenId: string; holder: string; holderName: string | null; poolName: string; poolSymbol: string; amount: number; txHash: string | null; status: string; mintedAt: string }>; total: number }>(`/api/admin/receipts?page=${page}&limit=${limit}`),
+
   // Transactions
   getTransactions: (page = 1, limit = 20) =>
     request<{
