@@ -1,7 +1,7 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, RefreshControl,
-  TouchableOpacity,
+  TouchableOpacity, TextInput,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -40,6 +40,26 @@ function CoinIcon({ symbol }: { symbol: string }) {
 export default function PoolsScreen({ navigation }: any) {
   const [pools, setPools] = useState<any>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [activeFilter, setActiveFilter] = useState('All');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredPools = useMemo(() => {
+    let result = [...pools];
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter((p: any) =>
+        p.name?.toLowerCase().includes(q) || p.tokenSymbol?.toLowerCase().includes(q)
+      );
+    }
+    if (activeFilter === 'Popular') {
+      result.sort((a: any, b: any) => (b._count?.members || b.memberCount || 0) - (a._count?.members || a.memberCount || 0));
+    } else if (activeFilter === 'High APY') {
+      result.sort((a: any, b: any) => (b.apy || 0) - (a.apy || 0));
+    }
+    return result;
+  }, [pools, searchQuery, activeFilter]);
+
+  const totalTvl = useMemo(() => pools.reduce((sum: number, p: any) => sum + (Number(p.totalStaked) || 0), 0), [pools]);
 
   const load = useCallback(async () => {
     try {
@@ -60,17 +80,69 @@ export default function PoolsScreen({ navigation }: any) {
     setRefreshing(false);
   };
 
+  const filters = ['All', 'Popular', 'High APY'];
+
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>Liquidity Pools</Text>
-          <Text style={styles.subtitle}>Earn up to 60x leverage on your deposits</Text>
+      {/* Header with Gradient */}
+      <LinearGradient colors={['#1A1F35', '#0B0E1A']} style={styles.headerGradient}>
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.title}>Liquidity Pools</Text>
+            <Text style={styles.subtitle}>Earn up to 60x leverage on your deposits</Text>
+          </View>
+          <TouchableOpacity style={styles.filterBtn}>
+            <Ionicons name="options-outline" size={20} color={Colors.textSecondary} />
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity style={styles.filterBtn}>
-          <Ionicons name="options-outline" size={20} color={Colors.textSecondary} />
-        </TouchableOpacity>
+
+        {/* Summary Stats */}
+        <View style={styles.summaryRow}>
+          <View style={styles.summaryItem}>
+            <Text style={styles.summaryValue}>{pools.length}</Text>
+            <Text style={styles.summaryLabel}>Pools</Text>
+          </View>
+          <View style={styles.summaryDivider} />
+          <View style={styles.summaryItem}>
+            <Text style={styles.summaryValue}>${totalTvl.toLocaleString()}</Text>
+            <Text style={styles.summaryLabel}>Total TVL</Text>
+          </View>
+          <View style={styles.summaryDivider} />
+          <View style={styles.summaryItem}>
+            <Text style={styles.summaryValue}>60x</Text>
+            <Text style={styles.summaryLabel}>Max Leverage</Text>
+          </View>
+        </View>
+
+        {/* Search Bar */}
+        <View style={styles.searchRow}>
+          <Ionicons name="search-outline" size={18} color={Colors.textMuted} />
+          <TextInput
+            style={styles.searchInput}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder="Search pools..."
+            placeholderTextColor={Colors.textMuted}
+          />
+          {searchQuery ? (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <Ionicons name="close-circle" size={18} color={Colors.textMuted} />
+            </TouchableOpacity>
+          ) : null}
+        </View>
+      </LinearGradient>
+
+      {/* Filter Tabs */}
+      <View style={styles.filterRow}>
+        {filters.map((f) => (
+          <TouchableOpacity
+            key={f}
+            onPress={() => setActiveFilter(f)}
+            style={[styles.filterTab, activeFilter === f && styles.filterTabActive]}
+          >
+            <Text style={[styles.filterTabText, activeFilter === f && styles.filterTabTextActive]}>{f}</Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
       <ScrollView
@@ -79,7 +151,7 @@ export default function PoolsScreen({ navigation }: any) {
         contentContainerStyle={{ padding: Spacing.lg, paddingTop: 0, gap: Spacing.lg, paddingBottom: 100 }}
       >
         {/* Featured Pool */}
-        {pools.length > 0 && (
+        {pools.length > 0 && !searchQuery && activeFilter === 'All' && (
           <TouchableOpacity
             onPress={() => navigation.navigate('PoolDetail', { poolId: pools[0].id })}
             activeOpacity={0.85}
@@ -118,20 +190,22 @@ export default function PoolsScreen({ navigation }: any) {
 
         {/* Section Header */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>All Pools</Text>
+          <Text style={styles.sectionTitle}>
+            {activeFilter === 'All' ? 'All Pools' : activeFilter === 'Popular' ? 'Most Popular' : 'Highest APY'}
+          </Text>
           <View style={styles.sectionBadge}>
-            <Text style={styles.sectionCount}>{pools.length}</Text>
+            <Text style={styles.sectionCount}>{filteredPools.length}</Text>
           </View>
         </View>
 
-        {pools.length === 0 ? (
+        {filteredPools.length === 0 ? (
           <View style={styles.empty}>
             <Ionicons name="water-outline" size={64} color={Colors.textMuted} />
             <Text style={styles.emptyTitle}>No Pools Available</Text>
             <Text style={styles.emptyText}>Check back later for new liquidity pools</Text>
           </View>
         ) : (
-          pools.map((pool: any) => (
+          filteredPools.map((pool: any) => (
             <TouchableOpacity
               key={pool.id}
               onPress={() => navigation.navigate('PoolDetail', { poolId: pool.id })}
@@ -200,9 +274,14 @@ function Metric({ label, value, accent }: any) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
+
+  // Header Gradient
+  headerGradient: {
+    paddingBottom: Spacing.md,
+  },
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
-    paddingHorizontal: Spacing.lg, paddingTop: 56, paddingBottom: Spacing.sm,
+    paddingHorizontal: Spacing.lg, paddingTop: 56, paddingBottom: Spacing.md,
   },
   title: { fontSize: 28, fontWeight: '900', color: Colors.textPrimary },
   subtitle: { fontSize: FontSize.sm, color: Colors.textSecondary, marginTop: 4 },
@@ -210,6 +289,49 @@ const styles = StyleSheet.create({
     width: 40, height: 40, borderRadius: Radius.md,
     backgroundColor: Colors.bgCard, borderWidth: 1, borderColor: Colors.border,
     alignItems: 'center', justifyContent: 'center',
+  },
+
+  // Summary Stats
+  summaryRow: {
+    flexDirection: 'row', marginHorizontal: Spacing.lg,
+    backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: Radius.lg,
+    padding: Spacing.md, marginBottom: Spacing.md,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)',
+  },
+  summaryItem: { flex: 1, alignItems: 'center' },
+  summaryValue: { fontSize: 16, fontWeight: '800', color: Colors.primary },
+  summaryLabel: { fontSize: 11, fontWeight: '600', color: Colors.textMuted, marginTop: 2 },
+  summaryDivider: { width: 1, backgroundColor: 'rgba(255,255,255,0.08)' },
+
+  // Search
+  searchRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    marginHorizontal: Spacing.lg, marginBottom: Spacing.sm,
+    backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: Radius.md,
+    paddingHorizontal: Spacing.md, paddingVertical: 10,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)',
+  },
+  searchInput: {
+    flex: 1, fontSize: 14, color: Colors.textPrimary,
+  },
+
+  // Filter Tabs
+  filterRow: {
+    flexDirection: 'row', paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm,
+    gap: Spacing.sm,
+  },
+  filterTab: {
+    paddingHorizontal: 16, paddingVertical: 8, borderRadius: 99,
+    backgroundColor: Colors.bgCard, borderWidth: 1, borderColor: Colors.border,
+  },
+  filterTabActive: {
+    backgroundColor: Colors.primary, borderColor: Colors.primary,
+  },
+  filterTabText: {
+    fontSize: 13, fontWeight: '700', color: Colors.textSecondary,
+  },
+  filterTabTextActive: {
+    color: '#000',
   },
 
   // Coin Icon
