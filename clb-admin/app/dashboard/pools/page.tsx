@@ -88,10 +88,8 @@ export default function PoolsPage() {
           <p className="text-[#999] mt-1">Create and manage staking pools</p>
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-[#F0B90B] text-[#0D0D0D] hover:bg-[#FCD535] font-semibold">
-              <Plus className="w-4 h-4 mr-2" /> Create Pool
-            </Button>
+          <DialogTrigger className="inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-semibold bg-[#F0B90B] text-[#0D0D0D] hover:bg-[#FCD535] transition-colors cursor-pointer">
+            <Plus className="w-4 h-4 mr-2" /> Create Pool
           </DialogTrigger>
           <DialogContent className="bg-[#1A1A1A] border-[#2A2A2A] text-white">
             <DialogHeader>
