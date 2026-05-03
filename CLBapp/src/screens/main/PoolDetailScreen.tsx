@@ -172,46 +172,83 @@ export default function PoolDetailScreen({ route, navigation }: any) {
   return (
     <View style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={24} color={Colors.textPrimary} />
-          </TouchableOpacity>
-          <Text style={styles.title}>Pool Details</Text>
-          <View style={{ width: 40 }} />
-        </View>
+        {/* Dark Gradient Header with Hero */}
+        <LinearGradient colors={['#1A1F35', '#0B0E1A']} style={styles.headerGradient}>
+          <View style={styles.header}>
+            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+              <Ionicons name="arrow-back" size={24} color={Colors.textPrimary} />
+            </TouchableOpacity>
+            <Text style={styles.title}>Pool Details</Text>
+            <TouchableOpacity style={styles.shareBtn}>
+              <Ionicons name="share-outline" size={20} color={Colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
 
-        {/* Pool Info Card - Hero Section */}
-        <View style={styles.content}>
-          <View style={styles.heroOuter}>
-            <LinearGradient colors={Colors.gradientGold} style={styles.heroCard}>
-              <View style={styles.heroHeader}>
-                <CoinIcon symbol={pool.tokenSymbol} />
-                <View style={{ flex: 1, marginLeft: Spacing.md }}>
-                  <Text style={styles.heroPoolName}>{pool.name}</Text>
-                  <View style={styles.heroTokenRow}>
-                    <Text style={styles.heroToken}>{pool.tokenSymbol} Pool</Text>
-                    <View style={styles.heroDot} />
-                    <Badge
-                      label={pool.status || 'Active'}
-                      variant={pool.status === 'ACTIVE' ? 'success' : 'warning'}
-                    />
-                  </View>
+          {/* Hero APY inside gradient */}
+          <View style={styles.heroSection}>
+            <View style={styles.heroCoinRow}>
+              <CoinIcon symbol={pool.tokenSymbol} />
+              <View style={{ flex: 1, marginLeft: Spacing.md }}>
+                <Text style={styles.heroPoolName}>{pool.name}</Text>
+                <View style={styles.heroTokenRow}>
+                  <Text style={styles.heroToken}>{pool.tokenSymbol} Pool</Text>
+                  <View style={styles.heroDot} />
+                  <Badge
+                    label={pool.status || 'Active'}
+                    variant={pool.status === 'ACTIVE' ? 'success' : 'warning'}
+                  />
                 </View>
               </View>
+            </View>
 
-              <View style={styles.heroApySection}>
-                <Text style={styles.heroApyLabel}>Annual Percentage Yield</Text>
-                <Text style={styles.heroApyValue}>{pool.apy}%</Text>
-                <Text style={styles.heroApySub}>Earn up to {pool.apy}% APY on your deposits</Text>
-              </View>
+            <View style={styles.apyDisplay}>
+              <Text style={styles.apyLabel}>Annual Percentage Yield</Text>
+              <Text style={styles.apyValue}>{pool.apy}%</Text>
+              <Text style={styles.apySub}>Earn up to {pool.apy}% APY on your deposits</Text>
+            </View>
 
-              <View style={styles.heroStats}>
-                <Stat label="TVL" value={`$${Number(pool.totalStaked).toLocaleString()}`} />
-                <Stat label="Members" value={`${pool._count?.members || pool.memberCount || 0}`} />
-                <Stat label="Min Deposit" value={`$${pool.minDeposit}`} />
+            <View style={styles.heroStatsRow}>
+              <View style={styles.heroStatItem}>
+                <Text style={styles.heroStatValue}>${Number(pool.totalStaked).toLocaleString()}</Text>
+                <Text style={styles.heroStatLabel}>TVL</Text>
               </View>
-            </LinearGradient>
+              <View style={styles.heroStatDivider} />
+              <View style={styles.heroStatItem}>
+                <Text style={styles.heroStatValue}>{pool._count?.members || pool.memberCount || 0}</Text>
+                <Text style={styles.heroStatLabel}>Members</Text>
+              </View>
+              <View style={styles.heroStatDivider} />
+              <View style={styles.heroStatItem}>
+                <Text style={styles.heroStatValue}>${pool.minDeposit}</Text>
+                <Text style={styles.heroStatLabel}>Min Deposit</Text>
+              </View>
+            </View>
+          </View>
+        </LinearGradient>
+
+        <View style={styles.content}>
+          {/* Pool Details Grid */}
+          <View style={styles.detailsGrid}>
+            <View style={styles.detailCell}>
+              <Ionicons name="wallet-outline" size={18} color={Colors.primary} />
+              <Text style={styles.detailLabel}>Network</Text>
+              <Text style={styles.detailValue}>BSC</Text>
+            </View>
+            <View style={styles.detailCell}>
+              <Ionicons name="time-outline" size={18} color={Colors.primary} />
+              <Text style={styles.detailLabel}>Lock Period</Text>
+              <Text style={styles.detailValue}>Flexible</Text>
+            </View>
+            <View style={styles.detailCell}>
+              <Ionicons name="trending-up-outline" size={18} color={Colors.primary} />
+              <Text style={styles.detailLabel}>Max Leverage</Text>
+              <Text style={styles.detailValue}>60x</Text>
+            </View>
+            <View style={styles.detailCell}>
+              <Ionicons name="shield-checkmark-outline" size={18} color={Colors.primary} />
+              <Text style={styles.detailLabel}>Insurance</Text>
+              <Text style={styles.detailValue}>Covered</Text>
+            </View>
           </View>
 
           {/* Estimated Earnings Calculator */}
@@ -234,69 +271,86 @@ export default function PoolDetailScreen({ route, navigation }: any) {
             {parseFloat(depositAmount) > 0 && (
               <View style={styles.calcResult}>
                 <View style={styles.calcResultRow}>
-                  <Text style={styles.calcResultLabel}>Daily Earnings</Text>
+                  <Text style={styles.calcResultLabel}>Daily</Text>
                   <Text style={styles.calcResultValue}>${((parseFloat(depositAmount) * pool.apy) / 36500).toFixed(2)}</Text>
                 </View>
                 <View style={styles.calcResultRow}>
-                  <Text style={styles.calcResultLabel}>Monthly Earnings</Text>
+                  <Text style={styles.calcResultLabel}>Monthly</Text>
                   <Text style={styles.calcResultValue}>${((parseFloat(depositAmount) * pool.apy) / 1200).toFixed(2)}</Text>
                 </View>
+                <View style={styles.calcResultDivider} />
                 <View style={styles.calcResultRow}>
-                  <Text style={styles.calcResultLabel}>Yearly Earnings</Text>
-                  <Text style={styles.calcResultValue}>${((parseFloat(depositAmount) * pool.apy) / 100).toFixed(2)}</Text>
+                  <Text style={styles.calcResultLabelBold}>Yearly</Text>
+                  <Text style={styles.calcResultValueBig}>${((parseFloat(depositAmount) * pool.apy) / 100).toFixed(2)}</Text>
                 </View>
               </View>
             )}
           </View>
 
-        {/* Leverage Tiers - Visual Progress */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Leverage Tiers</Text>
-            <Text style={styles.sectionSubtitle}>Unlock higher leverage with more deposits</Text>
-          </View>
-
-          <View style={styles.tierProgress}>
-            {[
-              { tier: 1, deposit: 100, leverage: '10x' },
-              { tier: 2, deposit: 200, leverage: '15x' },
-              { tier: 3, deposit: 300, leverage: '20x' },
-              { tier: 4, deposit: 500, leverage: '30x' },
-              { tier: 5, deposit: 700, leverage: '40x' },
-              { tier: 6, deposit: 1000, leverage: '60x' },
-            ].map((t, i) => {
-              const isLast = i === 5;
-              const isActive = parseFloat(depositAmount) >= t.deposit;
-              return (
-                <View key={t.tier} style={styles.tierProgressItem}>
-                  <View style={styles.tierProgressLeft}>
-                    <View style={[styles.tierProgressDot, isActive && styles.tierProgressDotActive]} />
-                    <View style={[styles.tierProgressLine, !isLast && styles.tierProgressLineFull]} />
-                  </View>
-                  <View style={styles.tierProgressContent}>
-                    <View style={styles.tierProgressHeader}>
-                      <Text style={[styles.tierProgressTitle, isActive && styles.tierProgressTitleActive]}>
-                        Tier {t.tier}
-                      </Text>
-                      <Text style={[styles.tierProgressLeverage, isActive && styles.tierProgressLeverageActive]}>
-                        {t.leverage}
-                      </Text>
-                    </View>
-                    <Text style={styles.tierProgressDeposit}>Deposit $${t.deposit}+</Text>
-                  </View>
+          {/* How It Works */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>How It Works</Text>
+            <View style={styles.howGrid}>
+              <View style={styles.howCard}>
+                <View style={styles.howIconBg}>
+                  <Ionicons name="wallet-outline" size={20} color={Colors.primary} />
                 </View>
-              );
-            })}
+                <Text style={styles.howTitle}>Deposit</Text>
+                <Text style={styles.howDesc}>Send BNB to the pool address</Text>
+              </View>
+              <View style={styles.howCard}>
+                <View style={styles.howIconBg}>
+                  <Ionicons name="trending-up-outline" size={20} color={Colors.primary} />
+                </View>
+                <Text style={styles.howTitle}>Leverage</Text>
+                <Text style={styles.howDesc}>Get up to 60x on your deposit</Text>
+              </View>
+              <View style={styles.howCard}>
+                <View style={styles.howIconBg}>
+                  <Ionicons name="diamond-outline" size={20} color={Colors.primary} />
+                </View>
+                <Text style={styles.howTitle}>Earn</Text>
+                <Text style={styles.howDesc}>Collect APY rewards daily</Text>
+              </View>
+            </View>
           </View>
-        </View>
 
-        {/* Risk Warning */}
-        <View style={styles.warningCard}>
-          <Ionicons name="warning-outline" size={18} color={Colors.primary} />
-          <Text style={styles.warningText}>
-            Trading with leverage involves significant risk. You may lose more than your initial deposit.
-          </Text>
-        </View>
+          {/* Leverage Tiers - Horizontal Cards */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Leverage Tiers</Text>
+              <Text style={styles.sectionSubtitle}>6 tiers</Text>
+            </View>
+
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tierScroll}>
+              {[
+                { tier: 1, deposit: 100, leverage: 10 },
+                { tier: 2, deposit: 200, leverage: 15 },
+                { tier: 3, deposit: 300, leverage: 20 },
+                { tier: 4, deposit: 500, leverage: 30 },
+                { tier: 5, deposit: 700, leverage: 40 },
+                { tier: 6, deposit: 1000, leverage: 60 },
+              ].map((t) => {
+                const isActive = parseFloat(depositAmount) >= t.deposit;
+                return (
+                  <View key={t.tier} style={[styles.tierCard, isActive && styles.tierCardActive]}>
+                    <Text style={[styles.tierCardLabel, isActive && styles.tierCardLabelActive]}>Tier {t.tier}</Text>
+                    <Text style={[styles.tierCardLeverage, isActive && styles.tierCardLeverageActive]}>{t.leverage}x</Text>
+                    <Text style={styles.tierCardDeposit}>${t.deposit}</Text>
+                    {isActive && <View style={styles.tierCardCheck}><Ionicons name="checkmark-circle" size={16} color="#000" /></View>}
+                  </View>
+                );
+              })}
+            </ScrollView>
+          </View>
+
+          {/* Risk Warning */}
+          <View style={styles.warningCard}>
+            <Ionicons name="warning-outline" size={18} color={Colors.primary} />
+            <Text style={styles.warningText}>
+              Trading with leverage involves significant risk. You may lose more than your initial deposit.
+            </Text>
+          </View>
         </View>
       </ScrollView>
 
@@ -564,52 +618,73 @@ const styles = StyleSheet.create({
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   loadingText: { fontSize: FontSize.md, color: Colors.textSecondary },
 
-  // Header
+  // Header Gradient
+  headerGradient: {
+    paddingBottom: Spacing.lg,
+  },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: Spacing.lg, paddingTop: 56, paddingBottom: Spacing.md,
   },
   backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  title: { fontSize: 24, fontWeight: '800', color: Colors.textPrimary },
-
-  // Content
-  content: { paddingHorizontal: Spacing.lg, gap: Spacing.lg },
-
-  // Hero Section
-  heroOuter: {
-    borderRadius: Radius.xl,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
-    elevation: 10,
+  title: { fontSize: 20, fontWeight: '800', color: Colors.textPrimary },
+  shareBtn: {
+    width: 40, height: 40, borderRadius: Radius.md,
+    backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center',
   },
-  heroCard: {
-    borderRadius: Radius.xl, padding: Spacing.xl, gap: Spacing.lg,
+
+  // Hero Section (inside gradient)
+  heroSection: {
+    marginHorizontal: Spacing.lg, gap: Spacing.lg,
   },
-  heroHeader: {
+  heroCoinRow: {
     flexDirection: 'row', alignItems: 'center',
   },
-  heroPoolName: { fontSize: 20, fontWeight: '800', color: '#000' },
+  heroPoolName: { fontSize: 20, fontWeight: '800', color: Colors.textPrimary },
   heroTokenRow: {
     flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3,
   },
-  heroToken: { fontSize: 13, fontWeight: '700', color: 'rgba(0,0,0,0.6)' },
+  heroToken: { fontSize: 13, fontWeight: '700', color: Colors.textSecondary },
   heroDot: {
     width: 4, height: 4, borderRadius: 2,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: Colors.textMuted,
   },
-  heroApySection: {
-    alignItems: 'center', paddingVertical: Spacing.md,
-    backgroundColor: 'rgba(0,0,0,0.05)', borderRadius: Radius.lg,
+
+  // APY Display
+  apyDisplay: {
+    alignItems: 'center', paddingVertical: Spacing.lg,
+    backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: Radius.xl,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)',
   },
-  heroApyLabel: { fontSize: 12, fontWeight: '700', color: 'rgba(0,0,0,0.5)', marginBottom: 4 },
-  heroApyValue: { fontSize: 48, fontWeight: '900', color: '#000', lineHeight: 52 },
-  heroApySub: { fontSize: 13, fontWeight: '600', color: 'rgba(0,0,0,0.6)', marginTop: 4 },
-  heroStats: {
-    flexDirection: 'row', paddingTop: Spacing.sm,
-    borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.1)',
+  apyLabel: { fontSize: 12, fontWeight: '700', color: Colors.textMuted, marginBottom: 4 },
+  apyValue: { fontSize: 52, fontWeight: '900', color: Colors.primary, lineHeight: 56 },
+  apySub: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary, marginTop: 4 },
+
+  // Hero Stats Row
+  heroStatsRow: {
+    flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.04)',
+    borderRadius: Radius.lg, padding: Spacing.md,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)',
   },
+  heroStatItem: { flex: 1, alignItems: 'center' },
+  heroStatValue: { fontSize: 14, fontWeight: '800', color: Colors.textPrimary },
+  heroStatLabel: { fontSize: 11, fontWeight: '600', color: Colors.textMuted, marginTop: 2 },
+  heroStatDivider: { width: 1, backgroundColor: 'rgba(255,255,255,0.08)' },
+
+  // Content
+  content: { paddingHorizontal: Spacing.lg, gap: Spacing.lg, paddingTop: Spacing.lg },
+
+  // Details Grid
+  detailsGrid: {
+    flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm,
+  },
+  detailCell: {
+    flex: 1, minWidth: '45%', backgroundColor: Colors.bgCard,
+    borderRadius: Radius.lg, padding: Spacing.md, gap: 6,
+    borderWidth: 1, borderColor: Colors.border,
+  },
+  detailLabel: { fontSize: 11, fontWeight: '600', color: Colors.textMuted },
+  detailValue: { fontSize: 15, fontWeight: '800', color: Colors.textPrimary },
 
   // Meta (for Meta component)
   metaRow: {
@@ -644,7 +719,27 @@ const styles = StyleSheet.create({
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
   },
   calcResultLabel: { fontSize: 13, color: Colors.textSecondary },
+  calcResultLabelBold: { fontSize: 13, fontWeight: '800', color: Colors.textPrimary },
   calcResultValue: { fontSize: 15, fontWeight: '800', color: Colors.primary },
+  calcResultValueBig: { fontSize: 20, fontWeight: '900', color: Colors.primary },
+  calcResultDivider: { height: 1, backgroundColor: 'rgba(240,185,11,0.2)' },
+
+  // How It Works
+  howGrid: {
+    flexDirection: 'row', gap: Spacing.sm,
+  },
+  howCard: {
+    flex: 1, backgroundColor: Colors.bgCard, borderRadius: Radius.lg,
+    padding: Spacing.md, alignItems: 'center', gap: 8,
+    borderWidth: 1, borderColor: Colors.border,
+  },
+  howIconBg: {
+    width: 44, height: 44, borderRadius: 22,
+    backgroundColor: 'rgba(240,185,11,0.1)', alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: 'rgba(240,185,11,0.2)',
+  },
+  howTitle: { fontSize: 14, fontWeight: '800', color: Colors.textPrimary },
+  howDesc: { fontSize: 11, color: Colors.textMuted, textAlign: 'center' },
 
   // Coin Icon
   coinIconBg: {
@@ -662,50 +757,35 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 18, fontWeight: '800', color: Colors.textPrimary },
   sectionSubtitle: { fontSize: 13, color: Colors.textSecondary },
 
-  // Tier Progress
-  tierProgress: { gap: Spacing.md },
-  tierProgressItem: {
-    flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.md,
+  // Tier Horizontal Cards
+  tierScroll: {
+    gap: Spacing.sm, paddingRight: Spacing.lg,
   },
-  tierProgressLeft: {
-    alignItems: 'center', width: 20,
+  tierCard: {
+    width: 110, backgroundColor: Colors.bgCard, borderRadius: Radius.lg,
+    padding: Spacing.md, alignItems: 'center', gap: 4,
+    borderWidth: 1, borderColor: Colors.border,
   },
-  tierProgressDot: {
-    width: 12, height: 12, borderRadius: 6,
-    backgroundColor: Colors.border,
+  tierCardActive: {
+    backgroundColor: Colors.primary, borderColor: Colors.primary,
   },
-  tierProgressDotActive: {
-    backgroundColor: Colors.primary,
+  tierCardLabel: {
+    fontSize: 11, fontWeight: '700', color: Colors.textMuted,
   },
-  tierProgressLine: {
-    flex: 1, width: 2, minHeight: 40, marginTop: 4,
-    backgroundColor: Colors.border,
+  tierCardLabelActive: {
+    color: 'rgba(0,0,0,0.6)',
   },
-  tierProgressLineFull: {
-    backgroundColor: Colors.primary + '40',
+  tierCardLeverage: {
+    fontSize: 24, fontWeight: '900', color: Colors.textSecondary,
   },
-  tierProgressContent: {
-    flex: 1, backgroundColor: Colors.bgCard, borderRadius: Radius.md,
-    padding: Spacing.md, borderWidth: 1, borderColor: Colors.border,
+  tierCardLeverageActive: {
+    color: '#000',
   },
-  tierProgressHeader: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    marginBottom: 4,
+  tierCardDeposit: {
+    fontSize: 11, fontWeight: '600', color: Colors.textMuted,
   },
-  tierProgressTitle: {
-    fontSize: 14, fontWeight: '700', color: Colors.textSecondary,
-  },
-  tierProgressTitleActive: {
-    color: Colors.textPrimary,
-  },
-  tierProgressLeverage: {
-    fontSize: 18, fontWeight: '900', color: Colors.textSecondary,
-  },
-  tierProgressLeverageActive: {
-    color: Colors.primary,
-  },
-  tierProgressDeposit: {
-    fontSize: 12, color: Colors.textMuted,
+  tierCardCheck: {
+    position: 'absolute', top: 6, right: 6,
   },
 
   // Warning
