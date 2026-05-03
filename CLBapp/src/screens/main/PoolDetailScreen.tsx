@@ -1,28 +1,55 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, Alert, Modal,
+  TextInput, Alert, Modal, Clipboard,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, FontSize, Spacing, Radius } from '../../constants/theme';
 import Badge from '../../components/ui/Badge';
 import Button from '../../components/ui/Button';
-import { poolsAPI } from '../../services/api';
+import { poolsAPI, userAPI } from '../../services/api';
+import { useAuthStore } from '../../store/authStore';
+
+// Pool deposit address (BSC) — replace with actual pool smart contract or treasury
+const POOL_DEPOSIT_ADDRESS = '0x742d35Cc6634C0532925a3b844Bc9e7595f2bD18';
+
+// Leverage tiers from PDF
+const TIER_LEVERAGE: Record<number, number> = {
+  100: 10, 200: 15, 300: 20, 400: 25, 500: 30,
+  600: 35, 700: 40, 800: 45, 900: 50, 1000: 60,
+};
+
+function getLeverage(depositUsd: number): number {
+  const tiers = Object.keys(TIER_LEVERAGE).map(Number).sort((a, b) => b - a);
+  for (const tier of tiers) {
+    if (depositUsd >= tier) return TIER_LEVERAGE[tier];
+  }
+  return 1;
+}
 
 export default function PoolDetailScreen({ route, navigation }: any) {
   const { poolId } = route.params;
+  const { user } = useAuthStore();
   const [pool, setPool] = useState<any>(null);
+  const [bnbPrice, setBnbPrice] = useState(0);
   const [depositAmount, setDepositAmount] = useState('');
   const [loanAmount, setLoanAmount] = useState('');
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [showLoanModal, setShowLoanModal] = useState(false);
+  const [depositStep, setDepositStep] = useState(1); // 1=amount, 2=transfer, 3=confirm
+  const [txHash, setTxHash] = useState('');
   const [loading, setLoading] = useState(false);
 
   const load = useCallback(async () => {
     try {
-      const res = await poolsAPI.detail(poolId);
-      setPool(res.data?.pool);
+      const [poolRes, marketRes] = await Promise.all([
+        poolsAPI.detail(poolId),
+        userAPI.market(),
+      ]);
+      setPool(poolRes.data?.pool);
+      const bnb = marketRes.data?.market?.coins?.find((c: any) => c.symbol === 'BNB');
+      setBnbPrice(bnb?.price || 0);
     } catch (e) {
       console.error('Failed to load pool:', e);
       Alert.alert('Error', 'Failed to load pool details');
@@ -33,23 +60,51 @@ export default function PoolDetailScreen({ route, navigation }: any) {
     load();
   }, [load]);
 
-  const handleDeposit = async () => {
+  const handleDeposit = () => {
     const amount = parseFloat(depositAmount);
     if (!amount || amount < (pool?.minDeposit || 0)) {
       Alert.alert('Invalid Amount', `Minimum deposit is $${pool?.minDeposit}`);
       return;
     }
+    // Move to step 2: show transfer instructions
+    setDepositStep(2);
+  };
+
+  const copyAddress = () => {
+    Clipboard.setString(POOL_DEPOSIT_ADDRESS);
+    Alert.alert('Copied', 'Deposit address copied to clipboard');
+  };
+
+  const openTrustWallet = () => {
+    // Build BSC transfer deep link for Trust Wallet / MetaMask
+    const bnbAmount = bnbPrice > 0 ? (parseFloat(depositAmount) / bnbPrice).toFixed(6) : '0';
+    const deepLink = `https://link.trustwallet.com/send?coin=20000714&address=${POOL_DEPOSIT_ADDRESS}&amount=${bnbAmount}`;
+    Alert.alert(
+      'Open Trust Wallet',
+      `Send exactly ${bnbAmount} BNB (~$${depositAmount}) to the deposit address.\n\n1. Copy the deposit address\n2. Open Trust Wallet\n3. Send BNB to the address\n4. Come back and paste your tx hash`,
+      [
+        { text: 'Copy Address First', onPress: copyAddress },
+        { text: 'I\'ve Sent BNB', onPress: () => setDepositStep(3) },
+      ]
+    );
+  };
+
+  const confirmDeposit = async () => {
+    if (!txHash || !txHash.startsWith('0x') || txHash.length < 10) {
+      Alert.alert('Invalid Tx Hash', 'Please paste the transaction hash from your Trust Wallet after sending BNB');
+      return;
+    }
 
     setLoading(true);
     try {
-      // For demo purposes, generate a mock tx hash
-      const txHash = `0x${Math.random().toString(16).substr(2, 64)}`;
-      
+      const amount = parseFloat(depositAmount);
       const res = await poolsAPI.deposit(poolId, amount, txHash);
-      Alert.alert('Success', 'Deposit recorded successfully');
+      Alert.alert('Success', 'Deposit recorded! Your loan will be calculated automatically based on your leverage tier.');
       setShowDepositModal(false);
       setDepositAmount('');
-      await load(); // Reload pool data
+      setTxHash('');
+      setDepositStep(1);
+      await load();
     } catch (e: any) {
       Alert.alert('Error', e?.response?.data?.error || 'Deposit failed');
     } finally {
@@ -58,9 +113,20 @@ export default function PoolDetailScreen({ route, navigation }: any) {
   };
 
   const handleLoan = async () => {
+    const amount = parseFloat(loanAmount);
+    if (!amount || amount <= 0) {
+      Alert.alert('Invalid Amount', 'Please enter a valid loan amount');
+      return;
+    }
+
+    const depositUsd = amount; // amount they want to deposit as collateral
+    const leverage = getLeverage(depositUsd);
+    const loanUsd = depositUsd * leverage;
+    const asset = pool?.tokenSymbol === 'BTC' || pool?.tokenSymbol === 'BTCB' ? 'BTC' : 'ETH';
+
     Alert.alert(
-      'Loan Information',
-      'Loans are automatically calculated based on your deposit amount and leverage tier. Make a deposit first to get your loan.',
+      'Loan Summary',
+      `Deposit: $${depositUsd}\nLeverage: ${leverage}x\nLoan Amount: $${loanUsd}\nAsset: ${asset}\n\nLoans are automatically activated when you deposit. Make a deposit first to receive your leveraged loan.`,
       [{ text: 'OK', onPress: () => setShowLoanModal(false) }]
     );
   };
@@ -164,54 +230,173 @@ export default function PoolDetailScreen({ route, navigation }: any) {
         />
       </LinearGradient>
 
-      {/* Deposit Modal */}
+      {/* Deposit Modal — 3-step flow */}
       <Modal
         visible={showDepositModal}
         transparent
         animationType="slide"
-        onRequestClose={() => setShowDepositModal(false)}
+        onRequestClose={() => { setShowDepositModal(false); setDepositStep(1); setTxHash(''); }}
       >
         <View style={styles.modalOverlay}>
           <LinearGradient colors={[Colors.bgCard, Colors.bgCard]} style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Deposit to Pool</Text>
-              <TouchableOpacity onPress={() => setShowDepositModal(false)}>
+              <Text style={styles.modalTitle}>
+                Deposit · Step {depositStep}/3
+              </Text>
+              <TouchableOpacity onPress={() => { setShowDepositModal(false); setDepositStep(1); setTxHash(''); }}>
                 <Ionicons name="close" size={24} color={Colors.textPrimary} />
               </TouchableOpacity>
             </View>
 
-            <View style={styles.modalBody}>
-              <View style={styles.balanceRow}>
-                <Text style={styles.balanceLabel}>Your Balance</Text>
-                <Text style={styles.balanceValue}>$0.00</Text>
-              </View>
+            {/* Step 1: Enter amount */}
+            {depositStep === 1 && (
+              <View style={styles.modalBody}>
+                <View style={styles.stepBadge}>
+                  <Ionicons name="wallet-outline" size={20} color={Colors.primary} />
+                  <Text style={styles.stepBadgeText}>Enter Deposit Amount</Text>
+                </View>
 
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Deposit Amount (USD)</Text>
-                <TextInput
-                  style={styles.input}
-                  value={depositAmount}
-                  onChangeText={setDepositAmount}
-                  placeholder="0.00"
-                  placeholderTextColor={Colors.textMuted}
-                  keyboardType="decimal-pad"
-                />
-              </View>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Amount (USD)</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={depositAmount}
+                    onChangeText={setDepositAmount}
+                    placeholder="0.00"
+                    placeholderTextColor={Colors.textMuted}
+                    keyboardType="decimal-pad"
+                  />
+                </View>
 
-              <View style={styles.infoRow}>
-                <Ionicons name="information-circle-outline" size={16} color={Colors.textMuted} />
-                <Text style={styles.infoText}>
-                  Minimum deposit: ${pool.minDeposit}
-                </Text>
-              </View>
-            </View>
+                {parseFloat(depositAmount) > 0 && bnbPrice > 0 && (
+                  <View style={styles.conversionRow}>
+                    <Text style={styles.conversionText}>
+                      ≈ {(parseFloat(depositAmount) / bnbPrice).toFixed(6)} BNB
+                    </Text>
+                    <Text style={styles.conversionText}>
+                      → {getLeverage(parseFloat(depositAmount))}x leverage
+                    </Text>
+                  </View>
+                )}
 
-            <Button
-              label="Confirm Deposit"
-              onPress={handleDeposit}
-              loading={loading}
-              fullWidth
-            />
+                <View style={styles.infoRow}>
+                  <Ionicons name="information-circle-outline" size={16} color={Colors.textMuted} />
+                  <Text style={styles.infoText}>
+                    Minimum: ${pool?.minDeposit || 100} · Tiers: $100–$1,000
+                  </Text>
+                </View>
+
+                <Button label="Continue" onPress={handleDeposit} fullWidth />
+              </View>
+            )}
+
+            {/* Step 2: Transfer BNB from Trust Wallet */}
+            {depositStep === 2 && (
+              <View style={styles.modalBody}>
+                <View style={styles.stepBadge}>
+                  <Ionicons name="send-outline" size={20} color={Colors.primary} />
+                  <Text style={styles.stepBadgeText}>Send BNB from Trust Wallet</Text>
+                </View>
+
+                <View style={styles.transferCard}>
+                  <Text style={styles.transferLabel}>Send exactly</Text>
+                  <Text style={styles.transferAmount}>
+                    {bnbPrice > 0 ? (parseFloat(depositAmount) / bnbPrice).toFixed(6) : '—'} BNB
+                  </Text>
+                  <Text style={styles.transferUsd}>≈ ${depositAmount} USD</Text>
+                </View>
+
+                <View style={styles.addressCard}>
+                  <Text style={styles.addressLabel}>To this BSC address</Text>
+                  <View style={styles.addressRow}>
+                    <Text style={styles.addressText} numberOfLines={1} ellipsizeMode="middle">
+                      {POOL_DEPOSIT_ADDRESS}
+                    </Text>
+                    <TouchableOpacity onPress={copyAddress} style={styles.copyBtn}>
+                      <Ionicons name="copy-outline" size={18} color={Colors.primary} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                <View style={styles.stepsList}>
+                  <View style={styles.stepItem}>
+                    <View style={styles.stepNum}><Text style={styles.stepNumText}>1</Text></View>
+                    <Text style={styles.stepItemText}>Copy the deposit address above</Text>
+                  </View>
+                  <View style={styles.stepItem}>
+                    <View style={styles.stepNum}><Text style={styles.stepNumText}>2</Text></View>
+                    <Text style={styles.stepItemText}>Open Trust Wallet / MetaMask</Text>
+                  </View>
+                  <View style={styles.stepItem}>
+                    <View style={styles.stepNum}><Text style={styles.stepNumText}>3</Text></View>
+                    <Text style={styles.stepItemText}>Send BNB (BSC) to the address</Text>
+                  </View>
+                  <View style={styles.stepItem}>
+                    <View style={styles.stepNum}><Text style={styles.stepNumText}>4</Text></View>
+                    <Text style={styles.stepItemText}>Copy the tx hash & come back</Text>
+                  </View>
+                </View>
+
+                <View style={styles.modalActions}>
+                  <Button
+                    label="Copy Address"
+                    onPress={copyAddress}
+                    variant="outline"
+                    style={{ flex: 1, marginRight: Spacing.sm }}
+                  />
+                  <Button
+                    label="I've Sent BNB →"
+                    onPress={() => setDepositStep(3)}
+                    style={{ flex: 1, marginLeft: Spacing.sm }}
+                  />
+                </View>
+              </View>
+            )}
+
+            {/* Step 3: Paste tx hash to confirm */}
+            {depositStep === 3 && (
+              <View style={styles.modalBody}>
+                <View style={styles.stepBadge}>
+                  <Ionicons name="checkmark-circle-outline" size={20} color={Colors.success} />
+                  <Text style={styles.stepBadgeText}>Confirm Your Deposit</Text>
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Transaction Hash</Text>
+                  <TextInput
+                    style={[styles.input, styles.txInput]}
+                    value={txHash}
+                    onChangeText={setTxHash}
+                    placeholder="0x... paste your tx hash here"
+                    placeholderTextColor={Colors.textMuted}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                </View>
+
+                <View style={styles.infoRow}>
+                  <Ionicons name="alert-circle-outline" size={16} color={Colors.primary} />
+                  <Text style={styles.infoText}>
+                    Paste the transaction hash from Trust Wallet after sending BNB. Your deposit will be verified on-chain.
+                  </Text>
+                </View>
+
+                <View style={styles.modalActions}>
+                  <Button
+                    label="Back"
+                    onPress={() => setDepositStep(2)}
+                    variant="outline"
+                    style={{ flex: 1, marginRight: Spacing.sm }}
+                  />
+                  <Button
+                    label="Confirm Deposit"
+                    onPress={confirmDeposit}
+                    loading={loading}
+                    style={{ flex: 1, marginLeft: Spacing.sm }}
+                  />
+                </View>
+              </View>
+            )}
           </LinearGradient>
         </View>
       </Modal>
@@ -395,4 +580,43 @@ const styles = StyleSheet.create({
     flexDirection: 'row', gap: 6, alignItems: 'center',
   },
   infoText: { flex: 1, fontSize: FontSize.xs, color: Colors.textSecondary },
+
+  // Deposit step styles
+  stepBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: 'rgba(240,185,11,0.12)', paddingHorizontal: 12, paddingVertical: 8,
+    borderRadius: Radius.md, marginBottom: Spacing.md,
+  },
+  stepBadgeText: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.primary },
+  conversionRow: {
+    flexDirection: 'row', justifyContent: 'space-between',
+    backgroundColor: Colors.bgElevated, borderRadius: Radius.md, padding: Spacing.md,
+  },
+  conversionText: { fontSize: FontSize.sm, color: Colors.primary, fontWeight: '600' },
+  transferCard: {
+    alignItems: 'center', backgroundColor: 'rgba(240,185,11,0.08)',
+    borderRadius: Radius.lg, padding: Spacing.lg, marginBottom: Spacing.md,
+    borderWidth: 1, borderColor: 'rgba(240,185,11,0.2)',
+  },
+  transferLabel: { fontSize: FontSize.xs, color: Colors.textMuted, marginBottom: 4 },
+  transferAmount: { fontSize: FontSize.xxl, fontWeight: '800', color: Colors.primary },
+  transferUsd: { fontSize: FontSize.sm, color: Colors.textSecondary, marginTop: 2 },
+  addressCard: {
+    backgroundColor: Colors.bgElevated, borderRadius: Radius.md, padding: Spacing.md,
+    marginBottom: Spacing.md,
+  },
+  addressLabel: { fontSize: FontSize.xs, color: Colors.textMuted, marginBottom: 6 },
+  addressRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  addressText: { flex: 1, fontSize: FontSize.sm, color: Colors.textPrimary, fontWeight: '600' },
+  copyBtn: { padding: 8 },
+  stepsList: { gap: 10, marginBottom: Spacing.lg },
+  stepItem: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  stepNum: {
+    width: 24, height: 24, borderRadius: 12, backgroundColor: Colors.primary + '22',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  stepNumText: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.primary },
+  stepItemText: { fontSize: FontSize.sm, color: Colors.textSecondary },
+  modalActions: { flexDirection: 'row', marginTop: Spacing.sm },
+  txInput: { fontFamily: 'monospace' },
 });
