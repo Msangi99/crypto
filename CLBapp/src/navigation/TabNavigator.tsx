@@ -9,6 +9,7 @@ const LOGO = require('../../assets/logo.png');
 
 import HomeScreen from '../screens/main/HomeScreen';
 import PortfolioScreen from '../screens/main/PortfolioScreen';
+import PoolsScreen from '../screens/main/PoolsScreen';
 import ReferralsScreen from '../screens/main/ReferralsScreen';
 import MarketScreen from '../screens/main/MarketScreen';
 import ProfileScreen from '../screens/main/ProfileScreen';
@@ -17,6 +18,7 @@ const Tab = createBottomTabNavigator();
 
 const TABS = [
   { name: 'Home', component: HomeScreen, icon: 'home', iconOutline: 'home-outline', label: 'Home' },
+  { name: 'Pools', component: PoolsScreen, icon: 'water', iconOutline: 'water-outline', label: 'Pools' },
   { name: 'Portfolio', component: PortfolioScreen, icon: 'briefcase', iconOutline: 'briefcase-outline', label: 'Portfolio' },
   { name: 'Market', component: MarketScreen, icon: 'stats-chart', iconOutline: 'stats-chart-outline', label: 'Market' },
   { name: 'Referrals', component: ReferralsScreen, icon: 'people', iconOutline: 'people-outline', label: 'Referrals' },

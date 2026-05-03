@@ -11,6 +11,7 @@ import ActivityScreen from '../screens/main/ActivityScreen';
 import PositionDetailScreen from '../screens/main/PositionDetailScreen';
 import CalculatorScreen from '../screens/main/CalculatorScreen';
 import ReceiptsScreen from '../screens/main/ReceiptsScreen';
+import PoolDetailScreen from '../screens/main/PoolDetailScreen';
 import { Colors } from '../constants/theme';
 
 const Stack = createStackNavigator();
@@ -64,6 +65,9 @@ export default function RootNavigator() {
         ) : (
           <>
             <Stack.Screen name="Main" component={TabNavigator} />
+            <Stack.Screen name="PoolDetail" component={PoolDetailScreen}
+              options={{ headerShown: false }}
+            />
             <Stack.Screen name="Activity" component={ActivityScreen}
               options={{ headerShown: true, headerStyle: { backgroundColor: Colors.bgCard }, headerTintColor: Colors.textPrimary, headerTitle: 'Activity' }}
             />
