@@ -51,12 +51,62 @@ export default function ReferralsScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.title}>Referrals</Text>
-        <TouchableOpacity style={styles.refreshBtn} onPress={onRefresh}>
-          <Ionicons name="refresh-outline" size={20} color={Colors.textSecondary} />
-        </TouchableOpacity>
+      {/* Dark Gradient Header */}
+      <LinearGradient colors={['#1A1F35', '#0B0E1A']} style={styles.headerGradient}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Referrals</Text>
+          <TouchableOpacity style={styles.refreshBtn} onPress={onRefresh}>
+            <Ionicons name="refresh-outline" size={20} color={Colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Referral Code Card inside gradient */}
+        <View style={styles.codeSection}>
+          <View style={styles.codeCard}>
+            <View style={styles.codeHeader}>
+              <Ionicons name="gift-outline" size={20} color={Colors.primary} />
+              <Text style={styles.codeHeaderTitle}>Your Referral Code</Text>
+            </View>
+            <Text style={styles.codeValue}>{user?.referralCode ?? '——'}</Text>
+            <Text style={styles.codeLink} numberOfLines={1}>{referralLink}</Text>
+            <View style={styles.codeActions}>
+              <TouchableOpacity onPress={copyCode} style={styles.codeBtnPrimary}>
+                <Ionicons name="copy-outline" size={16} color="#000" />
+                <Text style={styles.codeBtnPrimaryText}>Copy Code</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={shareLink} style={styles.codeBtnOutline}>
+                <Ionicons name="share-social-outline" size={16} color={Colors.primary} />
+                <Text style={styles.codeBtnOutlineText}>Share Link</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+
+        {/* Stats Row */}
+        <View style={styles.statsRow}>
+          <View style={styles.statItem}>
+            <Ionicons name="people-outline" size={16} color={Colors.primary} />
+            <Text style={styles.statValue}>{earnings?.earnings?.directReferrals ?? 0}</Text>
+            <Text style={styles.statLabel}>Direct Referrals</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Ionicons name="wallet-outline" size={16} color={Colors.primary} />
+            <Text style={[styles.statValue, { color: Colors.primary }]}>{(earnings?.earnings?.totalBonusReceived ?? 0).toFixed(4)} BNB</Text>
+            <Text style={styles.statLabel}>Total Earnings</Text>
+          </View>
+        </View>
+      </LinearGradient>
+
+      {/* Tabs */}
+      <View style={styles.tabRow}>
+        {(['earnings', 'tree'] as const).map((t) => (
+          <TouchableOpacity key={t} onPress={() => setTab(t)} style={[styles.tab, tab === t && styles.tabActive]}>
+            <Text style={[styles.tabText, tab === t && styles.tabTextActive]}>
+              {t === 'earnings' ? 'Earnings' : 'Network Tree'}
+            </Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
       <ScrollView
@@ -64,55 +114,6 @@ export default function ReferralsScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
         contentContainerStyle={{ padding: Spacing.lg, paddingTop: 0, gap: Spacing.lg, paddingBottom: 100 }}
       >
-        {/* Referral Code Card */}
-        <LinearGradient colors={Colors.gradientGold} style={styles.codeCard}>
-          <View style={styles.codeGlow} />
-          <View style={styles.codeHeader}>
-            <Ionicons name="gift-outline" size={24} color="#fff" />
-            <Text style={styles.codeHeaderTitle}>Invite & Earn</Text>
-          </View>
-          <Text style={styles.codeLabel}>Your Referral Code</Text>
-          <Text style={styles.codeValue}>{user?.referralCode ?? '——'}</Text>
-          <Text style={styles.codeLink} numberOfLines={1}>{referralLink}</Text>
-          <View style={styles.codeActions}>
-            <TouchableOpacity onPress={copyCode} style={styles.codeBtn}>
-              <Ionicons name="copy-outline" size={18} color="#000" />
-              <Text style={styles.codeBtnText}>Copy Code</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={shareLink} style={[styles.codeBtn, styles.codeBtnOutline]}>
-              <Ionicons name="share-social-outline" size={18} color="#fff" />
-              <Text style={[styles.codeBtnText, { color: '#fff' }]}>Share Link</Text>
-            </TouchableOpacity>
-          </View>
-        </LinearGradient>
-
-        {/* Stats Overview */}
-        <View style={styles.statsRow}>
-          <LinearGradient colors={Colors.gradientCard} style={styles.statCard}>
-            <Ionicons name="people-outline" size={20} color={Colors.primary} />
-            <Text style={styles.statLabel}>Direct Referrals</Text>
-            <Text style={styles.statValue}>{earnings?.earnings?.directReferrals ?? 0}</Text>
-          </LinearGradient>
-          <LinearGradient colors={Colors.gradientCard} style={styles.statCard}>
-            <Ionicons name="wallet-outline" size={20} color={Colors.gold} />
-            <Text style={styles.statLabel}>Total Earnings</Text>
-            <Text style={[styles.statValue, { color: Colors.gold }]}>
-              {(earnings?.earnings?.totalBonusReceived ?? 0).toFixed(4)} BNB
-            </Text>
-          </LinearGradient>
-        </View>
-
-        {/* Tabs */}
-        <View style={styles.tabRow}>
-          {(['earnings', 'tree'] as const).map((t) => (
-            <TouchableOpacity key={t} onPress={() => setTab(t)} style={[styles.tab, tab === t && styles.tabActive]}>
-              <Text style={[styles.tabText, tab === t && styles.tabTextActive]}>
-                {t === 'earnings' ? 'Earnings' : 'Network Tree'}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
         {tab === 'earnings' ? (
           <EarningsView earnings={earnings} />
         ) : (
@@ -132,38 +133,36 @@ function EarningsView({ earnings }: { earnings: any }) {
 
   return (
     <View style={{ gap: Spacing.lg }}>
-      {/* Commission Rates Grid */}
-      <View style={styles.commissionSection}>
+      {/* Commission Structure - Horizontal Scroll */}
+      <View style={styles.section}>
         <Text style={styles.sectionTitle}>Commission Structure</Text>
-        <View style={styles.commissionGrid}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.commissionScroll}>
           {rates.map((rate: any, i: number) => (
-            <LinearGradient key={i} colors={Colors.gradientCard} style={styles.commissionCard}>
+            <View key={i} style={[styles.commissionCard, { borderLeftColor: LEVEL_COLORS[i] }]}>
               <View style={[styles.commissionDot, { backgroundColor: LEVEL_COLORS[i] }]} />
-              <Text style={[styles.commissionLevel, { color: LEVEL_COLORS[i] }]}>L{i + 1}</Text>
+              <Text style={[styles.commissionLevel, { color: LEVEL_COLORS[i] }]}>Level {i + 1}</Text>
               <Text style={styles.commissionRate}>{rate.rate}</Text>
               <Text style={styles.commissionDesc}>{rate.description}</Text>
-            </LinearGradient>
+            </View>
           ))}
-        </View>
+        </ScrollView>
       </View>
 
       {/* Recent Bonuses */}
       {recentBonuses.length > 0 && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Recent Bonuses</Text>
-          <View style={styles.bonusList}>
+          <View style={styles.cardList}>
             {recentBonuses.slice(0, 5).map((bonus: any, i: number) => (
               <View key={i} style={styles.bonusRow}>
-                <View style={[styles.bonusIcon, { backgroundColor: Colors.gold + '22' }]}>
-                  <Ionicons name="gift-outline" size={18} color={Colors.gold} />
+                <View style={styles.bonusIcon}>
+                  <Ionicons name="gift-outline" size={18} color={Colors.primary} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.bonusType}>Referral Bonus</Text>
                   <Text style={styles.bonusDate}>{new Date(bonus.createdAt).toLocaleDateString()}</Text>
                 </View>
-                <Text style={[styles.bonusAmount, { color: Colors.gold }]}>
-                  +{bonus.amount.toFixed(4)} BNB
-                </Text>
+                <Text style={styles.bonusAmount}>+{bonus.amount.toFixed(4)} BNB</Text>
               </View>
             ))}
           </View>
@@ -174,7 +173,7 @@ function EarningsView({ earnings }: { earnings: any }) {
       {referralList.length > 0 && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Your Referrals</Text>
-          <View style={styles.referralList}>
+          <View style={styles.cardList}>
             {referralList.slice(0, 5).map((ref: any, i: number) => (
               <View key={i} style={styles.referralRow}>
                 <View style={styles.referralAvatar}>
@@ -188,12 +187,7 @@ function EarningsView({ earnings }: { earnings: any }) {
                     {ref.wallet ? `${ref.wallet.slice(0, 8)}...${ref.wallet.slice(-4)}` : ''}
                   </Text>
                 </View>
-                <View style={styles.referralReward}>
-                  <Text style={styles.referralRewardLabel}>Reward</Text>
-                  <Text style={[styles.referralRewardValue, { color: Colors.gold }]}>
-                    {ref.reward.toFixed(4)} BNB
-                  </Text>
-                </View>
+                <Text style={styles.referralReward}>+{ref.reward.toFixed(4)} BNB</Text>
               </View>
             ))}
           </View>
@@ -212,28 +206,28 @@ function TreeView({ tree }: { tree: any }) {
   return (
     <View style={{ gap: Spacing.lg }}>
       {/* Network Summary */}
-      <LinearGradient colors={Colors.gradientGold} style={styles.networkSummary}>
+      <View style={styles.networkSummary}>
         <View style={styles.networkStat}>
-          <Ionicons name="people-outline" size={24} color="#fff" />
+          <Ionicons name="people-outline" size={20} color={Colors.primary} />
+          <Text style={styles.networkStatValue}>{totalNetwork}</Text>
           <Text style={styles.networkStatLabel}>Total Network</Text>
-          <Text style={styles.networkStatValue}>{totalNetwork} members</Text>
         </View>
         <View style={styles.networkDivider} />
         <View style={styles.networkStat}>
-          <Ionicons name="wallet-outline" size={24} color="#fff" />
+          <Ionicons name="wallet-outline" size={20} color={Colors.primary} />
+          <Text style={[styles.networkStatValue, { color: Colors.primary }]}>{totalEarnings.toFixed(4)} BNB</Text>
           <Text style={styles.networkStatLabel}>Total Earnings</Text>
-          <Text style={styles.networkStatValue}>{totalEarnings.toFixed(4)} BNB</Text>
         </View>
-      </LinearGradient>
+      </View>
 
       {/* Level Cards */}
       {levels.map((lv: any, i: number) => (
-        <LinearGradient key={i} colors={Colors.gradientCard} style={styles.levelCard}>
+        <View key={i} style={[styles.levelCard, { borderLeftColor: LEVEL_COLORS[i] }]}>
           <View style={styles.levelHeader}>
             <View style={[styles.levelDot, { backgroundColor: LEVEL_COLORS[i] }]} />
             <Text style={styles.levelTitle}>Level {lv.level}</Text>
-            <View style={styles.levelRateBadge}>
-              <Text style={styles.levelRateText}>{lv.commissionRate}</Text>
+            <View style={[styles.levelRateBadge, { backgroundColor: LEVEL_COLORS[i] + '18' }]}>
+              <Text style={[styles.levelRateText, { color: LEVEL_COLORS[i] }]}>{lv.commissionRate}</Text>
             </View>
           </View>
           <View style={styles.levelStats}>
@@ -262,11 +256,9 @@ function TreeView({ tree }: { tree: any }) {
                       {u.walletAddress ? `${u.walletAddress.slice(0, 8)}...${u.walletAddress.slice(-4)}` : ''}
                     </Text>
                   </View>
-                  <View style={styles.memberReward}>
-                    <Text style={[styles.memberRewardValue, { color: Colors.gold }]}>
-                      {u.reward > 0 ? `+${u.reward.toFixed(4)}` : '—'}
-                    </Text>
-                  </View>
+                  <Text style={[styles.memberRewardValue, { color: Colors.primary }]}>
+                    {u.reward > 0 ? `+${u.reward.toFixed(4)}` : '—'}
+                  </Text>
                 </View>
               ))}
               {lv.members.length > 4 && (
@@ -277,7 +269,7 @@ function TreeView({ tree }: { tree: any }) {
               )}
             </View>
           )}
-        </LinearGradient>
+        </View>
       ))}
     </View>
   );
@@ -295,186 +287,165 @@ function SkeletonBlock() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
+
+  // Header Gradient
+  headerGradient: { paddingBottom: Spacing.md },
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: Spacing.lg, paddingTop: 56, paddingBottom: Spacing.sm,
+    paddingHorizontal: Spacing.lg, paddingTop: 56, paddingBottom: Spacing.md,
   },
-  title: { fontSize: 28, fontWeight: '900', color: Colors.textPrimary, letterSpacing: 0.5 },
+  title: { fontSize: 28, fontWeight: '900', color: Colors.textPrimary },
   refreshBtn: {
     width: 40, height: 40, borderRadius: 12,
-    backgroundColor: Colors.bgCard, borderWidth: 1, borderColor: Colors.border,
-    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center',
   },
+
+  // Code Section
+  codeSection: { marginHorizontal: Spacing.lg },
   codeCard: {
-    borderRadius: Radius.xl, padding: Spacing.lg,
-    borderWidth: 1, borderColor: 'rgba(240,185,11,0.3)',
-    gap: Spacing.sm, overflow: 'hidden',
-  },
-  codeGlow: {
-    position: 'absolute', top: -40, right: -40,
-    width: 140, height: 140, borderRadius: 70,
-    backgroundColor: 'rgba(240,185,11,0.15)',
+    backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: Radius.xl,
+    padding: Spacing.lg, gap: Spacing.sm,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)',
+    alignItems: 'center',
   },
   codeHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
-  codeHeaderTitle: { fontSize: FontSize.md, fontWeight: '700', color: '#fff' },
-  codeLabel: { fontSize: FontSize.xs, color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', letterSpacing: 1 },
-  codeValue: { fontSize: 32, fontWeight: '900', color: '#fff', letterSpacing: 6, textAlign: 'center', marginVertical: 4 },
-  codeLink: { fontSize: FontSize.xs, color: 'rgba(255,255,255,0.6)', textAlign: 'center' },
-  codeActions: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.sm },
-  codeBtn: {
+  codeHeaderTitle: { fontSize: 14, fontWeight: '700', color: Colors.textSecondary },
+  codeValue: { fontSize: 36, fontWeight: '900', color: Colors.primary, letterSpacing: 4, textAlign: 'center', marginVertical: 4 },
+  codeLink: { fontSize: 12, color: Colors.textMuted, textAlign: 'center' },
+  codeActions: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.sm, width: '100%' },
+  codeBtnPrimary: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    backgroundColor: '#fff', borderRadius: Radius.full, paddingVertical: 12,
+    backgroundColor: Colors.primary, borderRadius: 99, paddingVertical: 12,
   },
+  codeBtnPrimaryText: { fontSize: 13, fontWeight: '800', color: '#000' },
   codeBtnOutline: {
-    backgroundColor: 'transparent', borderWidth: 1.5, borderColor: '#fff',
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    backgroundColor: 'transparent', borderRadius: 99, paddingVertical: 12,
+    borderWidth: 1.5, borderColor: Colors.primary,
   },
-  codeBtnText: { fontSize: FontSize.sm, fontWeight: '700', color: '#000' },
-  statsRow: { flexDirection: 'row', gap: Spacing.sm },
-  statCard: {
-    flex: 1, borderRadius: Radius.lg, padding: Spacing.md, gap: 8,
-    borderWidth: 1, borderColor: Colors.border, alignItems: 'center',
+  codeBtnOutlineText: { fontSize: 13, fontWeight: '800', color: Colors.primary },
+
+  // Stats Row
+  statsRow: {
+    flexDirection: 'row', marginHorizontal: Spacing.lg, marginTop: Spacing.md,
+    backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: Radius.lg,
+    padding: Spacing.md, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)',
   },
-  statLabel: { fontSize: FontSize.xs, color: Colors.textMuted, fontWeight: '600' },
-  statValue: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.textPrimary },
+  statItem: { flex: 1, alignItems: 'center', gap: 2 },
+  statValue: { fontSize: 16, fontWeight: '800', color: Colors.textPrimary },
+  statLabel: { fontSize: 11, fontWeight: '600', color: Colors.textMuted },
+  statDivider: { width: 1, backgroundColor: 'rgba(255,255,255,0.08)' },
+
+  // Tabs
+  tabRow: {
+    flexDirection: 'row', marginHorizontal: Spacing.lg, marginTop: Spacing.md,
+    backgroundColor: Colors.bgCard, borderRadius: 99, padding: 4,
+    borderWidth: 1, borderColor: Colors.border,
+  },
+  tab: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 99 },
+  tabActive: { backgroundColor: Colors.primary },
+  tabText: { fontSize: 13, fontWeight: '700', color: Colors.textMuted },
+  tabTextActive: { color: '#000' },
+
+  // Section
+  section: { gap: Spacing.sm },
+  sectionTitle: { fontSize: 18, fontWeight: '800', color: Colors.textPrimary, marginBottom: Spacing.sm },
+
   // Commission Cards
-  commissionSection: { gap: Spacing.sm },
-  commissionGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
+  commissionScroll: { gap: Spacing.sm, paddingRight: Spacing.lg },
   commissionCard: {
-    flex: 1, minWidth: '45%', borderRadius: Radius.lg, padding: Spacing.md, gap: 6,
-    borderWidth: 1, borderColor: Colors.border, alignItems: 'center',
+    width: 120, backgroundColor: Colors.bgCard, borderRadius: Radius.lg,
+    padding: Spacing.md, gap: 6, alignItems: 'center',
+    borderWidth: 1, borderColor: Colors.border, borderLeftWidth: 4,
   },
   commissionDot: { width: 10, height: 10, borderRadius: 5 },
-  commissionLevel: { fontSize: FontSize.md, fontWeight: '800' },
-  commissionRate: { fontSize: FontSize.lg, fontWeight: '700', color: Colors.textPrimary },
-  commissionDesc: { fontSize: 9, color: Colors.textMuted, textAlign: 'center' },
-  // Bonus List
-  bonusList: { gap: Spacing.xs },
-  // Referral List
-  referralList: { gap: Spacing.xs },
-  referralRow: {
-    flexDirection: 'row', alignItems: 'center', gap: Spacing.md,
-    paddingVertical: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.border + '40',
-  },
-  referralAvatar: {
-    width: 36, height: 36, borderRadius: 10, backgroundColor: Colors.bgElevated,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  referralAvatarText: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.primary },
-  referralName: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.textPrimary },
-  referralAddr: { fontSize: FontSize.xs, color: Colors.textMuted },
-  referralReward: { alignItems: 'flex-end', gap: 2 },
-  referralRewardLabel: { fontSize: 9, color: Colors.textMuted },
-  referralRewardValue: { fontSize: FontSize.sm, fontWeight: '700' },
-  ratesCard: {
-    backgroundColor: Colors.bgCard, borderRadius: Radius.lg,
-    borderWidth: 1, borderColor: Colors.border, padding: Spacing.md, gap: Spacing.sm,
-  },
-  ratesTitle: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.textSecondary },
-  ratesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
-  ratesRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  rateItem: { alignItems: 'center', gap: 4 },
-  rateCard: {
-    flex: 1, minWidth: '45%', backgroundColor: Colors.bg,
-    borderRadius: Radius.md, padding: Spacing.sm, gap: 4,
-    borderWidth: 1, borderColor: Colors.border,
-  },
-  rateDot: { width: 8, height: 8, borderRadius: 4 },
-  rateLevel: { fontSize: FontSize.xs, fontWeight: '700' },
-  rateValue: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.textPrimary },
-  rateDesc: { fontSize: 9, color: Colors.textMuted, marginTop: 2 },
-  tabRow: { flexDirection: 'row', backgroundColor: Colors.bgCard, borderRadius: Radius.full, padding: 4 },
-  tab: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: Radius.full },
-  tabActive: { backgroundColor: Colors.primary },
-  tabText: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.textMuted },
-  tabTextActive: { color: '#fff' },
-  totalCard: { borderRadius: Radius.md, padding: Spacing.md, borderWidth: 1, borderColor: Colors.border, gap: 12 },
-  totalLabel: { fontSize: FontSize.sm, color: Colors.textSecondary },
-  totalValue: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.gold },
-  totalStats: { flexDirection: 'row', alignItems: 'center', paddingTop: 8, borderTopWidth: 1, borderTopColor: Colors.border + '40' },
-  totalStatItem: { flex: 1, alignItems: 'center', gap: 2 },
-  totalStatLabel: { fontSize: FontSize.xs, color: Colors.textMuted },
-  totalStatValue: { fontSize: FontSize.md, fontWeight: '700', color: Colors.textPrimary },
-  totalStatDivider: { width: 1, height: 24, backgroundColor: Colors.border },
-  levelRow: {
-    flexDirection: 'row', alignItems: 'center', gap: Spacing.md,
-    borderRadius: Radius.md, padding: Spacing.md, borderWidth: 1, borderColor: Colors.border,
-  },
-  levelIndicator: { width: 4, height: 36, borderRadius: 2 },
-  levelName: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.textPrimary },
-  levelCount: { fontSize: FontSize.xs, color: Colors.textSecondary },
-  levelEarning: { fontSize: FontSize.md, fontWeight: '700' },
-  treeHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: Spacing.sm },
-  treeLevelDot: { width: 10, height: 10, borderRadius: 5 },
-  treeLevelTitle: { fontSize: FontSize.md, fontWeight: '700', color: Colors.textPrimary, flex: 1 },
-  treeLevelCount: { fontSize: FontSize.xs, color: Colors.textSecondary },
-  treeUserRow: {
-    flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
-    paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: Colors.border,
-  },
-  treeAvatar: {
-    width: 32, height: 32, borderRadius: 8, backgroundColor: Colors.bgElevated,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  treeAvatarText: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.primary },
-  treeUserAddr: { flex: 1, fontSize: FontSize.sm, color: Colors.textSecondary },
-  treeUserJoined: { fontSize: FontSize.xs, color: Colors.textMuted },
-  treeMore: { fontSize: FontSize.xs, color: Colors.primary, marginTop: 4, textAlign: 'center' },
-  skeleton: { borderRadius: Radius.md, backgroundColor: Colors.bgCard, width: '100%' },
-  // Bonus rows
-  section: { gap: Spacing.sm },
-  sectionTitle: { fontSize: FontSize.md, fontWeight: '700', color: Colors.textPrimary, marginBottom: Spacing.sm },
+  commissionLevel: { fontSize: 13, fontWeight: '800' },
+  commissionRate: { fontSize: 20, fontWeight: '900', color: Colors.textPrimary },
+  commissionDesc: { fontSize: 10, color: Colors.textMuted, textAlign: 'center' },
+
+  // Card List
+  cardList: { gap: 0 },
+
+  // Bonus Row
   bonusRow: {
     flexDirection: 'row', alignItems: 'center', gap: Spacing.md,
-    paddingVertical: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.border + '40',
+    paddingVertical: Spacing.md,
+    borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.04)',
   },
-  bonusIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  bonusType: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.textPrimary },
-  bonusDate: { fontSize: FontSize.xs, color: Colors.textMuted },
-  bonusAmount: { fontSize: FontSize.md, fontWeight: '700' },
+  bonusIcon: {
+    width: 40, height: 40, borderRadius: 12,
+    backgroundColor: 'rgba(240,185,11,0.1)', alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: 'rgba(240,185,11,0.2)',
+  },
+  bonusType: { fontSize: 14, fontWeight: '700', color: Colors.textPrimary },
+  bonusDate: { fontSize: 12, color: Colors.textMuted },
+  bonusAmount: { fontSize: 14, fontWeight: '800', color: Colors.primary },
+
+  // Referral Row
+  referralRow: {
+    flexDirection: 'row', alignItems: 'center', gap: Spacing.md,
+    paddingVertical: Spacing.md,
+    borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.04)',
+  },
+  referralAvatar: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: 'rgba(240,185,11,0.1)', alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: 'rgba(240,185,11,0.2)',
+  },
+  referralAvatarText: { fontSize: 14, fontWeight: '800', color: Colors.primary },
+  referralName: { fontSize: 14, fontWeight: '700', color: Colors.textPrimary },
+  referralAddr: { fontSize: 12, color: Colors.textMuted },
+  referralReward: { fontSize: 14, fontWeight: '800', color: Colors.primary },
+
   // Network Tree
   networkSummary: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    borderRadius: Radius.xl, padding: Spacing.lg, borderWidth: 1, borderColor: 'rgba(240,185,11,0.3)',
+    flexDirection: 'row',
+    backgroundColor: Colors.bgCard, borderRadius: Radius.xl,
+    padding: Spacing.lg, borderWidth: 1, borderColor: Colors.border,
   },
-  networkStat: { flex: 1, alignItems: 'center', gap: 6 },
-  networkStatLabel: { fontSize: FontSize.xs, color: 'rgba(255,255,255,0.7)', fontWeight: '600' },
-  networkStatValue: { fontSize: FontSize.xl, fontWeight: '800', color: '#fff' },
-  networkDivider: { width: 1, height: 40, backgroundColor: 'rgba(255,255,255,0.2)' },
+  networkStat: { flex: 1, alignItems: 'center', gap: 4 },
+  networkStatValue: { fontSize: 18, fontWeight: '800', color: Colors.textPrimary },
+  networkStatLabel: { fontSize: 11, fontWeight: '600', color: Colors.textMuted },
+  networkDivider: { width: 1, backgroundColor: Colors.border },
+
+  // Level Card
   levelCard: {
-    borderRadius: Radius.lg, padding: Spacing.md, gap: Spacing.sm,
-    borderWidth: 1, borderColor: Colors.border,
+    backgroundColor: Colors.bgCard, borderRadius: Radius.lg, padding: Spacing.lg,
+    gap: Spacing.sm, borderWidth: 1, borderColor: Colors.border, borderLeftWidth: 4,
   },
   levelHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   levelDot: { width: 12, height: 12, borderRadius: 6 },
-  levelTitle: { fontSize: FontSize.md, fontWeight: '700', color: Colors.textPrimary, flex: 1 },
+  levelTitle: { fontSize: 16, fontWeight: '800', color: Colors.textPrimary, flex: 1 },
   levelRateBadge: {
-    backgroundColor: Colors.bg, paddingHorizontal: 8, paddingVertical: 4,
-    borderRadius: Radius.full, borderWidth: 1, borderColor: Colors.border,
+    paddingHorizontal: 10, paddingVertical: 4,
+    borderRadius: 99,
   },
-  levelRateText: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textSecondary },
-  levelStats: { flexDirection: 'row', gap: Spacing.md, paddingTop: 4 },
+  levelRateText: { fontSize: 12, fontWeight: '800' },
+  levelStats: { flexDirection: 'row', gap: Spacing.md, paddingTop: Spacing.sm, borderTopWidth: 1, borderTopColor: Colors.border },
   levelStatItem: { flex: 1, alignItems: 'center', gap: 2 },
   levelStatDivider: { width: 1, height: 24, backgroundColor: Colors.border },
-  levelStatLabel: { fontSize: FontSize.xs, color: Colors.textMuted },
-  levelStatValue: { fontSize: FontSize.md, fontWeight: '700', color: Colors.textPrimary },
+  levelStatLabel: { fontSize: 11, fontWeight: '600', color: Colors.textMuted },
+  levelStatValue: { fontSize: 15, fontWeight: '800', color: Colors.textPrimary },
   membersList: { gap: Spacing.xs, marginTop: Spacing.sm },
   memberRow: {
     flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
-    paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: Colors.border + '40',
+    paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.04)',
   },
   memberAvatar: {
-    width: 32, height: 32, borderRadius: 10, backgroundColor: Colors.bgElevated,
-    alignItems: 'center', justifyContent: 'center',
+    width: 32, height: 32, borderRadius: 16,
+    backgroundColor: 'rgba(240,185,11,0.1)', alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: 'rgba(240,185,11,0.2)',
   },
-  memberAvatarText: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.primary },
-  memberName: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.textPrimary },
-  memberAddr: { fontSize: FontSize.xs, color: Colors.textMuted },
-  memberReward: { alignItems: 'flex-end' },
-  memberRewardValue: { fontSize: FontSize.sm, fontWeight: '700' },
+  memberAvatarText: { fontSize: 12, fontWeight: '800', color: Colors.primary },
+  memberName: { fontSize: 13, fontWeight: '700', color: Colors.textPrimary },
+  memberAddr: { fontSize: 11, color: Colors.textMuted },
+  memberRewardValue: { fontSize: 13, fontWeight: '700' },
   membersMoreBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4,
     paddingVertical: 8, marginTop: 4,
   },
-  membersMoreText: { fontSize: FontSize.xs, color: Colors.primary, fontWeight: '600' },
-  membersMore: { fontSize: FontSize.xs, color: Colors.primary, marginTop: 4, textAlign: 'center' },
+  membersMoreText: { fontSize: 12, fontWeight: '700', color: Colors.primary },
+
+  // Skeleton
+  skeleton: { borderRadius: Radius.md, backgroundColor: Colors.bgCard, width: '100%' },
 });
