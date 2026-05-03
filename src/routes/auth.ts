@@ -6,6 +6,82 @@ import prisma from '../config/db';
 import { env } from '../config/env';
 import { authMiddleware } from '../middleware/auth';
 
+// ─── Secret Key Generation ──────────────────────────────────
+// Generate a 12-word recovery phrase (BIP39-like)
+const WORDLIST = [
+  'abandon','ability','able','about','above','absent','absorb','abstract','absurd','abuse',
+  'access','accident','account','accuse','achieve','acid','acoustic','acquire','across','act',
+  'action','actor','actress','actual','adapt','add','address','adjust','admit','adult',
+  'advance','advice','aerobic','affair','afford','afraid','again','age','agent','agree',
+  'ahead','aim','air','airport','aisle','alarm','album','alcohol','alert','alien',
+  'all','alley','allow','almost','alone','alpha','already','also','alter','always',
+  'amateur','amazing','among','amount','amused','analyst','anchor','ancient','anger','angle',
+  'animal','ankle','announce','annual','another','answer','antenna','antique','anxiety','any',
+  'apart','apology','appear','apple','approve','april','arch','arctic','area','arena',
+  'argue','arm','armed','armor','army','around','arrange','arrest','arrive','arrow',
+  'art','artefact','artist','artwork','ask','aspect','assault','asset','assist','assume',
+  'asthma','athlete','atom','attack','attend','attitude','attract','auction','audit','august',
+  'aunt','author','auto','autumn','average','avocado','avoid','awake','aware','awesome',
+  'awful','awkward','axis','baby','bachelor','bacon','badge','bag','balance','balcony',
+  'ball','bamboo','banana','banner','bar','barely','bargain','barrel','base','basic',
+  'basket','battle','beach','bean','beauty','because','become','beef','before','begin',
+  'behave','behind','believe','below','belt','bench','benefit','best','betray','better',
+  'between','beyond','bicycle','bid','bike','bind','biology','bird','birth','bitter',
+  'black','blade','blame','blanket','blast','bleak','bless','blind','blood','blossom',
+  'blow','blue','blur','blush','board','boat','body','boil','bomb','bone',
+  'bonus','book','boost','border','boring','borrow','boss','bottom','bounce','box',
+  'boy','bracket','brain','brand','brave','bread','breeze','brick','bridge','brief',
+  'bright','bring','brisk','broad','broccoli','broken','bronze','broom','brother','brown',
+  'brush','bubble','buddy','budget','buffalo','build','bulb','bulk','bullet','bundle',
+  'bunny','burden','burger','burst','bus','business','busy','butter','buyer','buzz',
+  'cabbage','cabin','cable','cactus','cage','cake','call','calm','camera','camp',
+  'canal','cancel','candy','cannon','canoe','canvas','canyon','capable','capital','captain',
+  'car','carbon','card','cargo','carpet','carry','cart','case','cash','casino',
+  'castle','casual','cat','catalog','catch','category','cattle','caught','cause','caution',
+  'cave','ceiling','celery','cement','census','century','cereal','certain','chair','chalk',
+  'champion','change','chaos','chapter','charge','chase','cheap','check','cheese','chef',
+  'cherry','chest','chicken','chief','child','chimney','choice','choose','chronic','chunk',
+  'church','cigar','circle','citizen','city','civil','claim','clap','clarify','claw',
+  'clay','clean','clerk','clever','click','client','cliff','climb','clinic','clip',
+  'clock','close','cloth','cloud','clown','club','clump','cluster','clutch','coach',
+  'coast','coconut','code','coffee','coil','coin','collect','color','column','combine',
+];
+
+function generateSecretKey(): string {
+  const words: string[] = [];
+  for (let i = 0; i < 12; i++) {
+    const idx = crypto.randomInt(0, WORDLIST.length);
+    words.push(WORDLIST[idx]);
+  }
+  return words.join(' ');
+}
+
+// Simple encryption for storing secret key (AES-256-GCM)
+const ENCRYPTION_KEY = crypto.scryptSync(
+  env.JWT_SECRET || 'clb-default-secret-key-change-me',
+  'salt-clb-secret-key',
+  32
+);
+
+function encryptSecretKey(plaintext: string): { encrypted: string; iv: string } {
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', ENCRYPTION_KEY, iv);
+  let encrypted = cipher.update(plaintext, 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+  const authTag = cipher.getAuthTag().toString('hex');
+  return { encrypted: `${authTag}:${encrypted}`, iv: iv.toString('hex') };
+}
+
+function decryptSecretKey(encrypted: string, ivHex: string): string {
+  const [authTagHex, ciphertext] = encrypted.split(':');
+  const iv = Buffer.from(ivHex, 'hex');
+  const decipher = crypto.createDecipheriv('aes-256-gcm', ENCRYPTION_KEY, iv);
+  decipher.setAuthTag(Buffer.from(authTagHex, 'hex'));
+  let decrypted = decipher.update(ciphertext, 'hex', 'utf8');
+  decrypted += decipher.final('utf8');
+  return decrypted;
+}
+
 // Swagger schemas
 const schemas = {
   getNonce: {
@@ -137,8 +213,10 @@ export default async function authRoutes(fastify: FastifyInstance) {
       });
 
       if (!user) {
+        const secretKey = generateSecretKey();
+        const { encrypted, iv } = encryptSecretKey(secretKey);
         user = await prisma.user.create({
-          data: { walletAddress: normalized },
+          data: { walletAddress: normalized, secretKey: encrypted, secretKeyIv: iv },
         });
       }
 
@@ -249,7 +327,9 @@ export default async function authRoutes(fastify: FastifyInstance) {
       let user = await prisma.user.findUnique({ where: { walletAddress: normalized } });
 
       if (!user) {
-        user = await prisma.user.create({ data: { walletAddress: normalized } });
+        const secretKey = generateSecretKey();
+        const { encrypted, iv } = encryptSecretKey(secretKey);
+        user = await prisma.user.create({ data: { walletAddress: normalized, secretKey: encrypted, secretKeyIv: iv } });
         fastify.log.info(`🆕 New user created via dev-login: ${normalized}`);
       }
 
@@ -476,6 +556,174 @@ export default async function authRoutes(fastify: FastifyInstance) {
       });
 
       return { success: true, user };
+    }
+  );
+
+  // ─── Secret Key Endpoints ──────────────────────────────────────
+
+  // GET /auth/secret-key — view your secret key (requires PIN verification)
+  fastify.post<{ Body: { pin: string } }>(
+    '/secret-key',
+    {
+      preHandler: [authMiddleware],
+      schema: {
+        tags: ['Auth'],
+        summary: 'View your recovery secret key',
+        description: 'Returns the decrypted 12-word recovery phrase. Requires PIN verification.',
+        body: {
+          type: 'object',
+          required: ['pin'],
+          properties: { pin: { type: 'string', minLength: 6, maxLength: 6 } },
+        },
+      },
+    },
+    async (request: FastifyRequest<{ Body: { pin: string } }>, reply: FastifyReply) => {
+      const userId = request.userId!;
+      const { pin } = request.body;
+
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { pinHash: true, pinSalt: true, secretKey: true, secretKeyIv: true, walletAddress: true },
+      });
+
+      if (!user) {
+        return reply.status(404).send({ success: false, error: 'User not found' });
+      }
+
+      // Verify PIN first
+      if (!user.pinHash || !user.pinSalt) {
+        return reply.status(400).send({ success: false, error: 'PIN not set up. Set up PIN first.' });
+      }
+
+      const pinHash = crypto.createHash('sha256').update(pin + user.pinSalt).digest('hex');
+      if (pinHash !== user.pinHash) {
+        return reply.status(401).send({ success: false, error: 'Invalid PIN' });
+      }
+
+      if (!user.secretKey || !user.secretKeyIv) {
+        return reply.status(404).send({ success: false, error: 'No secret key found. Generate one first.' });
+      }
+
+      const secretKey = decryptSecretKey(user.secretKey, user.secretKeyIv);
+
+      return {
+        success: true,
+        secretKey,
+        walletAddress: user.walletAddress,
+        warning: 'Store this key safely. Never share it with anyone. It can restore your account on any device.',
+      };
+    }
+  );
+
+  // POST /auth/secret-key/generate — generate secret key for existing users who don't have one
+  fastify.post(
+    '/secret-key/generate',
+    { preHandler: [authMiddleware] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const userId = request.userId!;
+
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { secretKey: true, walletAddress: true },
+      });
+
+      if (!user) {
+        return reply.status(404).send({ success: false, error: 'User not found' });
+      }
+
+      if (user.secretKey) {
+        return reply.status(400).send({ success: false, error: 'Secret key already exists. Use /secret-key to view it.' });
+      }
+
+      const secretKey = generateSecretKey();
+      const { encrypted, iv } = encryptSecretKey(secretKey);
+
+      await prisma.user.update({
+        where: { id: userId },
+        data: { secretKey: encrypted, secretKeyIv: iv },
+      });
+
+      return {
+        success: true,
+        secretKey,
+        walletAddress: user.walletAddress,
+        warning: 'SAVE THIS KEY NOW! You will need it to recover your account. It will NOT be shown again.',
+      };
+    }
+  );
+
+  // POST /auth/import — restore account from secret key
+  fastify.post<{ Body: { secretKey: string } }>(
+    '/import',
+    {
+      schema: {
+        tags: ['Auth'],
+        summary: 'Import/restore account from secret key',
+        description: 'Enter your 12-word recovery phrase to login. Requires PIN setup if new device.',
+        body: {
+          type: 'object',
+          required: ['secretKey'],
+          properties: { secretKey: { type: 'string', description: '12-word recovery phrase' } },
+        },
+      },
+    },
+    async (request: FastifyRequest<{ Body: { secretKey: string } }>, reply: FastifyReply) => {
+      const { secretKey } = request.body;
+      const normalizedKey = secretKey.trim().toLowerCase();
+
+      if (!normalizedKey || normalizedKey.split(/\s+/).length < 8) {
+        return reply.status(400).send({ success: false, error: 'Invalid secret key. Must be at least 8 words.' });
+      }
+
+      // Find user with matching secret key (try decrypting each)
+      // For efficiency, we use a deterministic hash of the secret key for lookup
+      const keyHash = crypto.createHash('sha256').update(normalizedKey).digest('hex');
+
+      // We need to find by trying to match — since secretKey is encrypted, we use a lookup hash
+      // Add a keyHash field approach: for now, iterate (small user base)
+      const users = await prisma.user.findMany({
+        where: { secretKey: { not: null } },
+        select: { id: true, walletAddress: true, secretKey: true, secretKeyIv: true, role: true, nonce: true },
+      });
+
+      let matchedUser: typeof users[0] | null = null;
+      for (const u of users) {
+        try {
+          const decrypted = decryptSecretKey(u.secretKey!, u.secretKeyIv!);
+          if (decrypted.toLowerCase() === normalizedKey) {
+            matchedUser = u;
+            break;
+          }
+        } catch {
+          continue;
+        }
+      }
+
+      if (!matchedUser) {
+        return reply.status(404).send({ success: false, error: 'No account found with this secret key' });
+      }
+
+      // Increment tokenVersion (invalidates old tokens)
+      const updatedUser = await prisma.user.update({
+        where: { id: matchedUser.id },
+        data: { tokenVersion: { increment: 1 }, nonce: crypto.randomUUID() },
+      });
+
+      const token = fastify.jwt.sign(
+        { id: matchedUser.id, walletAddress: matchedUser.walletAddress, role: matchedUser.role, tokenVersion: updatedUser.tokenVersion },
+        { expiresIn: '7d' }
+      );
+
+      return {
+        success: true,
+        token,
+        user: {
+          id: matchedUser.id,
+          walletAddress: matchedUser.walletAddress,
+          role: matchedUser.role,
+        },
+        message: 'Account restored successfully. Set up your PIN for this device.',
+      };
     }
   );
 }

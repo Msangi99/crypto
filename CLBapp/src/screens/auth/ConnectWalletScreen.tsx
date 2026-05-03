@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity,
-  ScrollView, KeyboardAvoidingView, Platform, Alert, Image,
+  ScrollView, KeyboardAvoidingView, Platform, Alert, Image, Clipboard,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,6 +15,9 @@ const LOGO = require('../../../assets/logo.png');
 export default function ConnectWalletScreen() {
   const [walletAddress, setWalletAddress] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showImport, setShowImport] = useState(false);
+  const [secretKeyInput, setSecretKeyInput] = useState('');
+  const [importLoading, setImportLoading] = useState(false);
   const { setAuth } = useAuthStore();
 
   const handleConnect = async () => {
@@ -36,6 +39,26 @@ export default function ConnectWalletScreen() {
       Alert.alert('Error', msg);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleImport = async () => {
+    const key = secretKeyInput.trim();
+    if (!key || key.split(/\s+/).length < 8) {
+      Alert.alert('Invalid Key', 'Please enter your 12-word recovery phrase');
+      return;
+    }
+    setImportLoading(true);
+    try {
+      const res = await authAPI.importAccount(key);
+      const { token, user } = res.data;
+      await setAuth(token, { ...user, pinSetup: false });
+      Alert.alert('Account Restored', 'Your account has been imported. Please set up a PIN for this device.');
+    } catch (err: any) {
+      const msg = err?.response?.data?.error || err?.response?.data?.message || err.message || 'Import failed.';
+      Alert.alert('Import Failed', msg);
+    } finally {
+      setImportLoading(false);
     }
   };
 
@@ -81,6 +104,56 @@ export default function ConnectWalletScreen() {
             fullWidth
             style={styles.btn}
           />
+
+          {/* Import Account */}
+          <TouchableOpacity
+            style={styles.importToggle}
+            onPress={() => setShowImport(!showImport)}
+          >
+            <Ionicons name="key-outline" size={18} color={Colors.primary} />
+            <Text style={styles.importToggleText}>
+              {showImport ? 'Hide Import Account' : 'Import Account from Secret Key'}
+            </Text>
+            <Ionicons
+              name={showImport ? 'chevron-up' : 'chevron-down'}
+              size={16}
+              color={Colors.textMuted}
+            />
+          </TouchableOpacity>
+
+          {showImport && (
+            <View style={styles.importSection}>
+              <View style={styles.hintCard}>
+                <Ionicons name="warning-outline" size={18} color={Colors.primary} />
+                <Text style={styles.hintText}>
+                  Enter your 12-word recovery phrase to restore your account on this device. You'll need to set up a new PIN.
+                </Text>
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Secret Key (12 words)</Text>
+                <TextInput
+                  value={secretKeyInput}
+                  onChangeText={setSecretKeyInput}
+                  placeholder="word1 word2 word3 ... word12"
+                  placeholderTextColor={Colors.textMuted}
+                  style={[styles.input, styles.secretInput]}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  multiline
+                  numberOfLines={3}
+                />
+              </View>
+
+              <Button
+                label="Import Account"
+                onPress={handleImport}
+                loading={importLoading}
+                fullWidth
+                variant="outline"
+              />
+            </View>
+          )}
 
           <View style={styles.featuresGrid}>
             {[
@@ -151,4 +224,15 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
   },
   featureLabel: { fontSize: FontSize.sm, color: Colors.textSecondary, fontWeight: '500' },
+  // Import Account
+  importToggle: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    paddingVertical: Spacing.md,
+  },
+  importToggleText: { fontSize: FontSize.sm, color: Colors.primary, fontWeight: '600', flex: 1 },
+  importSection: { gap: Spacing.md },
+  secretInput: {
+    minHeight: 80, textAlignVertical: 'top',
+    fontFamily: 'monospace', fontSize: FontSize.sm,
+  },
 });

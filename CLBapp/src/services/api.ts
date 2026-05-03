@@ -58,6 +58,13 @@ export const authAPI = {
     api.get('/api/auth/profile'),
   updateProfile: (data: { username?: string; email?: string; avatar?: string }) =>
     api.put('/api/auth/profile', data),
+  // Secret key / recovery phrase
+  viewSecretKey: (pin: string) =>
+    api.post('/api/auth/secret-key', { pin }),
+  generateSecretKey: () =>
+    api.post('/api/auth/secret-key/generate'),
+  importAccount: (secretKey: string) =>
+    api.post('/api/auth/import', { secretKey }),
 };
 
 // ─── User Dashboard ────────────────────────────────────────

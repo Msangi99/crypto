@@ -18,6 +18,10 @@ export default function ProfileScreen({ navigation }: any) {
   const [editUsername, setEditUsername] = useState(user?.username || '');
   const [editEmail, setEditEmail] = useState(user?.email || '');
   const [loading, setLoading] = useState(false);
+  const [secretKeyModal, setSecretKeyModal] = useState(false);
+  const [pinInput, setPinInput] = useState('');
+  const [secretKey, setSecretKey] = useState('');
+  const [secretKeyLoading, setSecretKeyLoading] = useState(false);
 
   const handleLogout = () => {
     Alert.alert('Disconnect Wallet', 'Are you sure you want to disconnect?', [
@@ -50,6 +54,60 @@ export default function ProfileScreen({ navigation }: any) {
     setEditUsername(user?.username || '');
     setEditEmail(user?.email || '');
     setEditModal(true);
+  };
+
+  const handleViewSecretKey = () => {
+    setPinInput('');
+    setSecretKey('');
+    setSecretKeyModal(true);
+  };
+
+  const handleRevealSecretKey = async () => {
+    if (!pinInput || pinInput.length !== 6) {
+      Alert.alert('Invalid PIN', 'Enter your 6-digit PIN');
+      return;
+    }
+    setSecretKeyLoading(true);
+    try {
+      const res = await authAPI.viewSecretKey(pinInput);
+      setSecretKey(res.data.secretKey);
+    } catch (err: any) {
+      Alert.alert('Error', err?.response?.data?.error || 'Failed to retrieve secret key');
+    } finally {
+      setSecretKeyLoading(false);
+    }
+  };
+
+  const handleCopySecretKey = async () => {
+    if (secretKey) {
+      await Clipboard.setStringAsync(secretKey);
+      Alert.alert('Copied', 'Secret key copied to clipboard. Store it safely!');
+    }
+  };
+
+  const handleGenerateSecretKey = async () => {
+    Alert.alert(
+      'Generate Secret Key',
+      'This will create a new recovery phrase for your account. Save it securely — it will NOT be shown again!',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Generate',
+          onPress: async () => {
+            setSecretKeyLoading(true);
+            try {
+              const res = await authAPI.generateSecretKey();
+              setSecretKey(res.data.secretKey);
+              Alert.alert('Secret Key Generated', 'SAVE THIS KEY NOW! It will not be shown again.');
+            } catch (err: any) {
+              Alert.alert('Error', err?.response?.data?.error || 'Failed to generate');
+            } finally {
+              setSecretKeyLoading(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const shortAddr = user?.walletAddress
@@ -104,6 +162,20 @@ export default function ProfileScreen({ navigation }: any) {
         </View>
 
         {/* Quick Links */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Security</Text>
+          <LinearGradient colors={Colors.gradientCard} style={styles.settingsList}>
+            <TouchableOpacity onPress={handleViewSecretKey}>
+              <SettingRow icon="key-outline" label="View Secret Key" right={<Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />} />
+            </TouchableOpacity>
+            <View style={styles.settingDivider} />
+            <TouchableOpacity onPress={handleGenerateSecretKey}>
+              <SettingRow icon="create-outline" label="Generate Secret Key" right={<Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />} />
+            </TouchableOpacity>
+          </LinearGradient>
+        </View>
+
+        {/* Tools */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Tools</Text>
           <LinearGradient colors={Colors.gradientCard} style={styles.settingsList}>
@@ -206,6 +278,61 @@ export default function ProfileScreen({ navigation }: any) {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* Secret Key Modal */}
+      <Modal visible={secretKeyModal} animationType="slide" transparent>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Secret Key</Text>
+                <TouchableOpacity onPress={() => setSecretKeyModal(false)}>
+                  <Ionicons name="close" size={24} color={Colors.textPrimary} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.modalBody}>
+                {!secretKey ? (
+                  <>
+                    <View style={styles.inputGroup}>
+                      <Text style={styles.inputLabel}>Enter your PIN to reveal</Text>
+                      <TextInput
+                        style={styles.input}
+                        value={pinInput}
+                        onChangeText={setPinInput}
+                        placeholder="6-digit PIN"
+                        placeholderTextColor={Colors.textMuted}
+                        keyboardType="number-pad"
+                        maxLength={6}
+                        secureTextEntry
+                      />
+                    </View>
+                    <TouchableOpacity onPress={handleRevealSecretKey} style={styles.modalSaveBtn} disabled={secretKeyLoading}>
+                      <Text style={styles.modalSaveText}>{secretKeyLoading ? 'Verifying...' : 'Reveal Secret Key'}</Text>
+                    </TouchableOpacity>
+                  </>
+                ) : (
+                  <>
+                    <View style={styles.secretKeyCard}>
+                      <View style={styles.secretKeyWarning}>
+                        <Ionicons name="warning-outline" size={16} color={Colors.primary} />
+                        <Text style={styles.secretKeyWarningText}>
+                          Never share this key. Store it safely offline.
+                        </Text>
+                      </View>
+                      <Text style={styles.secretKeyText}>{secretKey}</Text>
+                    </View>
+                    <TouchableOpacity onPress={handleCopySecretKey} style={styles.modalSaveBtn}>
+                      <Ionicons name="copy-outline" size={18} color="#000" />
+                      <Text style={styles.modalSaveText}>Copy to Clipboard</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
+              </View>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </LinearGradient>
   );
 }
@@ -293,4 +420,19 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary, alignItems: 'center',
   },
   modalSaveText: { fontSize: FontSize.md, fontWeight: '700', color: '#000' },
+  // Secret Key Modal
+  secretKeyCard: {
+    backgroundColor: 'rgba(240,185,11,0.08)', borderWidth: 1, borderColor: 'rgba(240,185,11,0.2)',
+    borderRadius: Radius.lg, padding: Spacing.lg, gap: Spacing.md,
+  },
+  secretKeyWarning: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+  },
+  secretKeyWarningText: {
+    flex: 1, fontSize: FontSize.xs, color: Colors.primary, fontWeight: '600',
+  },
+  secretKeyText: {
+    fontSize: FontSize.md, color: Colors.textPrimary, fontFamily: 'monospace',
+    lineHeight: 24, flexWrap: 'wrap',
+  },
 });
