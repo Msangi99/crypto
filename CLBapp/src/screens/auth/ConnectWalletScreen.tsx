@@ -105,7 +105,7 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   scroll: { padding: Spacing.lg, paddingTop: 60, gap: Spacing.lg },
   header: { alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.sm },
-  logo: { width: 80, height: 80, marginBottom: Spacing.sm, backgroundColor: '#FFFFFF', borderRadius: 16 },
+  logo: { width: 80, height: 80, marginBottom: Spacing.sm, borderRadius: 16 },
   title: { fontSize: FontSize.xxl, fontWeight: '900', color: Colors.textPrimary, letterSpacing: 0.5 },
   subtitle: { fontSize: FontSize.sm, color: Colors.textSecondary, textAlign: 'center', lineHeight: 20 },
   hintCard: {

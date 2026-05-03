@@ -280,7 +280,7 @@ const styles = StyleSheet.create({
   },
 
   headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  headerLogo: { width: 36, height: 36, backgroundColor: '#FFFFFF', borderRadius: 8 },
+  headerLogo: { width: 36, height: 36, borderRadius: 8 },
 
   // Balance card
   balanceSection: { paddingHorizontal: Spacing.lg, marginBottom: Spacing.lg },
