@@ -66,7 +66,7 @@ export default function MarketScreen() {
   const [data, setData] = useState<any>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<'all' | 'watchlist'>('all');
+  const [activeFilter, setActiveFilter] = useState('All');
 
   const load = useCallback(async () => {
     try {
@@ -86,31 +86,57 @@ export default function MarketScreen() {
   const allCoins = data?.market?.coins ?? [];
   const targets = data?.market?.targets ?? {};
 
-  const filteredCoins = allCoins.filter((c: any) =>
-    c.symbol.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    c.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  // Top gainers
   const gainers = [...allCoins].sort((a: any, b: any) => (b.change24h ?? 0) - (a.change24h ?? 0)).slice(0, 3);
-  // Top losers
   const losers = [...allCoins].sort((a: any, b: any) => (a.change24h ?? 0) - (b.change24h ?? 0)).slice(0, 3);
+
+  const filteredCoins = (() => {
+    let result = [...allCoins];
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter((c: any) => c.symbol.toLowerCase().includes(q) || c.name.toLowerCase().includes(q));
+    }
+    if (activeFilter === 'Gainers') result.sort((a: any, b: any) => (b.change24h ?? 0) - (a.change24h ?? 0));
+    else if (activeFilter === 'Losers') result.sort((a: any, b: any) => (a.change24h ?? 0) - (b.change24h ?? 0));
+    else if (activeFilter === 'Market Cap') result.sort((a: any, b: any) => (b.marketCap ?? 0) - (a.marketCap ?? 0));
+    return result;
+  })();
+
+  const filters = ['All', 'Gainers', 'Losers', 'Market Cap'];
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.title}>Markets</Text>
-        <View style={styles.headerRight}>
+      {/* Dark Gradient Header */}
+      <LinearGradient colors={['#1A1F35', '#0B0E1A']} style={styles.headerGradient}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Markets</Text>
           <TouchableOpacity style={styles.refreshBtn} onPress={onRefresh}>
             <Ionicons name="refresh-outline" size={20} color={Colors.textSecondary} />
           </TouchableOpacity>
         </View>
-      </View>
 
-      {/* Search Bar */}
-      <View style={styles.searchContainer}>
-        <View style={styles.searchBar}>
+        {/* Market Summary */}
+        <View style={styles.summaryRow}>
+          <View style={styles.summaryItem}>
+            <Ionicons name="trending-up" size={14} color="#00D6A1" />
+            <Text style={styles.summaryValue}>{gainers[0]?.symbol ?? '—'}</Text>
+            <Text style={[styles.summaryChange, { color: '#00D6A1' }]}>+{((gainers[0]?.change24h ?? 0)).toFixed(2)}%</Text>
+          </View>
+          <View style={styles.summaryDivider} />
+          <View style={styles.summaryItem}>
+            <Ionicons name="trending-down" size={14} color="#FF4757" />
+            <Text style={styles.summaryValue}>{losers[0]?.symbol ?? '—'}</Text>
+            <Text style={[styles.summaryChange, { color: '#FF4757' }]}>{((losers[0]?.change24h ?? 0)).toFixed(2)}%</Text>
+          </View>
+          <View style={styles.summaryDivider} />
+          <View style={styles.summaryItem}>
+            <Ionicons name="pricetag-outline" size={14} color={Colors.primary} />
+            <Text style={styles.summaryValue}>{allCoins.length}</Text>
+            <Text style={styles.summaryChange}>Tracked</Text>
+          </View>
+        </View>
+
+        {/* Search Bar */}
+        <View style={styles.searchRow}>
           <Ionicons name="search-outline" size={18} color={Colors.textMuted} />
           <TextInput
             style={styles.searchInput}
@@ -126,6 +152,19 @@ export default function MarketScreen() {
             </TouchableOpacity>
           ) : null}
         </View>
+      </LinearGradient>
+
+      {/* Filter Tabs */}
+      <View style={styles.filterRow}>
+        {filters.map((f) => (
+          <TouchableOpacity
+            key={f}
+            onPress={() => setActiveFilter(f)}
+            style={[styles.filterTab, activeFilter === f && styles.filterTabActive]}
+          >
+            <Text style={[styles.filterTabText, activeFilter === f && styles.filterTabTextActive]}>{f}</Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
       <ScrollView
@@ -133,36 +172,12 @@ export default function MarketScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
         contentContainerStyle={{ paddingBottom: 100 }}
       >
-        {/* Market Overview Cards */}
-        <View style={styles.overviewRow}>
-          <LinearGradient colors={Colors.gradientCard} style={styles.overviewCard}>
-            <Ionicons name="trending-up" size={16} color={Colors.success} />
-            <Text style={styles.overviewLabel}>Top Gainer</Text>
-            <Text style={styles.overviewValue}>{gainers[0]?.symbol ?? '—'}</Text>
-            <Text style={[styles.overviewChange, { color: Colors.success }]}>
-              +{((gainers[0]?.change24h ?? 0)).toFixed(2)}%
-            </Text>
-          </LinearGradient>
-          <LinearGradient colors={Colors.gradientCard} style={styles.overviewCard}>
-            <Ionicons name="trending-down" size={16} color={Colors.error} />
-            <Text style={styles.overviewLabel}>Top Loser</Text>
-            <Text style={styles.overviewValue}>{losers[0]?.symbol ?? '—'}</Text>
-            <Text style={[styles.overviewChange, { color: Colors.error }]}>
-              {((losers[0]?.change24h ?? 0)).toFixed(2)}%
-            </Text>
-          </LinearGradient>
-          <LinearGradient colors={Colors.gradientCard} style={styles.overviewCard}>
-            <Ionicons name="pricetag-outline" size={16} color={Colors.primary} />
-            <Text style={styles.overviewLabel}>Coins</Text>
-            <Text style={styles.overviewValue}>{allCoins.length}</Text>
-            <Text style={styles.overviewChange}>Tracked</Text>
-          </LinearGradient>
-        </View>
-
         {/* Top Gainers Section */}
-        {gainers.length > 0 && !searchQuery && (
+        {gainers.length > 0 && !searchQuery && activeFilter === 'All' && (
           <View style={styles.trendingSection}>
-            <Text style={styles.trendingTitle}>🔥 Top Gainers</Text>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>🔥 Top Gainers</Text>
+            </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.trendingScroll}>
               {gainers.map((coin: any) => (
                 <TrendingChip key={coin.symbol} coin={coin} />
@@ -184,7 +199,9 @@ export default function MarketScreen() {
 
         {/* Liquidation Targets */}
         <View style={styles.targetSection}>
-          <Text style={styles.targetSectionTitle}>⚡ CLB Liquidation Targets</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>⚡ Liquidation Targets</Text>
+          </View>
           <View style={styles.infoBanner}>
             <Ionicons name="information-circle-outline" size={16} color={Colors.primary} />
             <Text style={styles.infoBannerText}>
@@ -197,7 +214,7 @@ export default function MarketScreen() {
             const color = coin?.color || Colors.gold;
             const currentPrice = coin?.price ?? 0;
             return (
-              <LinearGradient key={asset} colors={Colors.gradientCard} style={styles.targetCard}>
+              <View key={asset} style={styles.targetCard}>
                 <View style={[styles.targetIconWrap, { backgroundColor: color + '22' }]}>
                   <Text style={[styles.targetIconChar, { color }]}>{icon}</Text>
                 </View>
@@ -207,17 +224,17 @@ export default function MarketScreen() {
                 </View>
                 <View style={styles.targetPhases}>
                   <View style={styles.targetPhaseRow}>
-                    <View style={[styles.phaseDot, { backgroundColor: Colors.success }]} />
-                    <Text style={styles.phaseLabel}>P1</Text>
+                    <View style={[styles.phaseDot, { backgroundColor: '#00D6A1' }]} />
+                    <Text style={[styles.phaseLabel, { color: '#00D6A1' }]}>P1</Text>
                     <Text style={styles.phaseValue}>${(t.phase1 ?? 0).toLocaleString()}</Text>
                   </View>
                   <View style={styles.targetPhaseRow}>
-                    <View style={[styles.phaseDot, { backgroundColor: Colors.gold }]} />
-                    <Text style={[styles.phaseLabel, { color: Colors.gold }]}>P2</Text>
-                    <Text style={[styles.phaseValue, { color: Colors.gold }]}>${(t.phase2 ?? 0).toLocaleString()}</Text>
+                    <View style={[styles.phaseDot, { backgroundColor: Colors.primary }]} />
+                    <Text style={[styles.phaseLabel, { color: Colors.primary }]}>P2</Text>
+                    <Text style={[styles.phaseValue, { color: Colors.primary }]}>${(t.phase2 ?? 0).toLocaleString()}</Text>
                   </View>
                 </View>
-              </LinearGradient>
+              </View>
             );
           })}
         </View>
@@ -230,55 +247,55 @@ function TrendingChip({ coin }: { coin: any }) {
   const change = coin.change24h ?? 0;
   const isUp = change >= 0;
   return (
-    <LinearGradient colors={Colors.gradientCard} style={styles.trendingChip}>
+    <View style={styles.trendingChip}>
       <View style={[styles.chipIcon, { backgroundColor: (coin.color || Colors.primary) + '22' }]}>
         <Text style={[styles.chipIconText, { color: coin.color || Colors.primary }]}>
           {coin.icon || COIN_ICONS[coin.symbol] || coin.symbol[0]}
         </Text>
       </View>
-      <Text style={styles.chipSymbol}>{coin.symbol}</Text>
-      <Text style={[styles.chipChange, { color: isUp ? Colors.success : Colors.error }]}>
-        {isUp ? '+' : ''}{change.toFixed(2)}%
-      </Text>
-    </LinearGradient>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.chipSymbol}>{coin.symbol}</Text>
+        <Text style={styles.chipName}>{coin.name}</Text>
+      </View>
+      <View style={[styles.chipChangeBadge, { backgroundColor: isUp ? 'rgba(0,214,161,0.12)' : 'rgba(255,71,87,0.12)' }]}>
+        <Ionicons name={isUp ? 'caret-up' : 'caret-down'} size={10} color={isUp ? '#00D6A1' : '#FF4757'} />
+        <Text style={[styles.chipChange, { color: isUp ? '#00D6A1' : '#FF4757' }]}>
+          {isUp ? '+' : ''}{change.toFixed(2)}%
+        </Text>
+      </View>
+    </View>
   );
 }
 
 function CoinRow({ coin, rank }: { coin: any; rank: number }) {
   const change = coin.change24h ?? 0;
   const isUp = change >= 0;
-  const changeColor = isUp ? Colors.success : Colors.error;
 
   return (
     <View style={styles.coinRow}>
-      {/* Rank */}
       <Text style={styles.rankText}>{rank}</Text>
 
-      {/* Icon */}
       <View style={[styles.coinIconWrap, { backgroundColor: (coin.color || Colors.primary) + '22' }]}>
         <Text style={[styles.coinIconChar, { color: coin.color || Colors.primary }]}>
           {coin.icon || COIN_ICONS[coin.symbol] || coin.symbol[0]}
         </Text>
       </View>
 
-      {/* Name + Symbol + Market Cap */}
       <View style={styles.coinInfo}>
         <Text style={styles.coinSymbol}>{coin.symbol}</Text>
         <Text style={styles.coinNameText}>{coin.name}</Text>
         {coin.marketCap ? <Text style={styles.coinMcap}>{formatMarketCap(coin.marketCap)}</Text> : null}
       </View>
 
-      {/* Sparkline */}
       <View style={styles.sparklineWrap}>
         <Sparkline change24h={change} />
       </View>
 
-      {/* Price + Change */}
       <View style={styles.coinPriceWrap}>
         <Text style={styles.coinPriceText}>{formatPrice(coin.price ?? 0)}</Text>
-        <View style={[styles.changePill, { backgroundColor: isUp ? Colors.successBg : Colors.errorBg }]}>
-          <Ionicons name={isUp ? 'caret-up' : 'caret-down'} size={10} color={changeColor} />
-          <Text style={[styles.changePillText, { color: changeColor }]}>
+        <View style={[styles.changePill, { backgroundColor: isUp ? 'rgba(0,214,161,0.12)' : 'rgba(255,71,87,0.12)' }]}>
+          <Ionicons name={isUp ? 'caret-up' : 'caret-down'} size={10} color={isUp ? '#00D6A1' : '#FF4757'} />
+          <Text style={[styles.changePillText, { color: isUp ? '#00D6A1' : '#FF4757' }]}>
             {Math.abs(change).toFixed(2)}%
           </Text>
         </View>
@@ -290,51 +307,77 @@ function CoinRow({ coin, rank }: { coin: any; rank: number }) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
 
-  // Header
+  // Header Gradient
+  headerGradient: { paddingBottom: Spacing.md },
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: Spacing.lg, paddingTop: 56, paddingBottom: Spacing.sm,
+    paddingHorizontal: Spacing.lg, paddingTop: 56, paddingBottom: Spacing.md,
   },
-  title: { fontSize: 28, fontWeight: '900', color: Colors.textPrimary, letterSpacing: 0.5 },
-  headerRight: { flexDirection: 'row', gap: Spacing.sm },
+  title: { fontSize: 28, fontWeight: '900', color: Colors.textPrimary },
   refreshBtn: {
     width: 40, height: 40, borderRadius: 12,
-    backgroundColor: Colors.bgCard, borderWidth: 1, borderColor: Colors.border,
-    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center',
   },
+
+  // Summary Row
+  summaryRow: {
+    flexDirection: 'row', marginHorizontal: Spacing.lg,
+    backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: Radius.lg,
+    padding: Spacing.md, marginBottom: Spacing.md,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)',
+  },
+  summaryItem: { flex: 1, alignItems: 'center', gap: 2 },
+  summaryValue: { fontSize: 14, fontWeight: '800', color: Colors.textPrimary },
+  summaryChange: { fontSize: 11, fontWeight: '700', color: Colors.textMuted },
+  summaryDivider: { width: 1, backgroundColor: 'rgba(255,255,255,0.08)' },
 
   // Search
-  searchContainer: { paddingHorizontal: Spacing.lg, marginBottom: Spacing.md },
-  searchBar: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: Colors.bgCard, borderWidth: 1, borderColor: Colors.border,
-    borderRadius: Radius.lg, paddingHorizontal: Spacing.md, height: 44,
+  searchRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    marginHorizontal: Spacing.lg, marginBottom: Spacing.sm,
+    backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: Radius.md,
+    paddingHorizontal: Spacing.md, paddingVertical: 10,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)',
   },
-  searchInput: { flex: 1, color: Colors.textPrimary, fontSize: FontSize.md, height: 44 },
+  searchInput: { flex: 1, fontSize: 14, color: Colors.textPrimary },
 
-  // Overview Cards
-  overviewRow: { flexDirection: 'row', gap: Spacing.sm, paddingHorizontal: Spacing.lg, marginBottom: Spacing.lg },
-  overviewCard: {
-    flex: 1, borderRadius: Radius.lg, padding: Spacing.md, gap: 4,
-    borderWidth: 1, borderColor: Colors.border,
+  // Filter Tabs
+  filterRow: {
+    flexDirection: 'row', paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm,
+    gap: Spacing.sm,
   },
-  overviewLabel: { fontSize: 10, color: Colors.textMuted, fontWeight: '600', textTransform: 'uppercase' },
-  overviewValue: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.textPrimary },
-  overviewChange: { fontSize: FontSize.xs, fontWeight: '700' },
+  filterTab: {
+    paddingHorizontal: 16, paddingVertical: 8, borderRadius: 99,
+    backgroundColor: Colors.bgCard, borderWidth: 1, borderColor: Colors.border,
+  },
+  filterTabActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  filterTabText: { fontSize: 13, fontWeight: '700', color: Colors.textSecondary },
+  filterTabTextActive: { color: '#000' },
+
+  // Section
+  sectionHeader: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: Spacing.lg, marginBottom: Spacing.sm,
+  },
+  sectionTitle: { fontSize: 18, fontWeight: '800', color: Colors.textPrimary },
 
   // Trending
   trendingSection: { marginBottom: Spacing.lg },
-  trendingTitle: { fontSize: FontSize.md, fontWeight: '700', color: Colors.textPrimary, paddingHorizontal: Spacing.lg, marginBottom: Spacing.sm },
   trendingScroll: { paddingHorizontal: Spacing.lg },
   trendingChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    borderRadius: Radius.lg, padding: Spacing.md, marginRight: Spacing.sm,
-    borderWidth: 1, borderColor: Colors.border, minWidth: 140,
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: Colors.bgCard, borderRadius: Radius.lg, padding: Spacing.md, marginRight: Spacing.sm,
+    borderWidth: 1, borderColor: Colors.border, minWidth: 180,
   },
-  chipIcon: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  chipIconText: { fontSize: FontSize.md, fontWeight: '800' },
-  chipSymbol: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.textPrimary },
-  chipChange: { fontSize: FontSize.xs, fontWeight: '700' },
+  chipIcon: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  chipIconText: { fontSize: 16, fontWeight: '800' },
+  chipSymbol: { fontSize: 14, fontWeight: '800', color: Colors.textPrimary },
+  chipName: { fontSize: 11, fontWeight: '600', color: Colors.textMuted },
+  chipChangeBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 2,
+    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 99,
+  },
+  chipChange: { fontSize: 12, fontWeight: '700' },
 
   // List Header
   listHeader: {
@@ -342,54 +385,54 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm,
     borderBottomWidth: 1, borderBottomColor: Colors.border,
   },
-  listHeaderText: { fontSize: FontSize.xs, color: Colors.textMuted, fontWeight: '600', flex: 1 },
-  listHeaderRight: { fontSize: FontSize.xs, color: Colors.textMuted, fontWeight: '600', textAlign: 'right', width: 120 },
+  listHeaderText: { fontSize: 11, color: Colors.textMuted, fontWeight: '700', flex: 1, textTransform: 'uppercase' },
+  listHeaderRight: { fontSize: 11, color: Colors.textMuted, fontWeight: '700', textAlign: 'right', width: 120, textTransform: 'uppercase' },
 
-  // Coin Row (Binance/Trust Wallet style)
+  // Coin Row
   coinRow: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     paddingHorizontal: Spacing.lg, paddingVertical: 14,
-    borderBottomWidth: 1, borderBottomColor: Colors.border + '40',
+    borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.04)',
   },
-  rankText: { width: 20, fontSize: FontSize.xs, color: Colors.textMuted, fontWeight: '600', textAlign: 'center' },
+  rankText: { width: 20, fontSize: 12, color: Colors.textMuted, fontWeight: '700', textAlign: 'center' },
   coinIconWrap: {
-    width: 36, height: 36, borderRadius: 18,
+    width: 40, height: 40, borderRadius: 20,
     alignItems: 'center', justifyContent: 'center',
   },
-  coinIconChar: { fontSize: FontSize.md, fontWeight: '800' },
+  coinIconChar: { fontSize: 16, fontWeight: '800' },
   coinInfo: { flex: 1, gap: 1 },
-  coinSymbol: { fontSize: FontSize.md, fontWeight: '700', color: Colors.textPrimary },
-  coinNameText: { fontSize: FontSize.xs, color: Colors.textMuted },
-  coinMcap: { fontSize: 9, color: Colors.textMuted, marginTop: 1 },
+  coinSymbol: { fontSize: 15, fontWeight: '800', color: Colors.textPrimary },
+  coinNameText: { fontSize: 12, color: Colors.textMuted, fontWeight: '600' },
+  coinMcap: { fontSize: 10, color: Colors.textMuted, marginTop: 1 },
   sparklineWrap: { marginHorizontal: 4 },
-  coinPriceWrap: { width: 110, alignItems: 'flex-end', gap: 4 },
-  coinPriceText: { fontSize: FontSize.md, fontWeight: '700', color: Colors.textPrimary },
+  coinPriceWrap: { width: 120, alignItems: 'flex-end', gap: 4 },
+  coinPriceText: { fontSize: 15, fontWeight: '800', color: Colors.textPrimary },
   changePill: {
     flexDirection: 'row', alignItems: 'center', gap: 2,
-    paddingHorizontal: 6, paddingVertical: 2, borderRadius: Radius.full,
+    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 99,
   },
-  changePillText: { fontSize: 10, fontWeight: '700' },
+  changePillText: { fontSize: 11, fontWeight: '700' },
 
   // Target Section
   targetSection: { paddingHorizontal: Spacing.lg, marginTop: Spacing.lg, gap: Spacing.md },
-  targetSectionTitle: { fontSize: FontSize.lg, fontWeight: '700', color: Colors.textPrimary },
   infoBanner: {
     flexDirection: 'row', gap: 8, backgroundColor: 'rgba(240,185,11,0.08)',
     borderWidth: 1, borderColor: 'rgba(240,185,11,0.15)',
     borderRadius: Radius.md, padding: Spacing.md, alignItems: 'flex-start',
   },
-  infoBannerText: { flex: 1, fontSize: FontSize.xs, color: Colors.textSecondary, lineHeight: 16 },
+  infoBannerText: { flex: 1, fontSize: 12, color: Colors.textSecondary, lineHeight: 18 },
   targetCard: {
     flexDirection: 'row', alignItems: 'center', gap: Spacing.md,
-    borderRadius: Radius.lg, padding: Spacing.md, borderWidth: 1, borderColor: Colors.border,
+    backgroundColor: Colors.bgCard, borderRadius: Radius.lg, padding: Spacing.md,
+    borderWidth: 1, borderColor: Colors.border,
   },
-  targetIconWrap: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
-  targetIconChar: { fontSize: FontSize.xl, fontWeight: '800' },
-  targetAssetName: { fontSize: FontSize.md, fontWeight: '700', color: Colors.textPrimary },
-  targetCurrentPrice: { fontSize: FontSize.xs, color: Colors.textMuted, marginTop: 2 },
+  targetIconWrap: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
+  targetIconChar: { fontSize: 20, fontWeight: '800' },
+  targetAssetName: { fontSize: 16, fontWeight: '800', color: Colors.textPrimary },
+  targetCurrentPrice: { fontSize: 12, color: Colors.textMuted, marginTop: 2, fontWeight: '600' },
   targetPhases: { alignItems: 'flex-end', gap: 6 },
   targetPhaseRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   phaseDot: { width: 6, height: 6, borderRadius: 3 },
-  phaseLabel: { fontSize: FontSize.xs, color: Colors.success, fontWeight: '700' },
-  phaseValue: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.textPrimary },
+  phaseLabel: { fontSize: 12, fontWeight: '700' },
+  phaseValue: { fontSize: 13, fontWeight: '700', color: Colors.textPrimary },
 });
