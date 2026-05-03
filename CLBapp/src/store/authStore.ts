@@ -7,6 +7,8 @@ interface User {
   username?: string;
   referralCode: string;
   createdAt: string;
+  pinSetup?: boolean;
+  biometricEnabled?: boolean;
 }
 
 interface AuthState {
@@ -14,7 +16,9 @@ interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  pinVerified: boolean;
   setAuth: (token: string, user: User) => Promise<void>;
+  setPinVerified: (verified: boolean) => void;
   logout: () => Promise<void>;
   loadFromStorage: () => Promise<void>;
 }
@@ -24,17 +28,20 @@ export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   isAuthenticated: false,
   isLoading: true,
+  pinVerified: false,
 
   setAuth: async (token, user) => {
     await SecureStore.setItemAsync('clb_token', token);
     await SecureStore.setItemAsync('clb_user', JSON.stringify(user));
-    set({ token, user, isAuthenticated: true });
+    set({ token, user, isAuthenticated: true, pinVerified: !user.pinSetup });
   },
+
+  setPinVerified: (verified) => set({ pinVerified: verified }),
 
   logout: async () => {
     await SecureStore.deleteItemAsync('clb_token');
     await SecureStore.deleteItemAsync('clb_user');
-    set({ token: null, user: null, isAuthenticated: false });
+    set({ token: null, user: null, isAuthenticated: false, pinVerified: false });
   },
 
   loadFromStorage: async () => {
@@ -42,7 +49,8 @@ export const useAuthStore = create<AuthState>((set) => ({
       const token = await SecureStore.getItemAsync('clb_token');
       const userStr = await SecureStore.getItemAsync('clb_user');
       if (token && userStr) {
-        set({ token, user: JSON.parse(userStr), isAuthenticated: true, isLoading: false });
+        const user = JSON.parse(userStr);
+        set({ token, user, isAuthenticated: true, isLoading: false, pinVerified: !user.pinSetup });
       } else {
         set({ isLoading: false });
       }

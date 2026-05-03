@@ -4,6 +4,8 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { useAuthStore } from '../store/authStore';
 import SplashScreen from '../screens/auth/SplashScreen';
 import ConnectWalletScreen from '../screens/auth/ConnectWalletScreen';
+import PinSetupScreen from '../screens/auth/PinSetupScreen';
+import PinVerifyScreen from '../screens/auth/PinVerifyScreen';
 import TabNavigator from './TabNavigator';
 import ActivityScreen from '../screens/main/ActivityScreen';
 import PositionDetailScreen from '../screens/main/PositionDetailScreen';
@@ -14,7 +16,7 @@ import { Colors } from '../constants/theme';
 const Stack = createStackNavigator();
 
 export default function RootNavigator() {
-  const { isAuthenticated, isLoading, loadFromStorage } = useAuthStore();
+  const { isAuthenticated, isLoading, loadFromStorage, user, pinVerified, setPinVerified } = useAuthStore();
   const [showSplash, setShowSplash] = useState(true);
 
   useEffect(() => {
@@ -24,6 +26,13 @@ export default function RootNavigator() {
   if (showSplash) {
     return <SplashScreen onFinish={() => setShowSplash(false)} />;
   }
+
+  if (isLoading) {
+    return null;
+  }
+
+  const needsPinSetup = isAuthenticated && user && !user.pinSetup;
+  const needsPinVerify = isAuthenticated && user && user.pinSetup && !pinVerified;
 
   return (
     <NavigationContainer theme={{
@@ -46,6 +55,12 @@ export default function RootNavigator() {
       <Stack.Navigator screenOptions={{ headerShown: false, cardStyle: { backgroundColor: Colors.bg } }}>
         {!isAuthenticated ? (
           <Stack.Screen name="ConnectWallet" component={ConnectWalletScreen} />
+        ) : needsPinSetup ? (
+          <Stack.Screen name="PinSetup" component={PinSetupScreen} />
+        ) : needsPinVerify ? (
+          <Stack.Screen name="PinVerify">
+            {() => <PinVerifyScreen onVerified={() => setPinVerified(true)} />}
+          </Stack.Screen>
         ) : (
           <>
             <Stack.Screen name="Main" component={TabNavigator} />

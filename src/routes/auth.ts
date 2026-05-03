@@ -1,6 +1,7 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { ethers } from 'ethers';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import prisma from '../config/db';
 import { env } from '../config/env';
 import { authMiddleware } from '../middleware/auth';
@@ -269,6 +270,70 @@ export default async function authRoutes(fastify: FastifyInstance) {
           referralCode: user.referralCode,
         },
       };
+    }
+  );
+
+  // POST /auth/setup-pin — set up PIN for mobile app security (protected)
+  fastify.post<{ Body: { pin: string; enableBiometric?: boolean } }>(
+    '/setup-pin',
+    { preHandler: [authMiddleware] },
+    async (request: FastifyRequest<{ Body: { pin: string; enableBiometric?: boolean } }>, reply: FastifyReply) => {
+      const userId = request.userId!;
+      const { pin, enableBiometric = false } = request.body;
+
+      if (!pin || pin.length !== 6 || !/^\d+$/.test(pin)) {
+        return reply.status(400).send({ success: false, error: 'PIN must be 6 digits' });
+      }
+
+      const salt = crypto.randomBytes(16).toString('hex');
+      const pinHash = crypto.createHash('sha256').update(pin + salt).digest('hex');
+
+      await prisma.user.update({
+        where: { id: userId },
+        data: { pinHash, pinSalt: salt, biometricEnabled: enableBiometric },
+      });
+
+      return { success: true };
+    }
+  );
+
+  // POST /auth/verify-pin — verify PIN on app open (protected)
+  fastify.post<{ Body: { pin: string } }>(
+    '/verify-pin',
+    { preHandler: [authMiddleware] },
+    async (request: FastifyRequest<{ Body: { pin: string } }>, reply: FastifyReply) => {
+      const userId = request.userId!;
+      const { pin } = request.body;
+
+      const user = await prisma.user.findUnique({ where: { id: userId } });
+
+      if (!user?.pinHash || !user?.pinSalt) {
+        return reply.status(400).send({ success: false, error: 'PIN not set up' });
+      }
+
+      const pinHash = crypto.createHash('sha256').update(pin + user.pinSalt).digest('hex');
+
+      if (pinHash !== user.pinHash) {
+        return reply.status(401).send({ success: false, error: 'Invalid PIN' });
+      }
+
+      return { success: true, biometricEnabled: user.biometricEnabled };
+    }
+  );
+
+  // POST /auth/enable-biometric — enable/disable biometric unlock (protected)
+  fastify.post<{ Body: { enabled: boolean } }>(
+    '/biometric',
+    { preHandler: [authMiddleware] },
+    async (request: FastifyRequest<{ Body: { enabled: boolean } }>) => {
+      const userId = request.userId!;
+
+      await prisma.user.update({
+        where: { id: userId },
+        data: { biometricEnabled: request.body.enabled },
+      });
+
+      return { success: true };
     }
   );
 

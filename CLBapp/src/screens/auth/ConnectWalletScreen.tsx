@@ -29,7 +29,8 @@ export default function ConnectWalletScreen() {
       // TODO: Replace with proper wallet signing (SIWE/WalletConnect) for production
       const res = await authAPI.devLogin(addr);
       const { token, user } = res.data;
-      await setAuth(token, user);
+      // Add pinSetup flag to user data for PIN flow
+      await setAuth(token, { ...user, pinSetup: false });
     } catch (err: any) {
       const msg = err?.response?.data?.error || err?.response?.data?.message || err.message || 'Connection failed.';
       Alert.alert('Error', msg);

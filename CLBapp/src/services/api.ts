@@ -26,6 +26,12 @@ export const authAPI = {
     api.post('/api/auth/verify', { walletAddress, signature }),
   devLogin: (walletAddress: string) =>
     api.post('/api/auth/dev-login', { walletAddress }),
+  setupPin: (pin: string, enableBiometric = false) =>
+    api.post('/api/auth/setup-pin', { pin, enableBiometric }),
+  verifyPin: (pin: string) =>
+    api.post('/api/auth/verify-pin', { pin }),
+  toggleBiometric: (enabled: boolean) =>
+    api.post('/api/auth/biometric', { enabled }),
   getProfile: () =>
     api.get('/api/auth/profile'),
   updateProfile: (data: { username?: string; email?: string }) =>

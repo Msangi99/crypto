@@ -21,6 +21,11 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
+  // Security (PIN/biometric for mobile app)
+  pinHash       String?
+  pinSalt       String?
+  biometricEnabled Boolean @default(false)
+
   // Relations
   deposits      Deposit[]
   referrals     Referral[]   @relation("referrer")
