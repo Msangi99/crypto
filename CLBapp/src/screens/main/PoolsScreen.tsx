@@ -76,7 +76,7 @@ export default function PoolsScreen({ navigation }: any) {
               <View style={styles.featuredStats}>
                 <Stat label="Min Deposit" value={`$${pools[0].minDeposit}`} />
                 <Stat label="Total Staked" value={`$${Number(pools[0].totalStaked).toLocaleString()}`} />
-                <Stat label="Members" value={`${pools[0].memberCount || 0}`} />
+                <Stat label="Members" value={`${pools[0]._count?.members || pools[0].memberCount || 0}`} />
               </View>
             </LinearGradient>
           </TouchableOpacity>
@@ -125,7 +125,7 @@ export default function PoolsScreen({ navigation }: any) {
                 <View style={styles.poolFooter}>
                   <View style={styles.poolMember}>
                     <Ionicons name="people-outline" size={14} color={Colors.textMuted} />
-                    <Text style={styles.poolMemberText}>{pool.memberCount || 0} members</Text>
+                    <Text style={styles.poolMemberText}>{pool._count?.members || pool.memberCount || 0} members</Text>
                   </View>
                   <Ionicons name="chevron-forward" size={20} color={Colors.textMuted} />
                 </View>

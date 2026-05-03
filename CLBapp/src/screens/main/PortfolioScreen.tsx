@@ -30,6 +30,10 @@ export default function PortfolioScreen({ navigation }: any) {
 
   const positions = data?.positions ?? [];
   const summary = data?.summary ?? {};
+  const totalInvestedUsd = summary.totalInvestedUsd ?? 0;
+  const totalCurrentValueUsd = summary.totalCurrentValueUsd ?? 0;
+  const totalUnrealizedPnlUsd = summary.totalUnrealizedPnlUsd ?? 0;
+  const totalProjectedProfitUsd = summary.totalProjectedProfitUsd ?? 0;
 
   return (
     <LinearGradient colors={['#0D0D0D', '#0D0D0D']} style={styles.container}>
@@ -46,16 +50,16 @@ export default function PortfolioScreen({ navigation }: any) {
         {/* Summary */}
         <LinearGradient colors={Colors.gradientCard} style={styles.summaryCard}>
           <View style={styles.summaryRow}>
-            <SummaryItem label="Total Value" value={`$${(summary.totalValue ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}`} />
+            <SummaryItem label="Total Value" value={`$${totalCurrentValueUsd.toLocaleString('en-US', { minimumFractionDigits: 2 })}`} />
             <View style={styles.summaryDivider} />
             <SummaryItem
-              label="Total P&L"
-              value={`${(summary.totalPnl ?? 0) >= 0 ? '+' : ''}$${(summary.totalPnl ?? 0).toFixed(2)}`}
-              positive={(summary.totalPnl ?? 0) >= 0}
-              negative={(summary.totalPnl ?? 0) < 0}
+              label="Unrealized P&L"
+              value={`${totalUnrealizedPnlUsd >= 0 ? '+' : ''}$${totalUnrealizedPnlUsd.toFixed(2)}`}
+              positive={totalUnrealizedPnlUsd >= 0}
+              negative={totalUnrealizedPnlUsd < 0}
             />
             <View style={styles.summaryDivider} />
-            <SummaryItem label="Invested" value={`$${(summary.totalInvested ?? 0).toLocaleString()}`} />
+            <SummaryItem label="Invested" value={`$${totalInvestedUsd.toLocaleString()}`} />
           </View>
         </LinearGradient>
 
@@ -79,27 +83,27 @@ export default function PortfolioScreen({ navigation }: any) {
                     <Text style={styles.posTier}>Tier ${pos.depositUsd ?? 0} · {pos.leverage ?? 1}x Leverage</Text>
                   </View>
                   <Badge
-                    label={pos.status ?? 'ACTIVE'}
-                    variant={pos.status === 'ACTIVE' ? 'success' : pos.status === 'PENDING' ? 'warning' : 'error'}
+                    label={pos.poolStatus ?? 'ACTIVE'}
+                    variant={pos.poolStatus === 'ACTIVE' ? 'success' : pos.poolStatus === 'PAUSED' ? 'warning' : 'error'}
                   />
                 </View>
 
                 <View style={styles.posMetrics}>
                   <Metric label="Deposited" value={`$${(pos.depositUsd ?? 0).toLocaleString()}`} />
                   <Metric label="Loan Value" value={`$${(pos.loanUsd ?? 0).toLocaleString()}`} accent />
-                  <Metric label="Current Value" value={`$${(pos.currentValue ?? 0).toLocaleString()}`} />
+                  <Metric label="Current Value" value={`$${(pos.currentValueUsd ?? 0).toLocaleString()}`} />
                   <Metric
                     label="Unrealized P&L"
-                    value={`${(pos.unrealizedPnl ?? 0) >= 0 ? '+' : ''}$${(pos.unrealizedPnl ?? 0).toFixed(2)}`}
-                    positive={(pos.unrealizedPnl ?? 0) >= 0}
-                    negative={(pos.unrealizedPnl ?? 0) < 0}
+                    value={`${(pos.unrealizedPnlUsd ?? 0) >= 0 ? '+' : ''}$${(pos.unrealizedPnlUsd ?? 0).toFixed(2)}`}
+                    positive={(pos.unrealizedPnlUsd ?? 0) >= 0}
+                    negative={(pos.unrealizedPnlUsd ?? 0) < 0}
                   />
                 </View>
 
                 <View style={styles.posLiqRow}>
                   <Ionicons name="flag-outline" size={14} color={Colors.gold} />
                   <Text style={styles.posLiqText}>
-                    Phase 1 target: ${(pos.liquidationTargets?.phase1?.price ?? 0).toLocaleString()}
+                    Phase 1 target: ${(pos.liquidationTargets?.phase1 ?? 0).toLocaleString()}
                   </Text>
                   <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
                 </View>

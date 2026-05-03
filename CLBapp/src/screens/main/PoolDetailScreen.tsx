@@ -172,7 +172,7 @@ export default function PoolDetailScreen({ route, navigation }: any) {
           <View style={styles.poolStats}>
             <Stat label="APY" value={`${pool.apy}%`} accent />
             <Stat label="TVL" value={`$${Number(pool.totalStaked).toLocaleString()}`} />
-            <Stat label="Members" value={`${pool.memberCount || 0}`} />
+            <Stat label="Members" value={`${pool._count?.members || pool.memberCount || 0}`} />
           </View>
 
           <View style={styles.poolMeta}>
@@ -188,18 +188,19 @@ export default function PoolDetailScreen({ route, navigation }: any) {
           <Text style={styles.sectionSubtitle}>Higher deposits unlock higher leverage</Text>
           
           {[
-            { tier: 1, deposit: '0-100', leverage: '2x' },
-            { tier: 2, deposit: '100-500', leverage: '5x' },
-            { tier: 3, deposit: '500-1000', leverage: '10x' },
-            { tier: 4, deposit: '1000-5000', leverage: '20x' },
-            { tier: 5, deposit: '5000+', leverage: '60x' },
+            { tier: 1, deposit: '$100', leverage: '10x' },
+            { tier: 2, deposit: '$200', leverage: '15x' },
+            { tier: 3, deposit: '$300', leverage: '20x' },
+            { tier: 4, deposit: '$500', leverage: '30x' },
+            { tier: 5, deposit: '$700', leverage: '40x' },
+            { tier: 6, deposit: '$1,000', leverage: '60x' },
           ].map((t) => (
             <LinearGradient key={t.tier} colors={Colors.gradientCard} style={styles.tierCard}>
               <View style={styles.tierBadge}>
                 <Text style={styles.tierBadgeText}>Tier {t.tier}</Text>
               </View>
               <View style={styles.tierContent}>
-                <Text style={styles.tierDeposit}>Deposit: ${t.deposit}</Text>
+                <Text style={styles.tierDeposit}>Deposit: {t.deposit}</Text>
                 <Text style={styles.tierLeverage}>{t.leverage} Leverage</Text>
               </View>
             </LinearGradient>
