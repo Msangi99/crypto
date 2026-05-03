@@ -34,7 +34,7 @@ export const authAPI = {
     api.post('/api/auth/biometric', { enabled }),
   getProfile: () =>
     api.get('/api/auth/profile'),
-  updateProfile: (data: { username?: string; email?: string }) =>
+  updateProfile: (data: { username?: string; email?: string; avatar?: string }) =>
     api.put('/api/auth/profile', data),
 };
 

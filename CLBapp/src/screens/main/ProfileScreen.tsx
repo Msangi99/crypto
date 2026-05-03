@@ -1,17 +1,23 @@
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Switch,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Switch, TextInput,
+  Modal, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { Colors, FontSize, Spacing, Radius } from '../../constants/theme';
 import { useAuthStore } from '../../store/authStore';
+import { authAPI } from '../../services/api';
 
 export default function ProfileScreen({ navigation }: any) {
-  const { user, logout } = useAuthStore();
+  const { user, logout, setAuth } = useAuthStore();
   const [notifications, setNotifications] = useState(true);
-  const [biometrics, setBiometrics] = useState(false);
+  const [biometrics, setBiometrics] = useState(user?.biometricEnabled || false);
+  const [editModal, setEditModal] = useState(false);
+  const [editUsername, setEditUsername] = useState(user?.username || '');
+  const [editEmail, setEditEmail] = useState(user?.email || '');
+  const [loading, setLoading] = useState(false);
 
   const handleLogout = () => {
     Alert.alert('Disconnect Wallet', 'Are you sure you want to disconnect?', [
@@ -23,6 +29,27 @@ export default function ProfileScreen({ navigation }: any) {
   const copyAddress = async () => {
     await Clipboard.setStringAsync(user?.walletAddress ?? '');
     Alert.alert('Copied', 'Wallet address copied');
+  };
+
+  const handleSaveProfile = async () => {
+    setLoading(true);
+    try {
+      const res = await authAPI.updateProfile({ username: editUsername, email: editEmail });
+      const { token } = useAuthStore.getState();
+      await setAuth(token!, { ...user!, username: editUsername, email: editEmail });
+      Alert.alert('Success', 'Profile updated');
+      setEditModal(false);
+    } catch (err: any) {
+      Alert.alert('Error', err?.response?.data?.error || 'Failed to update profile');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEditProfile = () => {
+    setEditUsername(user?.username || '');
+    setEditEmail(user?.email || '');
+    setEditModal(true);
   };
 
   const shortAddr = user?.walletAddress
@@ -52,6 +79,10 @@ export default function ProfileScreen({ navigation }: any) {
             <Ionicons name="gift-outline" size={14} color={Colors.gold} />
             <Text style={styles.refCode}>{user?.referralCode ?? '——'}</Text>
           </View>
+          <TouchableOpacity onPress={handleEditProfile} style={styles.editBtn}>
+            <Ionicons name="create-outline" size={16} color={Colors.primary} />
+            <Text style={styles.editBtnText}>Edit Profile</Text>
+          </TouchableOpacity>
         </LinearGradient>
 
         {/* Settings */}
@@ -124,6 +155,57 @@ export default function ProfileScreen({ navigation }: any) {
 
         <View style={{ height: 80 }} />
       </ScrollView>
+
+      {/* Edit Profile Modal */}
+      <Modal visible={editModal} animationType="slide" transparent>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Edit Profile</Text>
+                <TouchableOpacity onPress={() => setEditModal(false)}>
+                  <Ionicons name="close" size={24} color={Colors.textPrimary} />
+                </TouchableOpacity>
+              </View>
+              
+              <View style={styles.modalBody}>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Username</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={editUsername}
+                    onChangeText={setEditUsername}
+                    placeholder="Enter username"
+                    placeholderTextColor={Colors.textMuted}
+                  />
+                </View>
+                
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Email</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={editEmail}
+                    onChangeText={setEditEmail}
+                    placeholder="Enter email"
+                    placeholderTextColor={Colors.textMuted}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                  />
+                </View>
+              </View>
+
+              <View style={styles.modalFooter}>
+                <TouchableOpacity onPress={() => setEditModal(false)} style={styles.modalCancelBtn}>
+                  <Text style={styles.modalCancelText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={handleSaveProfile} style={styles.modalSaveBtn} disabled={loading}>
+                  <Text style={styles.modalSaveText}>{loading ? 'Saving...' : 'Save'}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </LinearGradient>
   );
 }
@@ -155,6 +237,13 @@ const styles = StyleSheet.create({
   addrText: { fontSize: FontSize.sm, color: Colors.textSecondary, fontFamily: 'monospace' },
   refRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
   refCode: { fontSize: FontSize.md, fontWeight: '700', color: Colors.gold, letterSpacing: 2 },
+  editBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: Spacing.md,
+    paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm,
+    backgroundColor: 'rgba(240,185,11,0.1)', borderRadius: Radius.md,
+    borderWidth: 1, borderColor: Colors.primary,
+  },
+  editBtnText: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.primary },
   section: { gap: Spacing.sm },
   sectionTitle: { fontSize: FontSize.md, fontWeight: '700', color: Colors.textSecondary, paddingHorizontal: 4 },
   settingsList: { borderRadius: Radius.lg, borderWidth: 1, borderColor: Colors.border, overflow: 'hidden' },
@@ -171,4 +260,37 @@ const styles = StyleSheet.create({
     borderRadius: Radius.lg, padding: Spacing.md,
   },
   logoutText: { fontSize: FontSize.md, fontWeight: '700', color: Colors.error },
+  modalOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: Colors.bgCard, borderTopLeftRadius: Radius.xl, borderTopRightRadius: Radius.xl,
+    padding: Spacing.xl, gap: Spacing.lg,
+  },
+  modalHeader: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+  },
+  modalTitle: { fontSize: FontSize.xl, fontWeight: '700', color: Colors.textPrimary },
+  modalBody: { gap: Spacing.md },
+  inputGroup: { gap: Spacing.xs },
+  inputLabel: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.textSecondary },
+  input: {
+    backgroundColor: Colors.bg, borderWidth: 1, borderColor: Colors.border,
+    borderRadius: Radius.md, padding: Spacing.md, fontSize: FontSize.md,
+    color: Colors.textPrimary,
+  },
+  modalFooter: {
+    flexDirection: 'row', gap: Spacing.md,
+  },
+  modalCancelBtn: {
+    flex: 1, padding: Spacing.md, borderRadius: Radius.md,
+    backgroundColor: Colors.bg, borderWidth: 1, borderColor: Colors.border,
+    alignItems: 'center',
+  },
+  modalCancelText: { fontSize: FontSize.md, fontWeight: '600', color: Colors.textSecondary },
+  modalSaveBtn: {
+    flex: 1, padding: Spacing.md, borderRadius: Radius.md,
+    backgroundColor: Colors.primary, alignItems: 'center',
+  },
+  modalSaveText: { fontSize: FontSize.md, fontWeight: '700', color: '#000' },
 });

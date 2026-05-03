@@ -5,6 +5,8 @@ interface User {
   id: string;
   walletAddress: string;
   username?: string;
+  email?: string;
+  avatar?: string;
   referralCode: string;
   createdAt: string;
   pinSetup?: boolean;

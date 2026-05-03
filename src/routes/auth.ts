@@ -349,9 +349,14 @@ export default async function authRoutes(fastify: FastifyInstance) {
           walletAddress: true,
           username: true,
           email: true,
+          avatar: true,
+          referralCode: true,
           role: true,
           isActive: true,
           createdAt: true,
+          pinHash: true,
+          pinSalt: true,
+          biometricEnabled: true,
         },
       });
 
@@ -359,7 +364,10 @@ export default async function authRoutes(fastify: FastifyInstance) {
         return reply.status(404).send({ success: false, error: 'User not found' });
       }
 
-      return { success: true, user };
+      return {
+        success: true,
+        user,
+      };
     }
   );
 
@@ -433,23 +441,25 @@ export default async function authRoutes(fastify: FastifyInstance) {
   );
 
   // PUT /auth/profile — update profile (protected)
-  fastify.put<{ Body: { username?: string; email?: string } }>(
+  fastify.put<{ Body: { username?: string; email?: string; avatar?: string } }>(
     '/profile',
-    { schema: schemas.updateProfile, preHandler: [authMiddleware] },
-    async (request: FastifyRequest<{ Body: { username?: string; email?: string } }>, reply: FastifyReply) => {
-      const { username, email } = request.body;
+    { preHandler: [authMiddleware] },
+    async (request: FastifyRequest<{ Body: { username?: string; email?: string; avatar?: string } }>, reply: FastifyReply) => {
+      const { username, email, avatar } = request.body;
 
       const user = await prisma.user.update({
         where: { id: request.userId },
         data: {
-          ...(username && { username }),
-          ...(email && { email }),
+          ...(username !== undefined && { username }),
+          ...(email !== undefined && { email }),
+          ...(avatar !== undefined && { avatar }),
         },
         select: {
           id: true,
           walletAddress: true,
           username: true,
           email: true,
+          avatar: true,
         },
       });
 
