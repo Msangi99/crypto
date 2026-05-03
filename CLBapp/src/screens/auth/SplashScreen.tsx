@@ -57,7 +57,7 @@ export default function SplashScreen({ onFinish }: Props) {
   });
 
   return (
-    <LinearGradient colors={['#050811', '#0C0F1E', '#131829']} style={styles.container}>
+    <LinearGradient colors={['#0D0D0D', '#111111', '#1A1A1A']} style={styles.container}>
       {/* Background radial effect */}
       <View style={styles.bgGlow} />
 
@@ -136,7 +136,7 @@ const styles = StyleSheet.create({
     width: width * 0.9,
     height: width * 0.9,
     borderRadius: width * 0.45,
-    backgroundColor: 'rgba(245,166,35,0.04)',
+    backgroundColor: 'rgba(240,185,11,0.04)',
     alignSelf: 'center',
   },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.xl },
@@ -155,27 +155,27 @@ const styles = StyleSheet.create({
   ring1: {
     width: RING_BASE + 40,
     height: RING_BASE + 40,
-    borderColor: 'rgba(245,166,35,0.4)',
+    borderColor: 'rgba(240,185,11,0.4)',
   },
   ring2: {
     width: RING_BASE + 90,
     height: RING_BASE + 90,
-    borderColor: 'rgba(245,166,35,0.15)',
+    borderColor: 'rgba(240,185,11,0.15)',
   },
   glowBlob: {
     position: 'absolute',
     width: LOGO_SIZE + 40,
     height: LOGO_SIZE + 40,
     borderRadius: (LOGO_SIZE + 40) / 2,
-    backgroundColor: 'rgba(245,166,35,0.18)',
+    backgroundColor: 'rgba(240,185,11,0.18)',
   },
   logoWrapper: {
     width: LOGO_SIZE,
     height: LOGO_SIZE,
     borderRadius: LOGO_SIZE * 0.22,
     overflow: 'hidden',
-    backgroundColor: '#0B0E1A',
-    shadowColor: '#F5A623',
+    backgroundColor: '#0D0D0D',
+    shadowColor: '#F0B90B',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.6,
     shadowRadius: 30,
@@ -215,9 +215,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: 99,
-    backgroundColor: 'rgba(245,166,35,0.1)',
+    backgroundColor: 'rgba(240,185,11,0.1)',
     borderWidth: 1,
-    borderColor: 'rgba(245,166,35,0.25)',
+    borderColor: 'rgba(240,185,11,0.25)',
   },
   pillText: { fontSize: FontSize.xs, color: Colors.gold, fontWeight: '700' },
 

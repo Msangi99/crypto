@@ -30,14 +30,14 @@ export default function ProfileScreen({ navigation }: any) {
     : '';
 
   return (
-    <LinearGradient colors={['#050811', '#0B0E1A']} style={styles.container}>
+    <LinearGradient colors={['#0D0D0D', '#0D0D0D']} style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Profile</Text>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: Spacing.lg, paddingTop: 0, gap: Spacing.lg }}>
         {/* Avatar & wallet */}
-        <LinearGradient colors={['#1A2035', '#131829']} style={styles.profileCard}>
+        <LinearGradient colors={['#222222', '#1A1A1A']} style={styles.profileCard}>
           <View style={styles.avatar}>
             <LinearGradient colors={Colors.gradientPrimary} style={styles.avatarGrad}>
               <Text style={styles.avatarText}>{(user?.walletAddress ?? 'W')[2].toUpperCase()}</Text>

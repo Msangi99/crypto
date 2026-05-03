@@ -50,13 +50,13 @@ export default function HomeScreen({ navigation }: any) {
   const pnlPct = totalInvested > 0 ? ((pnl / totalInvested) * 100).toFixed(2) : '0.00';
 
   return (
-    <LinearGradient colors={['#050811', '#0B0E1A']} style={styles.container}>
+    <LinearGradient colors={['#0D0D0D', '#0D0D0D']} style={styles.container}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
       >
         {/* Top Header */}
-        <LinearGradient colors={['#0B0E1A', 'transparent']} style={styles.header}>
+        <LinearGradient colors={['#0D0D0D', 'transparent']} style={styles.header}>
           <View style={styles.headerLeft}>
             <Image source={LOGO} style={styles.headerLogo} resizeMode="contain" />
             <View>
@@ -76,7 +76,7 @@ export default function HomeScreen({ navigation }: any) {
         {/* Portfolio Balance Card */}
         <View style={styles.balanceSection}>
           <LinearGradient
-            colors={['#1A2035', '#131829']}
+            colors={['#222222', '#1A1A1A']}
             style={styles.balanceCard}
             start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
           >
@@ -180,7 +180,7 @@ export default function HomeScreen({ navigation }: any) {
 
         {/* Referral Promo */}
         <View style={[styles.section, { marginBottom: 100 }]}>
-          <LinearGradient colors={['#1A2035', '#131829']} style={styles.referralCard}>
+          <LinearGradient colors={['#222222', '#1A1A1A']} style={styles.referralCard}>
             <LinearGradient colors={Colors.gradientGold} style={styles.referralIconBg}>
               <Ionicons name="gift-outline" size={24} color="#fff" />
             </LinearGradient>
@@ -291,7 +291,7 @@ const styles = StyleSheet.create({
   balanceGlow: {
     position: 'absolute', top: -40, right: -40,
     width: 150, height: 150, borderRadius: 75,
-    backgroundColor: 'rgba(26,86,255,0.08)',
+    backgroundColor: 'rgba(240,185,11,0.08)',
   },
   balanceTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
   balanceLabel: { fontSize: FontSize.sm, color: Colors.textSecondary, textTransform: 'uppercase', letterSpacing: 0.8 },
@@ -351,7 +351,7 @@ const styles = StyleSheet.create({
   referralCard: {
     flexDirection: 'row', alignItems: 'center', gap: Spacing.md,
     borderRadius: Radius.lg, padding: Spacing.md,
-    borderWidth: 1, borderColor: 'rgba(245,166,35,0.2)',
+    borderWidth: 1, borderColor: 'rgba(240,185,11,0.2)',
   },
   referralIconBg: { width: 48, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   referralTitle: { fontSize: FontSize.md, fontWeight: '700', color: Colors.textPrimary },

@@ -18,7 +18,7 @@ export default function PositionDetailScreen({ route, navigation }: any) {
 
   if (!data) {
     return (
-      <LinearGradient colors={['#050811', '#0B0E1A']} style={styles.container}>
+      <LinearGradient colors={['#0D0D0D', '#0D0D0D']} style={styles.container}>
         <View style={styles.loading}>
           <Text style={styles.loadingText}>Loading...</Text>
         </View>
@@ -30,7 +30,7 @@ export default function PositionDetailScreen({ route, navigation }: any) {
   const isUp = pnl >= 0;
 
   return (
-    <LinearGradient colors={['#050811', '#0B0E1A']} style={styles.container}>
+    <LinearGradient colors={['#0D0D0D', '#0D0D0D']} style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
@@ -42,7 +42,7 @@ export default function PositionDetailScreen({ route, navigation }: any) {
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: Spacing.lg, gap: Spacing.lg }}>
         {/* Main P&L */}
-        <LinearGradient colors={['#1A2035', '#131829']} style={styles.pnlCard}>
+        <LinearGradient colors={['#222222', '#1A1A1A']} style={styles.pnlCard}>
           <View style={styles.pnlGlow} />
           <Text style={styles.pnlLabel}>Unrealized P&L</Text>
           <Text style={[styles.pnlValue, { color: isUp ? Colors.success : Colors.error }]}>
@@ -151,7 +151,7 @@ const styles = StyleSheet.create({
   },
   pnlGlow: {
     position: 'absolute', top: -20, width: 120, height: 120, borderRadius: 60,
-    backgroundColor: 'rgba(26,86,255,0.07)',
+    backgroundColor: 'rgba(240,185,11,0.07)',
   },
   pnlLabel: { fontSize: FontSize.sm, color: Colors.textSecondary, textTransform: 'uppercase', letterSpacing: 1 },
   pnlValue: { fontSize: 40, fontWeight: '900', letterSpacing: -1 },
@@ -184,7 +184,7 @@ const styles = StyleSheet.create({
   phaseMetrics: { gap: 8 },
   receiptCard: {
     flexDirection: 'row', alignItems: 'center', gap: Spacing.md,
-    borderRadius: Radius.lg, borderWidth: 1, borderColor: 'rgba(245,166,35,0.2)', padding: Spacing.md,
+    borderRadius: Radius.lg, borderWidth: 1, borderColor: 'rgba(240,185,11,0.2)', padding: Spacing.md,
   },
   receiptTokenId: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.textPrimary },
   receiptMinted: { fontSize: FontSize.xs, color: Colors.textMuted },

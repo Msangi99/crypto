@@ -79,18 +79,18 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   iconActive: {
-    backgroundColor: 'rgba(26,86,255,0.12)',
+    backgroundColor: 'rgba(240,185,11,0.12)',
   },
   homeIconWrapper: {
     width: 40, height: 38, borderRadius: 10,
     alignItems: 'center', justifyContent: 'center',
-    backgroundColor: 'rgba(245,166,35,0.08)',
+    backgroundColor: 'rgba(240,185,11,0.08)',
     borderWidth: 1,
     borderColor: 'transparent',
   },
   homeIconActive: {
-    backgroundColor: 'rgba(245,166,35,0.18)',
-    borderColor: 'rgba(245,166,35,0.4)',
+    backgroundColor: 'rgba(240,185,11,0.18)',
+    borderColor: 'rgba(240,185,11,0.4)',
   },
   homeLogoIcon: { width: 28, height: 28 },
   tabLabel: {

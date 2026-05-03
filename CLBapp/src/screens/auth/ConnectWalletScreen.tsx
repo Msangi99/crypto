@@ -39,7 +39,7 @@ export default function ConnectWalletScreen() {
   };
 
   return (
-    <LinearGradient colors={['#050811', '#0B0E1A']} style={styles.container}>
+    <LinearGradient colors={['#0D0D0D', '#0D0D0D']} style={styles.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           {/* Header */}
@@ -121,7 +121,7 @@ const styles = StyleSheet.create({
   logoGlow: {
     position: 'absolute',
     width: 120, height: 120, borderRadius: 60,
-    backgroundColor: 'rgba(245,166,35,0.15)',
+    backgroundColor: 'rgba(240,185,11,0.15)',
   },
   logoImage: { width: 90, height: 90 },
   title: { fontSize: FontSize.xxl, fontWeight: '900', color: Colors.textPrimary, letterSpacing: 0.5 },
@@ -129,9 +129,9 @@ const styles = StyleSheet.create({
   hintCard: {
     flexDirection: 'row',
     gap: 10,
-    backgroundColor: 'rgba(26,86,255,0.08)',
+    backgroundColor: 'rgba(240,185,11,0.08)',
     borderWidth: 1,
-    borderColor: 'rgba(26,86,255,0.2)',
+    borderColor: 'rgba(240,185,11,0.2)',
     borderRadius: Radius.md,
     padding: Spacing.md,
     alignItems: 'flex-start',

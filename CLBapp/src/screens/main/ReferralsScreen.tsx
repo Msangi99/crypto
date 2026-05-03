@@ -50,7 +50,7 @@ export default function ReferralsScreen() {
   };
 
   return (
-    <LinearGradient colors={['#050811', '#0B0E1A']} style={styles.container}>
+    <LinearGradient colors={['#0D0D0D', '#0D0D0D']} style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Referrals</Text>
       </View>
@@ -61,7 +61,7 @@ export default function ReferralsScreen() {
         contentContainerStyle={{ padding: Spacing.lg, paddingTop: 0, gap: Spacing.lg }}
       >
         {/* Referral Code Card */}
-        <LinearGradient colors={['#1A2035', '#131829']} style={styles.codeCard}>
+        <LinearGradient colors={['#222222', '#1A1A1A']} style={styles.codeCard}>
           <View style={styles.codeGlow} />
           <Text style={styles.codeLabel}>Your Referral Code</Text>
           <Text style={styles.codeValue}>{user?.referralCode ?? '——'}</Text>
@@ -186,13 +186,13 @@ const styles = StyleSheet.create({
   title: { fontSize: FontSize.xxl, fontWeight: '800', color: Colors.textPrimary },
   codeCard: {
     borderRadius: Radius.xl, padding: Spacing.lg,
-    borderWidth: 1, borderColor: 'rgba(245,166,35,0.2)',
+    borderWidth: 1, borderColor: 'rgba(240,185,11,0.2)',
     gap: Spacing.sm, overflow: 'hidden',
   },
   codeGlow: {
     position: 'absolute', top: -30, right: -30,
     width: 120, height: 120, borderRadius: 60,
-    backgroundColor: 'rgba(245,166,35,0.06)',
+    backgroundColor: 'rgba(240,185,11,0.06)',
   },
   codeLabel: { fontSize: FontSize.xs, color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: 1 },
   codeValue: { fontSize: 28, fontWeight: '900', color: Colors.gold, letterSpacing: 4 },
@@ -200,10 +200,10 @@ const styles = StyleSheet.create({
   codeActions: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.sm },
   codeBtn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    backgroundColor: 'rgba(26,86,255,0.12)', borderWidth: 1, borderColor: 'rgba(26,86,255,0.25)',
+    backgroundColor: 'rgba(240,185,11,0.12)', borderWidth: 1, borderColor: 'rgba(240,185,11,0.25)',
     borderRadius: Radius.full, paddingVertical: 10,
   },
-  codeBtnGold: { backgroundColor: 'rgba(245,166,35,0.12)', borderColor: 'rgba(245,166,35,0.25)' },
+  codeBtnGold: { backgroundColor: 'rgba(240,185,11,0.12)', borderColor: 'rgba(240,185,11,0.25)' },
   codeBtnText: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.primary },
   ratesCard: {
     backgroundColor: Colors.bgCard, borderRadius: Radius.lg,

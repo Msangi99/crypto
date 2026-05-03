@@ -13,8 +13,8 @@ const variantMap: Record<Variant, { bg: string; color: string }> = {
   success: { bg: Colors.successBg, color: Colors.success },
   error: { bg: Colors.errorBg, color: Colors.error },
   warning: { bg: Colors.warningBg, color: Colors.warning },
-  primary: { bg: 'rgba(26,86,255,0.15)', color: Colors.primary },
-  gold: { bg: 'rgba(245,166,35,0.15)', color: Colors.gold },
+  primary: { bg: 'rgba(240,185,11,0.15)', color: Colors.primary },
+  gold: { bg: 'rgba(240,185,11,0.15)', color: Colors.gold },
 };
 
 export default function Badge({ label, variant = 'primary' }: Props) {

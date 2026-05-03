@@ -32,7 +32,7 @@ export default function CalculatorScreen() {
   };
 
   return (
-    <LinearGradient colors={['#050811', '#0B0E1A']} style={styles.container}>
+    <LinearGradient colors={['#0D0D0D', '#0D0D0D']} style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Profit Calculator</Text>
         <Text style={styles.subtitle}>Estimate your returns before joining</Text>
@@ -117,7 +117,7 @@ function CalcResult({ result, asset }: { result: any; asset: string }) {
         const p = result[ph];
         const isP2 = i === 1;
         return (
-          <LinearGradient key={ph} colors={isP2 ? ['#1D1A10', '#131829'] : Colors.gradientCard} style={[styles.phaseResult, isP2 && { borderColor: 'rgba(245,166,35,0.3)' }]}>
+          <LinearGradient key={ph} colors={isP2 ? ['#1D1A10', '#1A1A1A'] : Colors.gradientCard} style={[styles.phaseResult, isP2 && { borderColor: 'rgba(240,185,11,0.3)' }]}>
             <View style={styles.phaseResultHeader}>
               <View style={[styles.phaseDot, { backgroundColor: isP2 ? Colors.gold : Colors.success }]} />
               <Text style={[styles.phaseResultTitle, { color: isP2 ? Colors.gold : Colors.success }]}>
@@ -189,7 +189,7 @@ const styles = StyleSheet.create({
     flex: 1, paddingVertical: 14, borderRadius: Radius.lg, alignItems: 'center',
     backgroundColor: Colors.bgCard, borderWidth: 1, borderColor: Colors.border,
   },
-  assetBtnActive: { borderColor: Colors.primary, backgroundColor: 'rgba(26,86,255,0.12)' },
+  assetBtnActive: { borderColor: Colors.primary, backgroundColor: 'rgba(240,185,11,0.12)' },
   assetBtnText: { fontSize: FontSize.md, fontWeight: '700', color: Colors.textMuted },
   assetBtnTextActive: { color: Colors.primary },
   inputRow: {
@@ -205,7 +205,7 @@ const styles = StyleSheet.create({
     width: '18%', paddingVertical: 10, borderRadius: Radius.md, alignItems: 'center',
     backgroundColor: Colors.bgCard, borderWidth: 1, borderColor: Colors.border,
   },
-  tierBtnActive: { borderColor: Colors.gold, backgroundColor: 'rgba(245,166,35,0.1)' },
+  tierBtnActive: { borderColor: Colors.gold, backgroundColor: 'rgba(240,185,11,0.1)' },
   tierBtnText: { fontSize: FontSize.xs, fontWeight: '600', color: Colors.textMuted },
   tierBtnTextActive: { color: Colors.gold },
   resultSection: { gap: Spacing.md },

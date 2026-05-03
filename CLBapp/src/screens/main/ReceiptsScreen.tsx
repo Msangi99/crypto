@@ -28,7 +28,7 @@ export default function ReceiptsScreen() {
   };
 
   return (
-    <LinearGradient colors={['#050811', '#0B0E1A']} style={styles.container}>
+    <LinearGradient colors={['#0D0D0D', '#0D0D0D']} style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Receipt Tokens</Text>
         <Text style={styles.subtitle}>{receipts.length} soulbound tokens</Text>
@@ -48,7 +48,7 @@ export default function ReceiptsScreen() {
           </View>
         }
         renderItem={({ item }) => (
-          <LinearGradient colors={['#1D1A10', '#131829']} style={styles.card}>
+          <LinearGradient colors={['#1D1A10', '#1A1A1A']} style={styles.card}>
             <View style={styles.cardTop}>
               <LinearGradient colors={Colors.gradientGold} style={styles.tokenIconBg}>
                 <Text style={styles.tokenIconText}>#{item.tokenId ?? '?'}</Text>
@@ -92,7 +92,7 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: FontSize.sm, color: Colors.textMuted },
   card: {
     borderRadius: Radius.xl, borderWidth: 1,
-    borderColor: 'rgba(245,166,35,0.2)', padding: Spacing.md, gap: Spacing.md,
+    borderColor: 'rgba(240,185,11,0.2)', padding: Spacing.md, gap: Spacing.md,
   },
   cardTop: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
   tokenIconBg: {

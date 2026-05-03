@@ -87,7 +87,7 @@ export default function ActivityScreen() {
   };
 
   return (
-    <LinearGradient colors={['#050811', '#0B0E1A']} style={styles.container}>
+    <LinearGradient colors={['#0D0D0D', '#0D0D0D']} style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Activity</Text>
         <Text style={styles.subtitle}>{items.length} transactions</Text>

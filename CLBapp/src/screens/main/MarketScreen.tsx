@@ -41,7 +41,7 @@ export default function MarketScreen() {
   const coins = Object.entries(prices);
 
   return (
-    <LinearGradient colors={['#050811', '#0B0E1A']} style={styles.container}>
+    <LinearGradient colors={['#0D0D0D', '#0D0D0D']} style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Live Market</Text>
         <Text style={styles.subtitle}>Prices update every minute</Text>

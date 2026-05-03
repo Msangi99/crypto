@@ -32,7 +32,7 @@ export default function PortfolioScreen({ navigation }: any) {
   const summary = data?.summary ?? {};
 
   return (
-    <LinearGradient colors={['#050811', '#0B0E1A']} style={styles.container}>
+    <LinearGradient colors={['#0D0D0D', '#0D0D0D']} style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Portfolio</Text>
         <Badge label={`${positions.length} Positions`} variant="primary" />
@@ -158,7 +158,7 @@ const styles = StyleSheet.create({
   },
   posHeader: { flexDirection: 'row', alignItems: 'center' },
   posCoinBadge: {
-    width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(26,86,255,0.15)',
+    width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(240,185,11,0.15)',
     alignItems: 'center', justifyContent: 'center',
   },
   posCoinText: { fontSize: FontSize.xs, fontWeight: '800', color: Colors.primary },
@@ -167,7 +167,7 @@ const styles = StyleSheet.create({
   posMetrics: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.md },
   posLiqRow: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: 'rgba(245,166,35,0.08)', borderRadius: Radius.sm,
+    backgroundColor: 'rgba(240,185,11,0.08)', borderRadius: Radius.sm,
     paddingHorizontal: Spacing.sm, paddingVertical: 6,
   },
   posLiqText: { flex: 1, fontSize: FontSize.xs, color: Colors.gold },
