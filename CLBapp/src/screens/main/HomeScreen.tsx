@@ -6,8 +6,6 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, FontSize, Spacing, Radius } from '../../constants/theme';
-import GradientCard from '../../components/ui/GradientCard';
-import StatCard from '../../components/ui/StatCard';
 import Badge from '../../components/ui/Badge';
 import { userAPI } from '../../services/api';
 import { useAuthStore } from '../../store/authStore';
@@ -51,38 +49,33 @@ export default function HomeScreen({ navigation }: any) {
   const pnlPct = totalInvested > 0 ? ((pnl / totalInvested) * 100).toFixed(2) : '0.00';
 
   return (
-    <LinearGradient colors={[Colors.bg, Colors.bg]} style={styles.container}>
+    <View style={styles.container}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
       >
-        {/* Top Header */}
-        <LinearGradient colors={[Colors.bg, 'transparent']} style={styles.header}>
-          <View style={styles.headerLeft}>
-            <Image source={LOGO} style={styles.headerLogo} resizeMode="contain" />
-            <View>
-              <Text style={styles.greeting}>Good {getGreeting()}</Text>
-              <View style={styles.addressRow}>
-                <View style={styles.addressDot} />
-                <Text style={styles.address}>{shortAddress}</Text>
+        {/* Dark Gradient Header */}
+        <LinearGradient colors={['#1A1F35', '#0B0E1A']} style={styles.headerGradient}>
+          {/* Top Header */}
+          <View style={styles.header}>
+            <View style={styles.headerLeft}>
+              <Image source={LOGO} style={styles.headerLogo} resizeMode="contain" />
+              <View>
+                <Text style={styles.greeting}>Good {getGreeting()}</Text>
+                <View style={styles.addressRow}>
+                  <View style={styles.addressDot} />
+                  <Text style={styles.address}>{shortAddress}</Text>
+                </View>
               </View>
             </View>
+            <TouchableOpacity style={styles.notifBtn}>
+              <Ionicons name="notifications-outline" size={22} color={Colors.textSecondary} />
+              <View style={styles.notifBadge} />
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity style={styles.notifBtn}>
-            <Ionicons name="notifications-outline" size={22} color={Colors.textSecondary} />
-            <View style={styles.notifBadge} />
-          </TouchableOpacity>
-        </LinearGradient>
 
-        {/* Portfolio Balance Card */}
-        <View style={styles.balanceSection}>
-          <LinearGradient
-            colors={Colors.gradientCard}
-            style={styles.balanceCard}
-            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-          >
-            {/* Glow effect */}
-            <View style={styles.balanceGlow} />
+          {/* Portfolio Balance */}
+          <View style={styles.balanceSection}>
             <View style={styles.balanceTop}>
               <Text style={styles.balanceLabel}>Total Portfolio Value</Text>
               <TouchableOpacity onPress={() => setBalanceVisible(!balanceVisible)}>
@@ -93,56 +86,51 @@ export default function HomeScreen({ navigation }: any) {
               {balanceVisible ? `$${totalValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '••••••'}
             </Text>
             <View style={styles.pnlRow}>
-              <Ionicons
-                name={pnl >= 0 ? 'trending-up' : 'trending-down'}
-                size={16}
-                color={pnl >= 0 ? Colors.success : Colors.error}
-              />
-              <Text style={[styles.pnlText, { color: pnl >= 0 ? Colors.success : Colors.error }]}>
-                {pnl >= 0 ? '+' : ''}{pnl.toFixed(2)} ({pnlPct}%)
-              </Text>
-              <Text style={styles.pnlLabel}>All Time P&L</Text>
-            </View>
-
-            <View style={styles.balanceGrid}>
-              <View style={styles.balanceGridItem}>
-                <Text style={styles.bgiLabel}>Invested</Text>
-                <Text style={styles.bgiValue}>${totalInvested.toLocaleString()}</Text>
-              </View>
-              <View style={styles.balanceDivider} />
-              <View style={styles.balanceGridItem}>
-                <Text style={styles.bgiLabel}>Active Pools</Text>
-                <Text style={styles.bgiValue}>{stats.activePools ?? 0}</Text>
-              </View>
-              <View style={styles.balanceDivider} />
-              <View style={styles.balanceGridItem}>
-                <Text style={styles.bgiLabel}>Referral Earnings</Text>
-                <Text style={[styles.bgiValue, { color: Colors.gold }]}>
-                  ${(stats.referralEarnings ?? 0).toFixed(2)}
+              <View style={[styles.pnlBadge, pnl >= 0 ? styles.pnlBadgeProfit : styles.pnlBadgeLoss]}>
+                <Ionicons name={pnl >= 0 ? 'trending-up' : 'trending-down'} size={14} color={pnl >= 0 ? '#00D6A1' : '#FF4757'} />
+                <Text style={[styles.pnlBadgeText, pnl >= 0 && styles.pnlTextProfit, pnl < 0 && styles.pnlTextLoss]}>
+                  {pnl >= 0 ? '+' : ''}{pnlPct}%
                 </Text>
               </View>
+              <Text style={styles.pnlUsd}>{pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}</Text>
             </View>
-          </LinearGradient>
-        </View>
+          </View>
 
-        {/* Quick Actions */}
-        <View style={styles.section}>
+          {/* Quick Stats */}
+          <View style={styles.quickStatsRow}>
+            <View style={styles.quickStatItem}>
+              <Text style={styles.quickStatValue}>${totalInvested.toLocaleString()}</Text>
+              <Text style={styles.quickStatLabel}>Invested</Text>
+            </View>
+            <View style={styles.quickStatDivider} />
+            <View style={styles.quickStatItem}>
+              <Text style={styles.quickStatValue}>{stats.activePools ?? 0}</Text>
+              <Text style={styles.quickStatLabel}>Active Pools</Text>
+            </View>
+            <View style={styles.quickStatDivider} />
+            <View style={styles.quickStatItem}>
+              <Text style={[styles.quickStatValue, { color: Colors.primary }]}>${(stats.referralEarnings ?? 0).toFixed(2)}</Text>
+              <Text style={styles.quickStatLabel}>Referral Earn</Text>
+            </View>
+          </View>
+
+          {/* Quick Actions */}
           <View style={styles.quickActions}>
             {[
-              { icon: 'add-circle-outline', label: 'Deposit', screen: 'Portfolio' },
+              { icon: 'add-circle-outline', label: 'Deposit', screen: 'Pools' },
               { icon: 'swap-horizontal-outline', label: 'Portfolio', screen: 'Portfolio' },
               { icon: 'people-outline', label: 'Referrals', screen: 'Referrals' },
               { icon: 'calculator-outline', label: 'Calculator', screen: 'Calculator' },
             ].map((a) => (
               <TouchableOpacity key={a.label} style={styles.qaItem} onPress={() => navigation.navigate(a.screen)}>
-                <LinearGradient colors={Colors.gradientCard} style={styles.qaIcon}>
+                <View style={styles.qaIcon}>
                   <Ionicons name={a.icon as any} size={22} color={Colors.primary} />
-                </LinearGradient>
+                </View>
                 <Text style={styles.qaLabel}>{a.label}</Text>
               </TouchableOpacity>
             ))}
           </View>
-        </View>
+        </LinearGradient>
 
         {/* Live Market */}
         <View style={styles.section}>
@@ -154,7 +142,7 @@ export default function HomeScreen({ navigation }: any) {
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.marketScroll}>
             {market?.market?.coins?.length
-              ? market.market.coins.slice(0, 6).map((coin: any) => (
+              ? market.market.coins.slice(0, 8).map((coin: any) => (
                   <MarketChip key={coin.symbol} coin={coin} />
                 ))
               : ['BTC', 'ETH', 'BNB'].map((c) => <MarketChipSkeleton key={c} label={c} />)}
@@ -181,51 +169,55 @@ export default function HomeScreen({ navigation }: any) {
 
         {/* Referral Promo */}
         <View style={[styles.section, { marginBottom: 100 }]}>
-          <LinearGradient colors={Colors.gradientCard} style={styles.referralCard}>
-            <LinearGradient colors={Colors.gradientGold} style={styles.referralIconBg}>
-              <Ionicons name="gift-outline" size={24} color="#fff" />
-            </LinearGradient>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.referralTitle}>Refer & Earn</Text>
-              <Text style={styles.referralSub}>Up to 20% on Level 1 — 5 levels deep</Text>
+          <LinearGradient colors={Colors.gradientGold} style={styles.referralCard}>
+            <View style={styles.referralContent}>
+              <View style={styles.referralIconBg}>
+                <Ionicons name="gift-outline" size={24} color="#000" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.referralTitle}>Refer & Earn</Text>
+                <Text style={styles.referralSub}>Up to 20% on Level 1 — 5 levels deep</Text>
+              </View>
+              <TouchableOpacity onPress={() => navigation.navigate('Referrals')} style={styles.referralBtn}>
+                <Text style={styles.referralBtnText}>Share</Text>
+                <Ionicons name="arrow-forward" size={14} color="#000" />
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity onPress={() => navigation.navigate('Referrals')} style={styles.referralBtn}>
-              <Text style={styles.referralBtnText}>Share</Text>
-              <Ionicons name="arrow-forward" size={14} color={Colors.gold} />
-            </TouchableOpacity>
           </LinearGradient>
         </View>
       </ScrollView>
-    </LinearGradient>
+    </View>
   );
 }
 
 function MarketChip({ coin }: { coin: any }) {
   const change = coin.change24h ?? 0;
   const isUp = change >= 0;
-  const changeColor = isUp ? Colors.success : Colors.error;
   return (
-    <LinearGradient colors={Colors.gradientCard} style={styles.marketChip}>
+    <View style={styles.marketChip}>
       <View style={styles.mcTopRow}>
         <View style={[styles.mcIcon, { backgroundColor: (coin.color || Colors.primary) + '22' }]}>
           <Text style={[styles.mcIconText, { color: coin.color || Colors.primary }]}>
             {coin.icon || coin.symbol?.[0] || '?'}
           </Text>
         </View>
-        <Text style={styles.mcCoin}>{coin.symbol}</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.mcCoin}>{coin.symbol}</Text>
+          <Text style={styles.mcName}>{coin.name}</Text>
+        </View>
       </View>
       <Text style={styles.mcPrice}>
         {coin.price >= 1000
           ? `$${coin.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
           : coin.price >= 1 ? `$${coin.price.toFixed(2)}` : `$${coin.price.toFixed(4)}`}
       </Text>
-      <View style={[styles.mcChangeBadge, { backgroundColor: isUp ? Colors.successBg : Colors.errorBg }]}>
-        <Ionicons name={isUp ? 'caret-up' : 'caret-down'} size={10} color={changeColor} />
-        <Text style={[styles.mcChange, { color: changeColor }]}>
+      <View style={[styles.mcChangeBadge, { backgroundColor: isUp ? 'rgba(0,214,161,0.12)' : 'rgba(255,71,87,0.12)' }]}>
+        <Ionicons name={isUp ? 'caret-up' : 'caret-down'} size={10} color={isUp ? '#00D6A1' : '#FF4757'} />
+        <Text style={[styles.mcChange, { color: isUp ? '#00D6A1' : '#FF4757' }]}>
           {Math.abs(change).toFixed(2)}%
         </Text>
       </View>
-    </LinearGradient>
+    </View>
   );
 }
 
@@ -277,79 +269,94 @@ function getGreeting() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: { flex: 1, backgroundColor: Colors.bg },
+
+  // Header Gradient
+  headerGradient: {
+    paddingBottom: Spacing.md,
+  },
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: Spacing.lg, paddingTop: 56, paddingBottom: Spacing.md,
   },
-  greeting: { fontSize: FontSize.lg, fontWeight: '700', color: Colors.textPrimary },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  headerLogo: { width: 36, height: 36, borderRadius: 8 },
+  greeting: { fontSize: 18, fontWeight: '800', color: Colors.textPrimary },
   addressRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
-  addressDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.success },
-  address: { fontSize: FontSize.sm, color: Colors.textSecondary },
+  addressDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#00D6A1' },
+  address: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary },
   notifBtn: { position: 'relative', padding: 8 },
   notifBadge: {
     position: 'absolute', top: 8, right: 8,
-    width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.error,
+    width: 8, height: 8, borderRadius: 4, backgroundColor: '#FF4757',
   },
 
-  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  headerLogo: { width: 36, height: 36, borderRadius: 8 },
+  // Balance Section
+  balanceSection: {
+    marginHorizontal: Spacing.lg, alignItems: 'center', gap: 8, paddingVertical: Spacing.md,
+  },
+  balanceTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%' },
+  balanceLabel: { fontSize: 13, fontWeight: '600', color: Colors.textMuted },
+  balanceValue: { fontSize: 40, fontWeight: '900', color: Colors.textPrimary, letterSpacing: -1 },
 
-  // Balance card
-  balanceSection: { paddingHorizontal: Spacing.lg, marginBottom: Spacing.lg },
-  balanceCard: {
-    borderRadius: Radius.xl, padding: Spacing.lg,
-    borderWidth: 1, borderColor: Colors.border, overflow: 'hidden',
+  // P&L
+  pnlRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  pnlBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 10, paddingVertical: 4, borderRadius: 99,
   },
-  balanceGlow: {
-    position: 'absolute', top: -40, right: -40,
-    width: 150, height: 150, borderRadius: 75,
-    backgroundColor: 'rgba(240,185,11,0.08)',
+  pnlBadgeProfit: { backgroundColor: 'rgba(0,214,161,0.12)' },
+  pnlBadgeLoss: { backgroundColor: 'rgba(255,71,87,0.12)' },
+  pnlBadgeText: { fontSize: 13, fontWeight: '800' },
+  pnlTextProfit: { color: '#00D6A1' },
+  pnlTextLoss: { color: '#FF4757' },
+  pnlUsd: { fontSize: 14, fontWeight: '700', color: Colors.textSecondary },
+
+  // Quick Stats
+  quickStatsRow: {
+    flexDirection: 'row', marginHorizontal: Spacing.lg,
+    backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: Radius.lg,
+    padding: Spacing.md, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)',
   },
-  balanceTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
-  balanceLabel: { fontSize: FontSize.sm, color: Colors.textSecondary, textTransform: 'uppercase', letterSpacing: 0.8 },
-  balanceValue: { fontSize: 36, fontWeight: '800', color: Colors.textPrimary, letterSpacing: -0.5 },
-  pnlRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4, marginBottom: Spacing.lg },
-  pnlText: { fontSize: FontSize.sm, fontWeight: '600' },
-  pnlLabel: { fontSize: FontSize.xs, color: Colors.textMuted },
-  balanceGrid: {
-    flexDirection: 'row', borderTopWidth: 1, borderTopColor: Colors.border,
-    paddingTop: Spacing.md, gap: 0,
-  },
-  balanceGridItem: { flex: 1, alignItems: 'center', gap: 4 },
-  balanceDivider: { width: 1, backgroundColor: Colors.border },
-  bgiLabel: { fontSize: FontSize.xs, color: Colors.textMuted },
-  bgiValue: { fontSize: FontSize.md, fontWeight: '700', color: Colors.textPrimary },
+  quickStatItem: { flex: 1, alignItems: 'center' },
+  quickStatValue: { fontSize: 14, fontWeight: '800', color: Colors.textPrimary },
+  quickStatLabel: { fontSize: 11, fontWeight: '600', color: Colors.textMuted, marginTop: 2 },
+  quickStatDivider: { width: 1, backgroundColor: 'rgba(255,255,255,0.08)' },
 
   // Quick Actions
-  section: { paddingHorizontal: Spacing.lg, marginBottom: Spacing.lg },
-  quickActions: { flexDirection: 'row', justifyContent: 'space-between' },
-  qaItem: { alignItems: 'center', gap: 8, flex: 1 },
-  qaIcon: {
-    width: 56, height: 56, borderRadius: 16,
-    alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1, borderColor: Colors.border,
+  quickActions: {
+    flexDirection: 'row', justifyContent: 'space-around',
+    marginHorizontal: Spacing.lg, marginTop: Spacing.md, paddingVertical: Spacing.md,
   },
-  qaLabel: { fontSize: FontSize.xs, color: Colors.textSecondary, fontWeight: '500' },
+  qaItem: { alignItems: 'center', gap: 6 },
+  qaIcon: {
+    width: 52, height: 52, borderRadius: 16,
+    backgroundColor: 'rgba(240,185,11,0.1)', borderWidth: 1, borderColor: 'rgba(240,185,11,0.2)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  qaLabel: { fontSize: 11, fontWeight: '700', color: Colors.textSecondary },
 
-  // Section header
+  // Section
+  section: { paddingHorizontal: Spacing.lg, marginBottom: Spacing.lg },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.md },
-  sectionTitle: { fontSize: FontSize.lg, fontWeight: '700', color: Colors.textPrimary },
-  seeAll: { fontSize: FontSize.sm, color: Colors.primary, fontWeight: '600' },
+  sectionTitle: { fontSize: 18, fontWeight: '800', color: Colors.textPrimary },
+  seeAll: { fontSize: 13, fontWeight: '700', color: Colors.primary },
 
   // Market chips
   marketScroll: { marginHorizontal: -Spacing.lg, paddingHorizontal: Spacing.lg },
   marketChip: {
-    borderRadius: Radius.md, padding: Spacing.md, marginRight: Spacing.sm,
-    borderWidth: 1, borderColor: Colors.border, minWidth: 130, gap: 6,
+    backgroundColor: Colors.bgCard,
+    borderRadius: Radius.lg, padding: Spacing.md, marginRight: Spacing.sm,
+    borderWidth: 1, borderColor: Colors.border, minWidth: 140, gap: 8,
   },
-  mcTopRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  mcIcon: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  mcIconText: { fontSize: 11, fontWeight: '800' },
-  mcCoin: { fontSize: FontSize.xs, color: Colors.textMuted, fontWeight: '600', textTransform: 'uppercase' },
-  mcPrice: { fontSize: FontSize.md, fontWeight: '700', color: Colors.textPrimary },
-  mcChangeBadge: { flexDirection: 'row', alignItems: 'center', gap: 2, paddingHorizontal: 6, paddingVertical: 2, borderRadius: Radius.full, alignSelf: 'flex-start' },
-  mcChange: { fontSize: 10, fontWeight: '700' },
+  mcTopRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  mcIcon: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  mcIconText: { fontSize: 12, fontWeight: '800' },
+  mcCoin: { fontSize: 13, fontWeight: '800', color: Colors.textPrimary, textTransform: 'uppercase' },
+  mcName: { fontSize: 10, fontWeight: '600', color: Colors.textMuted },
+  mcPrice: { fontSize: 16, fontWeight: '800', color: Colors.textPrimary },
+  mcChangeBadge: { flexDirection: 'row', alignItems: 'center', gap: 2, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 99, alignSelf: 'flex-start' },
+  mcChange: { fontSize: 11, fontWeight: '700' },
 
   // Activity
   actRow: {
@@ -357,23 +364,27 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.border,
   },
   actIconBg: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  actType: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.textPrimary, textTransform: 'capitalize' },
-  actTime: { fontSize: FontSize.xs, color: Colors.textMuted },
-  actAmount: { fontSize: FontSize.sm, fontWeight: '700' },
+  actType: { fontSize: 13, fontWeight: '700', color: Colors.textPrimary, textTransform: 'capitalize' },
+  actTime: { fontSize: 12, color: Colors.textMuted },
+  actAmount: { fontSize: 13, fontWeight: '700' },
   emptyState: { alignItems: 'center', gap: 8, padding: Spacing.xl },
-  emptyText: { fontSize: FontSize.sm, color: Colors.textMuted },
+  emptyText: { fontSize: 13, color: Colors.textMuted },
 
   // Referral promo
   referralCard: {
-    flexDirection: 'row', alignItems: 'center', gap: Spacing.md,
-    borderRadius: Radius.lg, padding: Spacing.md,
-    borderWidth: 1, borderColor: 'rgba(240,185,11,0.2)',
+    borderRadius: Radius.xl, padding: Spacing.lg,
   },
-  referralIconBg: { width: 48, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  referralTitle: { fontSize: FontSize.md, fontWeight: '700', color: Colors.textPrimary },
-  referralSub: { fontSize: FontSize.xs, color: Colors.textSecondary, marginTop: 2 },
+  referralContent: {
+    flexDirection: 'row', alignItems: 'center', gap: Spacing.md,
+  },
+  referralIconBg: {
+    width: 48, height: 48, borderRadius: 14, backgroundColor: 'rgba(0,0,0,0.12)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  referralTitle: { fontSize: 16, fontWeight: '800', color: '#000' },
+  referralSub: { fontSize: 12, fontWeight: '600', color: 'rgba(0,0,0,0.6)', marginTop: 2 },
   referralBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  referralBtnText: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.gold },
+  referralBtnText: { fontSize: 13, fontWeight: '800', color: '#000' },
 
   // Skeletons
   skeleton: { height: 14, width: 80, borderRadius: 6, backgroundColor: Colors.bgElevated },
