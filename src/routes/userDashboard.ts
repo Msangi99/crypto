@@ -815,6 +815,7 @@ export default async function userDashboardRoutes(fastify: FastifyInstance) {
         colorDark: meta.colorDark,
         price: prices[symbol]?.usd || 0,
         change24h: prices[symbol]?.usd_24h_change || 0,
+        marketCap: prices[symbol]?.usd_market_cap || 0,
       }));
 
       return {

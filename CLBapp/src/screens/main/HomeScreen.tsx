@@ -203,13 +203,25 @@ export default function HomeScreen({ navigation }: any) {
 function MarketChip({ coin }: { coin: any }) {
   const change = coin.change24h ?? 0;
   const isUp = change >= 0;
+  const changeColor = isUp ? Colors.success : Colors.error;
   return (
     <LinearGradient colors={Colors.gradientCard} style={styles.marketChip}>
-      <Text style={styles.mcCoin}>{coin.symbol}</Text>
-      <Text style={styles.mcPrice}>${Number(coin.price ?? 0).toLocaleString()}</Text>
+      <View style={styles.mcTopRow}>
+        <View style={[styles.mcIcon, { backgroundColor: (coin.color || Colors.primary) + '22' }]}>
+          <Text style={[styles.mcIconText, { color: coin.color || Colors.primary }]}>
+            {coin.icon || coin.symbol?.[0] || '?'}
+          </Text>
+        </View>
+        <Text style={styles.mcCoin}>{coin.symbol}</Text>
+      </View>
+      <Text style={styles.mcPrice}>
+        {coin.price >= 1000
+          ? `$${coin.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+          : coin.price >= 1 ? `$${coin.price.toFixed(2)}` : `$${coin.price.toFixed(4)}`}
+      </Text>
       <View style={[styles.mcChangeBadge, { backgroundColor: isUp ? Colors.successBg : Colors.errorBg }]}>
-        <Ionicons name={isUp ? 'caret-up' : 'caret-down'} size={10} color={isUp ? Colors.success : Colors.error} />
-        <Text style={[styles.mcChange, { color: isUp ? Colors.success : Colors.error }]}>
+        <Ionicons name={isUp ? 'caret-up' : 'caret-down'} size={10} color={changeColor} />
+        <Text style={[styles.mcChange, { color: changeColor }]}>
           {Math.abs(change).toFixed(2)}%
         </Text>
       </View>
@@ -329,8 +341,11 @@ const styles = StyleSheet.create({
   marketScroll: { marginHorizontal: -Spacing.lg, paddingHorizontal: Spacing.lg },
   marketChip: {
     borderRadius: Radius.md, padding: Spacing.md, marginRight: Spacing.sm,
-    borderWidth: 1, borderColor: Colors.border, minWidth: 120, gap: 4,
+    borderWidth: 1, borderColor: Colors.border, minWidth: 130, gap: 6,
   },
+  mcTopRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  mcIcon: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  mcIconText: { fontSize: 11, fontWeight: '800' },
   mcCoin: { fontSize: FontSize.xs, color: Colors.textMuted, fontWeight: '600', textTransform: 'uppercase' },
   mcPrice: { fontSize: FontSize.md, fontWeight: '700', color: Colors.textPrimary },
   mcChangeBadge: { flexDirection: 'row', alignItems: 'center', gap: 2, paddingHorizontal: 6, paddingVertical: 2, borderRadius: Radius.full, alignSelf: 'flex-start' },
