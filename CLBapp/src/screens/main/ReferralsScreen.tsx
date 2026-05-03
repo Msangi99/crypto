@@ -210,33 +210,38 @@ function TreeView({ tree }: { tree: any }) {
   const totalEarnings = tree.totalEarnings ?? 0;
 
   return (
-    <View style={{ gap: Spacing.md }}>
+    <View style={{ gap: Spacing.lg }}>
       {/* Network Summary */}
-      <LinearGradient colors={Colors.gradientCard} style={styles.networkSummary}>
+      <LinearGradient colors={Colors.gradientGold} style={styles.networkSummary}>
         <View style={styles.networkStat}>
+          <Ionicons name="people-outline" size={24} color="#fff" />
           <Text style={styles.networkStatLabel}>Total Network</Text>
           <Text style={styles.networkStatValue}>{totalNetwork} members</Text>
         </View>
         <View style={styles.networkDivider} />
         <View style={styles.networkStat}>
+          <Ionicons name="wallet-outline" size={24} color="#fff" />
           <Text style={styles.networkStatLabel}>Total Earnings</Text>
-          <Text style={[styles.networkStatValue, { color: Colors.gold }]}>{totalEarnings.toFixed(4)} BNB</Text>
+          <Text style={styles.networkStatValue}>{totalEarnings.toFixed(4)} BNB</Text>
         </View>
       </LinearGradient>
 
       {/* Level Cards */}
       {levels.map((lv: any, i: number) => (
-        <View key={i} style={styles.levelCard}>
+        <LinearGradient key={i} colors={Colors.gradientCard} style={styles.levelCard}>
           <View style={styles.levelHeader}>
             <View style={[styles.levelDot, { backgroundColor: LEVEL_COLORS[i] }]} />
             <Text style={styles.levelTitle}>Level {lv.level}</Text>
-            <Text style={styles.levelRate}>{lv.commissionRate}</Text>
+            <View style={styles.levelRateBadge}>
+              <Text style={styles.levelRateText}>{lv.commissionRate}</Text>
+            </View>
           </View>
           <View style={styles.levelStats}>
             <View style={styles.levelStatItem}>
               <Text style={styles.levelStatLabel}>Members</Text>
               <Text style={styles.levelStatValue}>{lv.totalMembers}</Text>
             </View>
+            <View style={styles.levelStatDivider} />
             <View style={styles.levelStatItem}>
               <Text style={styles.levelStatLabel}>Earnings</Text>
               <Text style={[styles.levelStatValue, { color: LEVEL_COLORS[i] }]}>{lv.totalEarnings.toFixed(4)}</Text>
@@ -244,7 +249,7 @@ function TreeView({ tree }: { tree: any }) {
           </View>
           {lv.members?.length > 0 && (
             <View style={styles.membersList}>
-              {lv.members.slice(0, 3).map((u: any, j: number) => (
+              {lv.members.slice(0, 4).map((u: any, j: number) => (
                 <View key={j} style={styles.memberRow}>
                   <View style={styles.memberAvatar}>
                     <Text style={styles.memberAvatarText}>
@@ -257,15 +262,22 @@ function TreeView({ tree }: { tree: any }) {
                       {u.walletAddress ? `${u.walletAddress.slice(0, 8)}...${u.walletAddress.slice(-4)}` : ''}
                     </Text>
                   </View>
-                  <Text style={styles.memberJoined}>{new Date(u.joinedAt).toLocaleDateString()}</Text>
+                  <View style={styles.memberReward}>
+                    <Text style={[styles.memberRewardValue, { color: Colors.gold }]}>
+                      {u.reward > 0 ? `+${u.reward.toFixed(4)}` : '—'}
+                    </Text>
+                  </View>
                 </View>
               ))}
-              {lv.members.length > 3 && (
-                <Text style={styles.membersMore}>+{lv.members.length - 3} more</Text>
+              {lv.members.length > 4 && (
+                <TouchableOpacity style={styles.membersMoreBtn}>
+                  <Text style={styles.membersMoreText}>View all {lv.members.length} members</Text>
+                  <Ionicons name="chevron-forward" size={14} color={Colors.primary} />
+                </TouchableOpacity>
               )}
             </View>
           )}
-        </View>
+        </LinearGradient>
       ))}
     </View>
   );
@@ -422,36 +434,47 @@ const styles = StyleSheet.create({
   // Network Tree
   networkSummary: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    borderRadius: Radius.lg, padding: Spacing.md, borderWidth: 1, borderColor: Colors.border,
+    borderRadius: Radius.xl, padding: Spacing.lg, borderWidth: 1, borderColor: 'rgba(240,185,11,0.3)',
   },
-  networkStat: { flex: 1, alignItems: 'center', gap: 4 },
-  networkStatLabel: { fontSize: FontSize.xs, color: Colors.textMuted },
-  networkStatValue: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.textPrimary },
-  networkDivider: { width: 1, height: 32, backgroundColor: Colors.border },
+  networkStat: { flex: 1, alignItems: 'center', gap: 6 },
+  networkStatLabel: { fontSize: FontSize.xs, color: 'rgba(255,255,255,0.7)', fontWeight: '600' },
+  networkStatValue: { fontSize: FontSize.xl, fontWeight: '800', color: '#fff' },
+  networkDivider: { width: 1, height: 40, backgroundColor: 'rgba(255,255,255,0.2)' },
   levelCard: {
-    backgroundColor: Colors.bgCard, borderRadius: Radius.lg,
-    borderWidth: 1, borderColor: Colors.border, padding: Spacing.md, gap: Spacing.sm,
+    borderRadius: Radius.lg, padding: Spacing.md, gap: Spacing.sm,
+    borderWidth: 1, borderColor: Colors.border,
   },
   levelHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  levelDot: { width: 10, height: 10, borderRadius: 5 },
+  levelDot: { width: 12, height: 12, borderRadius: 6 },
   levelTitle: { fontSize: FontSize.md, fontWeight: '700', color: Colors.textPrimary, flex: 1 },
-  levelRate: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.textSecondary },
+  levelRateBadge: {
+    backgroundColor: Colors.bg, paddingHorizontal: 8, paddingVertical: 4,
+    borderRadius: Radius.full, borderWidth: 1, borderColor: Colors.border,
+  },
+  levelRateText: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textSecondary },
   levelStats: { flexDirection: 'row', gap: Spacing.md, paddingTop: 4 },
   levelStatItem: { flex: 1, alignItems: 'center', gap: 2 },
+  levelStatDivider: { width: 1, height: 24, backgroundColor: Colors.border },
   levelStatLabel: { fontSize: FontSize.xs, color: Colors.textMuted },
   levelStatValue: { fontSize: FontSize.md, fontWeight: '700', color: Colors.textPrimary },
   membersList: { gap: Spacing.xs, marginTop: Spacing.sm },
   memberRow: {
     flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
-    paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: Colors.border + '40',
+    paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: Colors.border + '40',
   },
   memberAvatar: {
-    width: 28, height: 28, borderRadius: 8, backgroundColor: Colors.bgElevated,
+    width: 32, height: 32, borderRadius: 10, backgroundColor: Colors.bgElevated,
     alignItems: 'center', justifyContent: 'center',
   },
   memberAvatarText: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.primary },
   memberName: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.textPrimary },
   memberAddr: { fontSize: FontSize.xs, color: Colors.textMuted },
-  memberJoined: { fontSize: FontSize.xs, color: Colors.textMuted },
+  memberReward: { alignItems: 'flex-end' },
+  memberRewardValue: { fontSize: FontSize.sm, fontWeight: '700' },
+  membersMoreBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4,
+    paddingVertical: 8, marginTop: 4,
+  },
+  membersMoreText: { fontSize: FontSize.xs, color: Colors.primary, fontWeight: '600' },
   membersMore: { fontSize: FontSize.xs, color: Colors.primary, marginTop: 4, textAlign: 'center' },
 });
