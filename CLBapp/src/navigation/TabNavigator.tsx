@@ -3,7 +3,8 @@ import { View, StyleSheet, Platform, Image } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Radius, FontSize } from '../constants/theme';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Colors, Radius, FontSize, Spacing } from '../constants/theme';
 
 const LOGO = require('../../assets/logo.png');
 
@@ -34,8 +35,8 @@ export default function TabNavigator() {
         tabBarStyle: styles.tabBar,
         tabBarBackground: () => (
           Platform.OS === 'ios'
-            ? <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />
-            : <View style={[StyleSheet.absoluteFill, { backgroundColor: Colors.bgCard }]} />
+            ? <BlurView intensity={95} tint="dark" style={StyleSheet.absoluteFill} />
+            : <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(11,14,26,0.95)' }]} />
         ),
         tabBarActiveTintColor: Colors.primary,
         tabBarInactiveTintColor: Colors.textMuted,
@@ -52,7 +53,13 @@ export default function TabNavigator() {
           const iconName = focused ? tab?.icon : tab?.iconOutline;
           return (
             <View style={[styles.iconWrapper, focused && styles.iconActive]}>
-              <Ionicons name={iconName as any} size={22} color={color} />
+              {focused ? (
+                <LinearGradient colors={Colors.gradientPrimary} style={styles.iconGradient}>
+                  <Ionicons name={iconName as any} size={24} color="#fff" />
+                </LinearGradient>
+              ) : (
+                <Ionicons name={iconName as any} size={24} color={color} />
+              )}
             </View>
           );
         },
@@ -68,35 +75,50 @@ export default function TabNavigator() {
 const styles = StyleSheet.create({
   tabBar: {
     position: 'absolute',
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
-    height: Platform.OS === 'ios' ? 85 : 65,
-    paddingBottom: Platform.OS === 'ios' ? 24 : 8,
-    paddingTop: 8,
+    borderTopWidth: 0,
+    borderTopColor: 'transparent',
+    height: Platform.OS === 'ios' ? 90 : 75,
+    paddingBottom: Platform.OS === 'ios' ? 30 : 12,
+    paddingTop: 12,
+    paddingHorizontal: Spacing.md,
     backgroundColor: 'transparent',
-    elevation: 0,
+    borderTopLeftRadius: Radius.xl,
+    borderTopRightRadius: Radius.xl,
+    marginHorizontal: Spacing.md,
+    marginBottom: Platform.OS === 'ios' ? 20 : 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10,
   },
   iconWrapper: {
-    width: 40, height: 36, borderRadius: Radius.sm,
+    width: 44, height: 44, borderRadius: 22,
     alignItems: 'center', justifyContent: 'center',
   },
   iconActive: {
-    backgroundColor: 'rgba(240,185,11,0.12)',
+    transform: [{ scale: 1.1 }],
+  },
+  iconGradient: {
+    width: 44, height: 44, borderRadius: 22,
+    alignItems: 'center', justifyContent: 'center',
   },
   homeIconWrapper: {
-    width: 40, height: 38, borderRadius: 10,
+    width: 48, height: 48, borderRadius: 16,
     alignItems: 'center', justifyContent: 'center',
-    backgroundColor: 'rgba(240,185,11,0.08)',
-    borderWidth: 1,
+    backgroundColor: 'rgba(240,185,11,0.1)',
+    borderWidth: 2,
     borderColor: 'transparent',
   },
   homeIconActive: {
-    backgroundColor: 'rgba(240,185,11,0.18)',
-    borderColor: 'rgba(240,185,11,0.4)',
+    backgroundColor: 'rgba(240,185,11,0.2)',
+    borderColor: Colors.primary,
+    transform: [{ scale: 1.1 }],
   },
-  homeLogoIcon: { width: 28, height: 28 },
+  homeLogoIcon: { width: 32, height: 32 },
   tabLabel: {
-    fontSize: 10,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '700',
+    marginTop: 4,
   },
 });
