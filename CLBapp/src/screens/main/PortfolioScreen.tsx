@@ -36,30 +36,44 @@ export default function PortfolioScreen({ navigation }: any) {
   const totalProjectedProfitUsd = summary.totalProjectedProfitUsd ?? 0;
 
   return (
-    <LinearGradient colors={['#0D0D0D', '#0D0D0D']} style={styles.container}>
+    <View style={styles.container}>
+      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>Portfolio</Text>
-        <Badge label={`${positions.length} Positions`} variant="primary" />
+        <TouchableOpacity style={styles.chartBtn}>
+          <Ionicons name="stats-chart-outline" size={20} color={Colors.textSecondary} />
+        </TouchableOpacity>
       </View>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
-        contentContainerStyle={{ padding: Spacing.lg, paddingTop: 0 }}
+        contentContainerStyle={{ padding: Spacing.lg, paddingTop: 0, gap: Spacing.lg, paddingBottom: 100 }}
       >
-        {/* Summary */}
-        <LinearGradient colors={Colors.gradientCard} style={styles.summaryCard}>
-          <View style={styles.summaryRow}>
-            <SummaryItem label="Total Value" value={`$${totalCurrentValueUsd.toLocaleString('en-US', { minimumFractionDigits: 2 })}`} />
+        {/* Summary Card */}
+        <LinearGradient colors={Colors.gradientGold} style={styles.summaryCard}>
+          <View style={styles.summaryHeader}>
+            <Text style={styles.summaryLabel}>Total Portfolio Value</Text>
+            <Badge label={`${positions.length} Positions`} variant="primary" />
+          </View>
+          <Text style={styles.summaryValue}>${totalCurrentValueUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
+          <View style={styles.summaryStats}>
+            <View style={styles.summaryStat}>
+              <Text style={styles.summaryStatLabel}>Invested</Text>
+              <Text style={styles.summaryStatValue}>${totalInvestedUsd.toLocaleString()}</Text>
+            </View>
             <View style={styles.summaryDivider} />
-            <SummaryItem
-              label="Unrealized P&L"
-              value={`${totalUnrealizedPnlUsd >= 0 ? '+' : ''}$${totalUnrealizedPnlUsd.toFixed(2)}`}
-              positive={totalUnrealizedPnlUsd >= 0}
-              negative={totalUnrealizedPnlUsd < 0}
-            />
+            <View style={styles.summaryStat}>
+              <Text style={styles.summaryStatLabel}>P&L</Text>
+              <Text style={[styles.summaryStatValue, { color: totalUnrealizedPnlUsd >= 0 ? '#000' : '#FF4757' }]}>
+                {totalUnrealizedPnlUsd >= 0 ? '+' : ''}${totalUnrealizedPnlUsd.toFixed(2)}
+              </Text>
+            </View>
             <View style={styles.summaryDivider} />
-            <SummaryItem label="Invested" value={`$${totalInvestedUsd.toLocaleString()}`} />
+            <View style={styles.summaryStat}>
+              <Text style={styles.summaryStatLabel}>Projected</Text>
+              <Text style={styles.summaryStatValue}>${totalProjectedProfitUsd.toLocaleString()}</Text>
+            </View>
           </View>
         </LinearGradient>
 
@@ -112,7 +126,7 @@ export default function PortfolioScreen({ navigation }: any) {
           ))
         )}
       </ScrollView>
-    </LinearGradient>
+    </View>
   );
 }
 
@@ -141,18 +155,35 @@ function Metric({ label, value, positive, negative, accent }: any) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: { flex: 1, backgroundColor: Colors.bg },
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: Spacing.lg, paddingTop: 56, paddingBottom: Spacing.lg,
+    paddingHorizontal: Spacing.lg, paddingTop: 56, paddingBottom: Spacing.sm,
   },
-  title: { fontSize: FontSize.xxl, fontWeight: '800', color: Colors.textPrimary },
+  title: { fontSize: 28, fontWeight: '900', color: Colors.textPrimary },
+  chartBtn: {
+    width: 40, height: 40, borderRadius: 12,
+    backgroundColor: Colors.bgCard, borderWidth: 1, borderColor: Colors.border,
+    alignItems: 'center', justifyContent: 'center',
+  },
   summaryCard: {
-    borderRadius: Radius.lg, padding: Spacing.lg,
-    borderWidth: 1, borderColor: Colors.border, marginBottom: Spacing.lg,
+    borderRadius: Radius.xl, padding: Spacing.lg,
+    borderWidth: 1, borderColor: 'rgba(240,185,11,0.3)', gap: Spacing.md,
   },
+  summaryHeader: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+  },
+  summaryLabel: { fontSize: FontSize.sm, color: 'rgba(0,0,0,0.6)', fontWeight: '600' },
+  summaryValue: { fontSize: 36, fontWeight: '900', color: '#000', letterSpacing: -1 },
+  summaryStats: {
+    flexDirection: 'row', paddingTop: Spacing.sm,
+    borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.1)',
+  },
+  summaryStat: { flex: 1, alignItems: 'center', gap: 4 },
+  summaryStatLabel: { fontSize: FontSize.xs, color: 'rgba(0,0,0,0.5)', fontWeight: '600' },
+  summaryStatValue: { fontSize: FontSize.md, fontWeight: '700', color: '#000' },
+  summaryDivider: { width: 1, height: 32, backgroundColor: 'rgba(0,0,0,0.1)' },
   summaryRow: { flexDirection: 'row', alignItems: 'center' },
-  summaryDivider: { width: 1, height: 40, backgroundColor: Colors.border },
   empty: { alignItems: 'center', gap: Spacing.sm, paddingVertical: 60 },
   emptyTitle: { fontSize: FontSize.lg, fontWeight: '700', color: Colors.textPrimary },
   emptyText: { fontSize: FontSize.sm, color: Colors.textSecondary, textAlign: 'center' },
