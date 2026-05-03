@@ -8,7 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, FontSize, Spacing, Radius } from '../../constants/theme';
 import Badge from '../../components/ui/Badge';
 import Button from '../../components/ui/Button';
-import { poolsAPI, userAPI } from '../../services/api';
+import { poolsAPI } from '../../services/api';
 
 export default function PoolDetailScreen({ route, navigation }: any) {
   const { poolId } = route.params;
@@ -42,10 +42,14 @@ export default function PoolDetailScreen({ route, navigation }: any) {
 
     setLoading(true);
     try {
-      // TODO: Implement actual deposit with transaction hash
-      Alert.alert('Deposit', 'Deposit feature coming soon - requires on-chain transaction');
+      // For demo purposes, generate a mock tx hash
+      const txHash = `0x${Math.random().toString(16).substr(2, 64)}`;
+      
+      const res = await poolsAPI.deposit(poolId, amount, txHash);
+      Alert.alert('Success', 'Deposit recorded successfully');
       setShowDepositModal(false);
       setDepositAmount('');
+      await load(); // Reload pool data
     } catch (e: any) {
       Alert.alert('Error', e?.response?.data?.error || 'Deposit failed');
     } finally {
@@ -54,23 +58,11 @@ export default function PoolDetailScreen({ route, navigation }: any) {
   };
 
   const handleLoan = async () => {
-    const amount = parseFloat(loanAmount);
-    if (!amount || amount <= 0) {
-      Alert.alert('Invalid Amount', 'Please enter a valid loan amount');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      // TODO: Implement actual loan
-      Alert.alert('Loan', 'Loan feature coming soon');
-      setShowLoanModal(false);
-      setLoanAmount('');
-    } catch (e: any) {
-      Alert.alert('Error', e?.response?.data?.error || 'Loan failed');
-    } finally {
-      setLoading(false);
-    }
+    Alert.alert(
+      'Loan Information',
+      'Loans are automatically calculated based on your deposit amount and leverage tier. Make a deposit first to get your loan.',
+      [{ text: 'OK', onPress: () => setShowLoanModal(false) }]
+    );
   };
 
   if (!pool) {

@@ -59,6 +59,8 @@ export const poolsAPI = {
     api.get(`/api/pools?page=${page}&limit=${limit}`),
   stats: () => api.get('/api/pools/stats'),
   detail: (id: string) => api.get(`/api/pools/${id}`),
+  deposit: (poolId: string, amount: number, txHash: string) =>
+    api.post(`/api/pools/${poolId}/deposit`, { amount, txHash }),
 };
 
 // ─── Price ────────────────────────────────────────────────
