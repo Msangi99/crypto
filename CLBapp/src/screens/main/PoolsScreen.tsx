@@ -9,6 +9,34 @@ import { Colors, FontSize, Spacing, Radius } from '../../constants/theme';
 import Badge from '../../components/ui/Badge';
 import { poolsAPI } from '../../services/api';
 
+const COIN_ICONS: Record<string, string> = {
+  BTC: 'logo-bitcoin',
+  ETH: 'logo-ethereum',
+  BNB: 'cube',
+  SOL: 'flash',
+  ADA: 'card',
+  DOGE: 'paw',
+  DOT: 'ellipse',
+  MATIC: 'layers',
+  AVAX: 'snow',
+  LINK: 'link',
+  UNI: 'infinite',
+  XRP: 'water',
+  LTC: ' diamond',
+  USDT: 'cash',
+  USDC: 'cash',
+  DAI: 'cash',
+};
+
+function CoinIcon({ symbol }: { symbol: string }) {
+  const iconName = (COIN_ICONS[symbol?.toUpperCase()] || 'cube-outline') as any;
+  return (
+    <View style={styles.coinIconBg}>
+      <Ionicons name={iconName} size={22} color={Colors.primary} />
+    </View>
+  );
+}
+
 export default function PoolsScreen({ navigation }: any) {
   const [pools, setPools] = useState<any>([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -54,39 +82,46 @@ export default function PoolsScreen({ navigation }: any) {
         {pools.length > 0 && (
           <TouchableOpacity
             onPress={() => navigation.navigate('PoolDetail', { poolId: pools[0].id })}
-            activeOpacity={0.8}
+            activeOpacity={0.85}
           >
-            <LinearGradient colors={Colors.gradientGold} style={styles.featuredCard}>
-              <View style={styles.featuredBadge}>
-                <Ionicons name="flame" size={14} color="#000" />
-                <Text style={styles.featuredBadgeText}>Featured</Text>
-              </View>
-              <View style={styles.featuredContent}>
-                <View style={styles.featuredIcon}>
-                  <Ionicons name="wallet-outline" size={28} color="#000" />
+            <View style={styles.featuredOuter}>
+              <LinearGradient colors={Colors.gradientGold} style={styles.featuredCard}>
+                <View style={styles.featuredHeader}>
+                  <View style={styles.featuredBadge}>
+                    <Ionicons name="flame" size={12} color="#000" />
+                    <Text style={styles.featuredBadgeText}>Best APY</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color="rgba(0,0,0,0.5)" />
                 </View>
-                <View style={{ flex: 1, marginLeft: Spacing.md }}>
-                  <Text style={styles.featuredTitle}>{pools[0].name}</Text>
-                  <Text style={styles.featuredSubtitle}>{pools[0].tokenSymbol} Pool</Text>
+
+                <View style={styles.featuredContent}>
+                  <CoinIcon symbol={pools[0].tokenSymbol} />
+                  <View style={{ flex: 1, marginLeft: Spacing.md }}>
+                    <Text style={styles.featuredTitle}>{pools[0].name}</Text>
+                    <Text style={styles.featuredSubtitle}>{pools[0].tokenSymbol} Pool</Text>
+                  </View>
+                  <View style={styles.featuredApy}>
+                    <Text style={styles.featuredApyValue}>{pools[0].apy}%</Text>
+                    <Text style={styles.featuredApyLabel}>APY</Text>
+                  </View>
                 </View>
-                <View style={styles.featuredApy}>
-                  <Text style={styles.featuredApyValue}>{pools[0].apy}%</Text>
-                  <Text style={styles.featuredApyLabel}>APY</Text>
+
+                <View style={styles.featuredStats}>
+                  <Stat label="Min Deposit" value={`$${pools[0].minDeposit}`} />
+                  <Stat label="Total Staked" value={`$${Number(pools[0].totalStaked).toLocaleString()}`} />
+                  <Stat label="Members" value={`${pools[0]._count?.members || pools[0].memberCount || 0}`} />
                 </View>
-              </View>
-              <View style={styles.featuredStats}>
-                <Stat label="Min Deposit" value={`$${pools[0].minDeposit}`} />
-                <Stat label="Total Staked" value={`$${Number(pools[0].totalStaked).toLocaleString()}`} />
-                <Stat label="Members" value={`${pools[0]._count?.members || pools[0].memberCount || 0}`} />
-              </View>
-            </LinearGradient>
+              </LinearGradient>
+            </View>
           </TouchableOpacity>
         )}
 
-        {/* All Pools */}
+        {/* Section Header */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>All Pools</Text>
-          <Text style={styles.sectionCount}>{pools.length} Available</Text>
+          <View style={styles.sectionBadge}>
+            <Text style={styles.sectionCount}>{pools.length}</Text>
+          </View>
         </View>
 
         {pools.length === 0 ? (
@@ -96,41 +131,44 @@ export default function PoolsScreen({ navigation }: any) {
             <Text style={styles.emptyText}>Check back later for new liquidity pools</Text>
           </View>
         ) : (
-          pools.map((pool: any, index: number) => (
+          pools.map((pool: any) => (
             <TouchableOpacity
               key={pool.id}
               onPress={() => navigation.navigate('PoolDetail', { poolId: pool.id })}
-              activeOpacity={0.8}
+              activeOpacity={0.85}
             >
-              <LinearGradient colors={Colors.gradientCard} style={styles.poolCard}>
+              <View style={styles.poolCard}>
                 <View style={styles.poolHeader}>
-                  <View style={styles.poolIcon}>
-                    <Ionicons name="wallet-outline" size={24} color={Colors.primary} />
-                  </View>
-                  <View style={{ flex: 1, marginLeft: Spacing.sm }}>
+                  <CoinIcon symbol={pool.tokenSymbol} />
+                  <View style={{ flex: 1, marginLeft: Spacing.md }}>
                     <Text style={styles.poolName}>{pool.name}</Text>
-                    <Text style={styles.poolToken}>{pool.tokenSymbol}</Text>
+                    <View style={styles.poolTokenRow}>
+                      <Text style={styles.poolToken}>{pool.tokenSymbol}</Text>
+                      <View style={styles.poolDot} />
+                      <Badge
+                        label={pool.status || 'Active'}
+                        variant={pool.status === 'ACTIVE' ? 'success' : 'warning'}
+                      />
+                    </View>
                   </View>
-                  <Badge
-                    label={pool.status || 'ACTIVE'}
-                    variant={pool.status === 'ACTIVE' ? 'success' : 'warning'}
-                  />
+                  <View style={styles.poolApyBox}>
+                    <Text style={styles.poolApyValue}>{pool.apy}%</Text>
+                    <Text style={styles.poolApyLabel}>APY</Text>
+                  </View>
                 </View>
 
                 <View style={styles.poolMetrics}>
-                  <Metric label="APY" value={`${pool.apy}%`} accent />
                   <Metric label="Min Deposit" value={`$${pool.minDeposit}`} />
                   <Metric label="TVL" value={`$${Number(pool.totalStaked).toLocaleString()}`} />
+                  <Metric label="Members" value={`${pool._count?.members || pool.memberCount || 0}`} />
                 </View>
 
                 <View style={styles.poolFooter}>
-                  <View style={styles.poolMember}>
-                    <Ionicons name="people-outline" size={14} color={Colors.textMuted} />
-                    <Text style={styles.poolMemberText}>{pool._count?.members || pool.memberCount || 0} members</Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={20} color={Colors.textMuted} />
+                  <Ionicons name="people-outline" size={13} color={Colors.textMuted} />
+                  <Text style={styles.poolMemberText}>{pool._count?.members || pool.memberCount || 0} members</Text>
+                  <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
                 </View>
-              </LinearGradient>
+              </View>
             </TouchableOpacity>
           ))
         )}
@@ -174,37 +212,43 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
 
+  // Coin Icon
+  coinIconBg: {
+    width: 48, height: 48, borderRadius: 14,
+    backgroundColor: 'rgba(240,185,11,0.1)', borderWidth: 1, borderColor: 'rgba(240,185,11,0.2)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+
   // Featured Card
+  featuredOuter: {
+    borderRadius: Radius.xl,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 10,
+  },
   featuredCard: {
     borderRadius: Radius.xl, padding: Spacing.lg,
-    marginBottom: Spacing.lg, gap: Spacing.md,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
+    gap: Spacing.md,
+  },
+  featuredHeader: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
   },
   featuredBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: 'rgba(0,0,0,0.15)', paddingHorizontal: 10, paddingVertical: 4,
-    borderRadius: 99, alignSelf: 'flex-start',
+    backgroundColor: 'rgba(0,0,0,0.12)', paddingHorizontal: 10, paddingVertical: 4,
+    borderRadius: 99,
   },
-  featuredBadgeText: { fontSize: FontSize.xs, fontWeight: '700', color: '#000' },
+  featuredBadgeText: { fontSize: 11, fontWeight: '800', color: '#000' },
   featuredContent: {
     flexDirection: 'row', alignItems: 'center',
   },
-  featuredIcon: {
-    width: 56, height: 56, borderRadius: 16,
-    backgroundColor: 'rgba(0,0,0,0.1)', alignItems: 'center', justifyContent: 'center',
-  },
-  coinIcon: { width: 36, height: 36 },
-  featuredTitle: { fontSize: FontSize.lg, fontWeight: '800', color: '#000' },
-  featuredSubtitle: { fontSize: FontSize.sm, color: 'rgba(0,0,0,0.6)', fontWeight: '500' },
-  featuredApy: {
-    alignItems: 'flex-end', gap: 2,
-  },
-  featuredApyValue: { fontSize: FontSize.xl, fontWeight: '900', color: '#000' },
-  featuredApyLabel: { fontSize: FontSize.xs, color: 'rgba(0,0,0,0.6)', fontWeight: '600' },
+  featuredTitle: { fontSize: 18, fontWeight: '800', color: '#000' },
+  featuredSubtitle: { fontSize: 13, color: 'rgba(0,0,0,0.6)', fontWeight: '600' },
+  featuredApy: { alignItems: 'flex-end', gap: 2 },
+  featuredApyValue: { fontSize: 26, fontWeight: '900', color: '#000' },
+  featuredApyLabel: { fontSize: 11, color: 'rgba(0,0,0,0.5)', fontWeight: '700' },
   featuredStats: {
     flexDirection: 'row', paddingTop: Spacing.sm,
     borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.1)',
@@ -213,36 +257,50 @@ const styles = StyleSheet.create({
   // Section
   sectionHeader: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    marginBottom: Spacing.md,
+    marginBottom: Spacing.sm,
   },
-  sectionTitle: { fontSize: FontSize.lg, fontWeight: '700', color: Colors.textPrimary },
-  sectionCount: { fontSize: FontSize.sm, color: Colors.textSecondary },
+  sectionTitle: { fontSize: 18, fontWeight: '800', color: Colors.textPrimary },
+  sectionBadge: {
+    backgroundColor: Colors.bgCard, borderWidth: 1, borderColor: Colors.border,
+    borderRadius: 99, paddingHorizontal: 10, paddingVertical: 3,
+  },
+  sectionCount: { fontSize: 12, fontWeight: '800', color: Colors.primary },
 
   // Pool Card
   poolCard: {
+    backgroundColor: Colors.bgCard,
     borderRadius: Radius.lg, padding: Spacing.lg,
-    borderWidth: 1, borderColor: Colors.border, marginBottom: Spacing.md, gap: Spacing.md,
+    borderWidth: 1, borderColor: Colors.border,
+    marginBottom: Spacing.md, gap: Spacing.md,
   },
   poolHeader: {
     flexDirection: 'row', alignItems: 'center',
   },
-  poolIcon: {
-    width: 48, height: 48, borderRadius: 12,
-    backgroundColor: Colors.bgElevated, alignItems: 'center', justifyContent: 'center',
+  poolName: { fontSize: 16, fontWeight: '800', color: Colors.textPrimary },
+  poolTokenRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3,
   },
-  poolName: { fontSize: FontSize.md, fontWeight: '700', color: Colors.textPrimary },
-  poolToken: { fontSize: FontSize.xs, color: Colors.textSecondary },
+  poolToken: { fontSize: 12, fontWeight: '700', color: Colors.textSecondary },
+  poolDot: {
+    width: 4, height: 4, borderRadius: 2,
+    backgroundColor: Colors.textMuted,
+  },
+  poolApyBox: {
+    alignItems: 'flex-end', gap: 2,
+  },
+  poolApyValue: {
+    fontSize: 22, fontWeight: '900',
+    color: Colors.primary,
+  },
+  poolApyLabel: { fontSize: 11, fontWeight: '700', color: Colors.textMuted },
   poolMetrics: {
-    flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.md,
+    flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.lg,
   },
   poolFooter: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    flexDirection: 'row', alignItems: 'center', gap: 6,
     paddingTop: Spacing.sm, borderTopWidth: 1, borderTopColor: Colors.border,
   },
-  poolMember: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-  },
-  poolMemberText: { fontSize: FontSize.xs, color: Colors.textSecondary },
+  poolMemberText: { fontSize: 12, color: Colors.textSecondary, flex: 1 },
 
   // Empty
   empty: { alignItems: 'center', gap: Spacing.sm, paddingVertical: 80 },
