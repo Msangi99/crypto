@@ -7,15 +7,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, FontSize, Spacing, Radius } from '../../constants/theme';
 import { userAPI } from '../../services/api';
 
+// Icons will come from backend now, but keep as fallback
 const COIN_ICONS: Record<string, string> = {
-  bitcoin: '₿', ethereum: 'Ξ', bnb: 'B', binancecoin: 'B',
-};
-
-const COIN_COLORS: Record<string, string[]> = {
-  bitcoin: ['#F7931A', '#E07B00'],
-  ethereum: ['#627EEA', '#3C5FBF'],
-  bnb: ['#F3BA2F', '#D4A020'],
-  binancecoin: ['#F3BA2F', '#D4A020'],
+  BTC: '₿', ETH: 'Ξ', BNB: 'B', SOL: '◎', ADA: '₳', DOGE: 'Ð',
+  DOT: '●', MATIC: '⬡', AVAX: '▲', LINK: '🔗', UNI: '🦄', XRP: '✕', LTC: 'Ł',
 };
 
 export default function MarketScreen() {
@@ -37,8 +32,7 @@ export default function MarketScreen() {
     setRefreshing(false);
   };
 
-  const prices = data?.prices ?? {};
-  const coins = Object.entries(prices);
+  const coins = data?.coins ?? [];
 
   return (
     <LinearGradient colors={['#0D0D0D', '#0D0D0D']} style={styles.container}>
@@ -60,59 +54,61 @@ export default function MarketScreen() {
           </Text>
         </View>
 
-        {coins.map(([coin, cd]: any) => (
-          <CoinCard key={coin} coin={coin} data={cd} />
+        {coins.map((coin: any) => (
+          <CoinCard key={coin.symbol} coin={coin} />
         ))}
 
         {/* Liquidation Targets */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Liquidation Targets</Text>
-          {[
-            { asset: 'BTC', phase1: 150000, phase2: 200000, icon: '₿', color: '#F7931A' },
-            { asset: 'ETH', phase1: 15000, phase2: 20000, icon: 'Ξ', color: '#627EEA' },
-          ].map((t) => (
-            <LinearGradient key={t.asset} colors={Colors.gradientCard} style={styles.targetCard}>
-              <View style={[styles.targetIcon, { backgroundColor: t.color + '22' }]}>
-                <Text style={[styles.targetIconText, { color: t.color }]}>{t.icon}</Text>
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.targetAsset}>{t.asset} Targets</Text>
-                <Text style={styles.targetDesc}>Phase 1 · Phase 2</Text>
-              </View>
-              <View style={{ alignItems: 'flex-end', gap: 4 }}>
-                <View style={styles.targetPhase}>
-                  <Text style={styles.targetPhaseLabel}>P1</Text>
-                  <Text style={styles.targetPhaseValue}>${t.phase1.toLocaleString()}</Text>
+          {data?.targets && Object.entries(data.targets).map(([asset, targets]: any) => {
+            const coin = coins.find((c: any) => c.symbol === asset);
+            const icon = coin?.icon || COIN_ICONS[asset] || asset[0];
+            const color = coin?.color || Colors.gold;
+            return (
+              <LinearGradient key={asset} colors={Colors.gradientCard} style={styles.targetCard}>
+                <View style={[styles.targetIcon, { backgroundColor: color + '22' }]}>
+                  <Text style={[styles.targetIconText, { color }]}>{icon}</Text>
                 </View>
-                <View style={styles.targetPhase}>
-                  <Text style={[styles.targetPhaseLabel, { color: Colors.gold }]}>P2</Text>
-                  <Text style={[styles.targetPhaseValue, { color: Colors.gold }]}>${t.phase2.toLocaleString()}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.targetAsset}>{asset} Targets</Text>
+                  <Text style={styles.targetDesc}>Phase 1 · Phase 2</Text>
                 </View>
-              </View>
-            </LinearGradient>
-          ))}
+                <View style={{ alignItems: 'flex-end', gap: 4 }}>
+                  <View style={styles.targetPhase}>
+                    <Text style={styles.targetPhaseLabel}>P1</Text>
+                    <Text style={styles.targetPhaseValue}>${targets.phase1.toLocaleString()}</Text>
+                  </View>
+                  <View style={styles.targetPhase}>
+                    <Text style={[styles.targetPhaseLabel, { color: Colors.gold }]}>P2</Text>
+                    <Text style={[styles.targetPhaseValue, { color: Colors.gold }]}>${targets.phase2.toLocaleString()}</Text>
+                  </View>
+                </View>
+              </LinearGradient>
+            );
+          })}
         </View>
       </ScrollView>
     </LinearGradient>
   );
 }
 
-function CoinCard({ coin, data }: { coin: string; data: any }) {
-  const change = data.change24h ?? 0;
+function CoinCard({ coin }: { coin: any }) {
+  const change = coin.change24h ?? 0;
   const isUp = change >= 0;
-  const grad = (COIN_COLORS[coin] ?? [Colors.primary, Colors.primaryDark]) as [string, string];
+  const grad = [coin.color || Colors.primary, coin.colorDark || Colors.primaryDark] as [string, string];
 
   return (
     <LinearGradient colors={Colors.gradientCard} style={styles.coinCard}>
       <LinearGradient colors={grad} style={styles.coinIcon}>
-        <Text style={styles.coinIconText}>{COIN_ICONS[coin] ?? coin[0].toUpperCase()}</Text>
+        <Text style={styles.coinIconText}>{coin.icon || COIN_ICONS[coin.symbol] || coin.symbol[0]}</Text>
       </LinearGradient>
       <View style={{ flex: 1 }}>
-        <Text style={styles.coinName}>{coin.toUpperCase()}</Text>
-        <Text style={styles.coinFullName}>{data.name ?? coin}</Text>
+        <Text style={styles.coinName}>{coin.symbol}</Text>
+        <Text style={styles.coinFullName}>{coin.name}</Text>
       </View>
       <View style={{ alignItems: 'flex-end', gap: 4 }}>
-        <Text style={styles.coinPrice}>${Number(data.price ?? 0).toLocaleString()}</Text>
+        <Text style={styles.coinPrice}>${Number(coin.price ?? 0).toLocaleString()}</Text>
         <View style={[styles.changeBadge, { backgroundColor: isUp ? Colors.successBg : Colors.errorBg }]}>
           <Ionicons name={isUp ? 'trending-up' : 'trending-down'} size={12} color={isUp ? Colors.success : Colors.error} />
           <Text style={[styles.changeText, { color: isUp ? Colors.success : Colors.error }]}>
@@ -120,31 +116,10 @@ function CoinCard({ coin, data }: { coin: string; data: any }) {
           </Text>
         </View>
       </View>
-
-      <View style={styles.coinStats}>
-        <CoinStat label="24h High" value={`$${Number(data.high24h ?? 0).toLocaleString()}`} />
-        <CoinStat label="24h Low" value={`$${Number(data.low24h ?? 0).toLocaleString()}`} />
-        <CoinStat label="Market Cap" value={formatBig(data.marketCap ?? 0)} />
-      </View>
     </LinearGradient>
   );
 }
 
-function CoinStat({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={{ alignItems: 'center', gap: 2 }}>
-      <Text style={{ fontSize: FontSize.xs, color: Colors.textMuted }}>{label}</Text>
-      <Text style={{ fontSize: FontSize.xs, fontWeight: '600', color: Colors.textSecondary }}>{value}</Text>
-    </View>
-  );
-}
-
-function formatBig(n: number) {
-  if (n >= 1e12) return `$${(n / 1e12).toFixed(1)}T`;
-  if (n >= 1e9) return `$${(n / 1e9).toFixed(1)}B`;
-  if (n >= 1e6) return `$${(n / 1e6).toFixed(1)}M`;
-  return `$${n.toLocaleString()}`;
-}
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
@@ -174,7 +149,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8, paddingVertical: 2, borderRadius: Radius.full,
   },
   changeText: { fontSize: FontSize.xs, fontWeight: '700' },
-  coinStats: { flexDirection: 'row', justifyContent: 'space-between', width: '100%' },
   section: { gap: Spacing.sm },
   sectionTitle: { fontSize: FontSize.lg, fontWeight: '700', color: Colors.textPrimary, marginBottom: Spacing.sm },
   targetCard: {

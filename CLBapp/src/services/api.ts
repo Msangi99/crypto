@@ -42,8 +42,8 @@ export const userAPI = {
   receipts: () => api.get('/api/user/receipts'),
   activity: (limit = 20, page = 1) =>
     api.get(`/api/user/activity?limit=${limit}&page=${page}`),
-  calculator: (depositUsd: number, asset: string, tier: number) =>
-    api.post('/api/user/calculator', { depositUsd, asset, tier }),
+  calculator: (poolFee: number, asset: string) =>
+    api.post('/api/user/calculator', { poolFee, asset }),
   market: () => api.get('/api/user/market'),
 };
 

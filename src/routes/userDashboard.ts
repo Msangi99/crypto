@@ -790,29 +790,40 @@ export default async function userDashboardRoutes(fastify: FastifyInstance) {
     async () => {
       const prices = await priceService.getPrices();
 
+      // Coin metadata with icons and colors
+      const coins = {
+        BTC: { name: 'Bitcoin', icon: '₿', color: '#F7931A', colorDark: '#E07B00' },
+        ETH: { name: 'Ethereum', icon: 'Ξ', color: '#627EEA', colorDark: '#3C5FBF' },
+        BNB: { name: 'BNB', icon: 'B', color: '#F3BA2F', colorDark: '#D4A020' },
+        SOL: { name: 'Solana', icon: '◎', color: '#00FFA3', colorDark: '#00CC82' },
+        ADA: { name: 'Cardano', icon: '₳', color: '#0033AD', colorDark: '#002288' },
+        DOGE: { name: 'Dogecoin', icon: 'Ð', color: '#C2A633', colorDark: '#9E8529' },
+        DOT: { name: 'Polkadot', icon: '●', color: '#E6007A', colorDark: '#B3005F' },
+        MATIC: { name: 'Polygon', icon: '⬡', color: '#8247E5', colorDark: '#6338B0' },
+        AVAX: { name: 'Avalanche', icon: '▲', color: '#E84142', colorDark: '#B83334' },
+        LINK: { name: 'Chainlink', icon: '🔗', color: '#2A5ADA', colorDark: '#1F46A8' },
+        UNI: { name: 'Uniswap', icon: '🦄', color: '#FF007A', colorDark: '#CC0062' },
+        XRP: { name: 'Ripple', icon: '✕', color: '#23292F', colorDark: '#1B2025' },
+        LTC: { name: 'Litecoin', icon: 'Ł', color: '#BFBBBB', colorDark: '#999696' },
+      };
+
+      const coinsData = Object.entries(coins).map(([symbol, meta]) => ({
+        symbol,
+        name: meta.name,
+        icon: meta.icon,
+        color: meta.color,
+        colorDark: meta.colorDark,
+        price: prices[symbol]?.usd || 0,
+        change24h: prices[symbol]?.usd_24h_change || 0,
+      }));
+
       return {
         success: true,
         market: {
-          bitcoin: {
-            symbol: 'BTC',
-            price: prices.BTC?.usd || 0,
-            change24h: prices.BTC?.usd_24h_change || 0,
-            targets: LIQUIDATION_TARGETS.BTC,
-            upsideToPhase1: prices.BTC?.usd ? `${((LIQUIDATION_TARGETS.BTC.phase1 / prices.BTC.usd - 1) * 100).toFixed(1)}%` : 'N/A',
-            upsideToPhase2: prices.BTC?.usd ? `${((LIQUIDATION_TARGETS.BTC.phase2 / prices.BTC.usd - 1) * 100).toFixed(1)}%` : 'N/A',
-          },
-          ethereum: {
-            symbol: 'ETH',
-            price: prices.ETH?.usd || 0,
-            change24h: prices.ETH?.usd_24h_change || 0,
-            targets: LIQUIDATION_TARGETS.ETH,
-            upsideToPhase1: prices.ETH?.usd ? `${((LIQUIDATION_TARGETS.ETH.phase1 / prices.ETH.usd - 1) * 100).toFixed(1)}%` : 'N/A',
-            upsideToPhase2: prices.ETH?.usd ? `${((LIQUIDATION_TARGETS.ETH.phase2 / prices.ETH.usd - 1) * 100).toFixed(1)}%` : 'N/A',
-          },
-          bnb: {
-            symbol: 'BNB',
-            price: prices.BNB?.usd || 0,
-            change24h: prices.BNB?.usd_24h_change || 0,
+          coins: coinsData,
+          targets: {
+            BTC: LIQUIDATION_TARGETS.BTC,
+            ETH: LIQUIDATION_TARGETS.ETH,
           },
           tiers: Object.entries(TIER_LEVERAGE).map(([fee, lev]) => ({
             poolFee: Number(fee),

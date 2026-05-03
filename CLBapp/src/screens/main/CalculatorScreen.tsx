@@ -9,20 +9,18 @@ import { Colors, FontSize, Spacing, Radius } from '../../constants/theme';
 import Button from '../../components/ui/Button';
 import { userAPI } from '../../services/api';
 
-const TIERS = [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000];
 const ASSETS = ['BTC', 'ETH'];
 
 export default function CalculatorScreen() {
   const [depositUsd, setDepositUsd] = useState('100');
   const [asset, setAsset] = useState('BTC');
-  const [tier, setTier] = useState(100);
   const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
   const calculate = async () => {
     setLoading(true);
     try {
-      const res = await userAPI.calculator(Number(depositUsd), asset, tier);
+      const res = await userAPI.calculator(Number(depositUsd), asset);
       setResult(res.data);
     } catch (e) {
       console.error(e);
@@ -68,18 +66,7 @@ export default function CalculatorScreen() {
               />
               <Text style={styles.inputSuffix}>USDT</Text>
             </View>
-          </View>
-
-          {/* Tier selector */}
-          <View style={styles.group}>
-            <Text style={styles.label}>Pool Tier</Text>
-            <View style={styles.tierGrid}>
-              {TIERS.map((t) => (
-                <TouchableOpacity key={t} onPress={() => setTier(t)} style={[styles.tierBtn, tier === t && styles.tierBtnActive]}>
-                  <Text style={[styles.tierBtnText, tier === t && styles.tierBtnTextActive]}>${t}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+            <Text style={styles.hintText}>Leverage auto-calculated: $100→10x, $200→15x ... $1000→60x</Text>
           </View>
 
           <Button label="Calculate Returns" onPress={calculate} loading={loading} fullWidth variant="primary" />
@@ -200,6 +187,7 @@ const styles = StyleSheet.create({
   inputPrefix: { fontSize: FontSize.lg, color: Colors.textMuted, marginRight: 8 },
   input: { flex: 1, paddingVertical: 14, color: Colors.textPrimary, fontSize: FontSize.xl, fontWeight: '700' },
   inputSuffix: { fontSize: FontSize.sm, color: Colors.textMuted, marginLeft: 8 },
+  hintText: { fontSize: FontSize.xs, color: Colors.textMuted, marginTop: 6 },
   tierGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
   tierBtn: {
     width: '18%', paddingVertical: 10, borderRadius: Radius.md, alignItems: 'center',
