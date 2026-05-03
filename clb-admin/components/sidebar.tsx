@@ -15,6 +15,9 @@ import {
   Shield,
   PanelLeftClose,
   PanelLeftOpen,
+  Blocks,
+  ShieldAlert,
+  Calculator,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useSidebar } from "@/lib/sidebar-context";
@@ -22,6 +25,7 @@ import { cn } from "@/lib/utils";
 
 const navItems = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
+  { href: "/dashboard/contracts", label: "Contracts", icon: Blocks },
   { href: "/dashboard/packages", label: "Packages", icon: Package },
   { href: "/dashboard/pools", label: "Pools", icon: Waves },
   { href: "/dashboard/users", label: "Users", icon: Users },
@@ -29,6 +33,8 @@ const navItems = [
   { href: "/dashboard/payments", label: "Payments", icon: CreditCard },
   { href: "/dashboard/transactions", label: "Transactions", icon: ArrowLeftRight },
   { href: "/dashboard/referrals", label: "Referrals", icon: Users },
+  { href: "/dashboard/security", label: "Security", icon: ShieldAlert },
+  { href: "/dashboard/calculator", label: "Calculator", icon: Calculator },
   { href: "/dashboard/settings", label: "Settings", icon: Settings },
 ];
 

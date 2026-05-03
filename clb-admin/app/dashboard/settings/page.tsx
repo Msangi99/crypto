@@ -107,9 +107,12 @@ export default function SettingsPage() {
             <Badge className="bg-[#00C853]/10 text-[#00C853]">Neon PostgreSQL</Badge>
           </div>
           <Separator className="bg-[#2A2A2A]" />
-          <div className="flex justify-between items-center py-2">
-            <span className="text-sm text-[#999]">Referral Bonus</span>
-            <span className="text-sm text-white">5% of deposits</span>
+          <div className="flex justify-between items-start py-2">
+            <span className="text-sm text-[#999]">Referral System</span>
+            <div className="text-right text-xs space-y-0.5">
+              <p className="text-white">5-Level Commission (of Pool Fee)</p>
+              <p className="text-[#F0B90B]">L1: 20% · L2: 8% · L3: 5% · L4: 3% · L5: 1%</p>
+            </div>
           </div>
         </CardContent>
       </Card>

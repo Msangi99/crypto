@@ -1,0 +1,305 @@
+"use client";
+
+import { useState, useMemo, useEffect, useCallback } from "react";
+import {
+  Calculator, DollarSign, TrendingUp, Percent, Target,
+  Bitcoin, ArrowRight, Zap, Info,
+} from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+
+const poolTiers = [
+  { label: "Starter", price: 100 },
+  { label: "Silver", price: 250 },
+  { label: "Gold", price: 500 },
+  { label: "Platinum", price: 1000 },
+];
+
+const assets = [
+  {
+    symbol: "BTC",
+    name: "Bitcoin",
+    color: "#F7931A",
+    defaultPrice: 76130,
+    phase1Target: 150000,
+    phase2Target: 200000,
+  },
+  {
+    symbol: "ETH",
+    name: "Ethereum",
+    color: "#627EEA",
+    defaultPrice: 2268,
+    phase1Target: 15000,
+    phase2Target: 20000,
+  },
+];
+
+const LEVERAGE = 60;
+const USER_PROFIT_SHARE = 0.85;
+const PLATFORM_FEE_SHARE = 0.15;
+
+export default function CalculatorPage() {
+  const [selectedTier, setSelectedTier] = useState(100);
+  const [selectedAsset, setSelectedAsset] = useState("BTC");
+  const [customEntryPrice, setCustomEntryPrice] = useState("");
+  const [livePrice, setLivePrice] = useState<number | null>(null);
+
+  const asset = assets.find((a) => a.symbol === selectedAsset)!;
+
+  const fetchLivePrice = useCallback(async () => {
+    try {
+      const id = selectedAsset === "BTC" ? "bitcoin" : "ethereum";
+      const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${id}&vs_currencies=usd`);
+      const data = await res.json();
+      setLivePrice(data[id]?.usd || null);
+    } catch {
+      // keep default
+    }
+  }, [selectedAsset]);
+
+  useEffect(() => {
+    fetchLivePrice();
+  }, [fetchLivePrice]);
+
+  const entryPrice = customEntryPrice ? parseFloat(customEntryPrice) : (livePrice || asset.defaultPrice);
+
+  const results = useMemo(() => {
+    const poolInvestment = selectedTier;
+    const leveragedPosition = poolInvestment * LEVERAGE;
+    const cryptoAmount = leveragedPosition / entryPrice;
+
+    // Phase 1: Partial Liquidation (30-50%)
+    const phase1LiqPercent = 0.40;
+    const phase1Value = cryptoAmount * asset.phase1Target * phase1LiqPercent;
+    const phase1GrossProfit = phase1Value - (poolInvestment * phase1LiqPercent);
+    const phase1UserProfit = phase1GrossProfit * USER_PROFIT_SHARE;
+    const phase1PlatformFee = phase1GrossProfit * PLATFORM_FEE_SHARE;
+    const phase1ROI = ((phase1UserProfit) / poolInvestment) * 100;
+
+    // Phase 2: Full Liquidation
+    const phase2RemainingPercent = 1 - phase1LiqPercent;
+    const phase2Value = cryptoAmount * asset.phase2Target * phase2RemainingPercent;
+    const phase2GrossProfit = phase2Value - (poolInvestment * phase2RemainingPercent);
+    const phase2UserProfit = phase2GrossProfit * USER_PROFIT_SHARE;
+    const phase2PlatformFee = phase2GrossProfit * PLATFORM_FEE_SHARE;
+    const phase2ROI = ((phase2UserProfit) / poolInvestment) * 100;
+
+    // Combined
+    const totalUserProfit = phase1UserProfit + phase2UserProfit;
+    const totalPlatformFee = phase1PlatformFee + phase2PlatformFee;
+    const totalROI = ((totalUserProfit) / poolInvestment) * 100;
+
+    return {
+      poolInvestment,
+      leveragedPosition,
+      cryptoAmount,
+      entryPrice,
+      phase1: { value: phase1Value, grossProfit: phase1GrossProfit, userProfit: phase1UserProfit, platformFee: phase1PlatformFee, roi: phase1ROI, target: asset.phase1Target, liqPercent: phase1LiqPercent },
+      phase2: { value: phase2Value, grossProfit: phase2GrossProfit, userProfit: phase2UserProfit, platformFee: phase2PlatformFee, roi: phase2ROI, target: asset.phase2Target, liqPercent: phase2RemainingPercent },
+      totalUserProfit,
+      totalPlatformFee,
+      totalROI,
+    };
+  }, [selectedTier, entryPrice, asset]);
+
+  const fmt = (n: number) => n < 1 ? n.toFixed(6) : n.toLocaleString(undefined, { maximumFractionDigits: 2 });
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold text-white tracking-tight">Profit Calculator</h2>
+        <p className="text-sm text-[#888] mt-1">Calculate expected returns per pool tier with {LEVERAGE}x leverage and {USER_PROFIT_SHARE * 100}/{PLATFORM_FEE_SHARE * 100} profit split</p>
+      </div>
+
+      {/* Input Controls */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Pool Tier */}
+        <Card className="bg-[#1A1A1A] border-[#2A2A2A]">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-white text-sm flex items-center gap-2">
+              <DollarSign className="w-4 h-4 text-[#F0B90B]" /> Pool Tier
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-2">
+              {poolTiers.map((tier) => (
+                <button
+                  key={tier.price}
+                  onClick={() => setSelectedTier(tier.price)}
+                  className={`p-3 rounded-lg border text-center transition-all ${
+                    selectedTier === tier.price
+                      ? "border-[#F0B90B] bg-[#F0B90B]/10 text-[#F0B90B]"
+                      : "border-[#2A2A2A] bg-[#0D0D0D] text-[#999] hover:border-[#3A3A3A]"
+                  }`}
+                >
+                  <p className="text-lg font-bold">${tier.price}</p>
+                  <p className="text-xs opacity-70">{tier.label}</p>
+                </button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Asset Selection */}
+        <Card className="bg-[#1A1A1A] border-[#2A2A2A]">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-white text-sm flex items-center gap-2">
+              <Bitcoin className="w-4 h-4 text-[#F0B90B]" /> Asset
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-2 mb-3">
+              {assets.map((a) => (
+                <button
+                  key={a.symbol}
+                  onClick={() => { setSelectedAsset(a.symbol); setCustomEntryPrice(""); }}
+                  className={`p-3 rounded-lg border text-center transition-all ${
+                    selectedAsset === a.symbol
+                      ? `border-[${a.color}] bg-[${a.color}]/10`
+                      : "border-[#2A2A2A] bg-[#0D0D0D] text-[#999] hover:border-[#3A3A3A]"
+                  }`}
+                  style={selectedAsset === a.symbol ? { borderColor: a.color, backgroundColor: `${a.color}15` } : {}}
+                >
+                  <p className="text-lg font-bold" style={{ color: selectedAsset === a.symbol ? a.color : undefined }}>{a.symbol}</p>
+                  <p className="text-xs opacity-70">{a.name}</p>
+                </button>
+              ))}
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs text-[#888]">Entry Price (USD) — {livePrice ? "live" : "default"}</label>
+              <input
+                type="number"
+                value={customEntryPrice || (livePrice || asset.defaultPrice)}
+                onChange={(e) => setCustomEntryPrice(e.target.value)}
+                className="w-full h-9 rounded-md border border-[#2A2A2A] bg-[#0D0D0D] px-3 text-sm text-white font-mono focus:outline-none focus:ring-1 focus:ring-[#F0B90B]"
+              />
+              {livePrice && <p className="text-[10px] text-[#00C853]">Live: ${livePrice.toLocaleString()}</p>}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Position Summary */}
+        <Card className="bg-[#1A1A1A] border-[#2A2A2A]">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-white text-sm flex items-center gap-2">
+              <Zap className="w-4 h-4 text-[#F0B90B]" /> Position
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {[
+              { label: "Pool Investment", value: `$${results.poolInvestment}` },
+              { label: "Leverage", value: `${LEVERAGE}x` },
+              { label: "Leveraged Position", value: `$${fmt(results.leveragedPosition)}` },
+              { label: `${selectedAsset} Amount`, value: `${results.cryptoAmount.toFixed(6)} ${selectedAsset}` },
+              { label: "Entry Price", value: `$${fmt(results.entryPrice)}` },
+              { label: "Profit Split", value: `${USER_PROFIT_SHARE * 100}% User / ${PLATFORM_FEE_SHARE * 100}% Platform` },
+            ].map((item) => (
+              <div key={item.label} className="flex justify-between p-2 rounded bg-[#0D0D0D]">
+                <span className="text-xs text-[#999]">{item.label}</span>
+                <span className="text-xs text-white font-mono">{item.value}</span>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Phase Results */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Phase 1 */}
+        <Card className="bg-[#1A1A1A] border-[#2A2A2A] border-l-4 border-l-[#F0B90B]">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-white text-base flex items-center gap-2">
+                <Target className="w-4 h-4 text-[#F0B90B]" />
+                Phase 1 — Partial Liquidation
+              </CardTitle>
+              <Badge className="bg-[#F0B90B]/10 text-[#F0B90B]">{(results.phase1.liqPercent * 100).toFixed(0)}% of position</Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <div className="p-3 rounded-lg bg-[#0D0D0D] text-center mb-3">
+              <p className="text-xs text-[#888]">Target Price</p>
+              <p className="text-2xl font-bold text-[#F0B90B]">${results.phase1.target.toLocaleString()}</p>
+              <p className="text-xs text-[#666]">{((results.phase1.target / results.entryPrice - 1) * 100).toFixed(0)}% price increase needed</p>
+            </div>
+            {[
+              { label: "Liquidation Value", value: `$${fmt(results.phase1.value)}`, color: "text-white" },
+              { label: "Gross Profit", value: `$${fmt(results.phase1.grossProfit)}`, color: "text-white" },
+              { label: "User Profit (85%)", value: `$${fmt(results.phase1.userProfit)}`, color: "text-[#00C853]" },
+              { label: "Platform Fee (15%)", value: `$${fmt(results.phase1.platformFee)}`, color: "text-[#F0B90B]" },
+              { label: "Phase 1 ROI", value: `${fmt(results.phase1.roi)}%`, color: "text-[#00C853]" },
+            ].map((item) => (
+              <div key={item.label} className="flex justify-between p-2.5 rounded bg-[#0D0D0D]">
+                <span className="text-xs text-[#999]">{item.label}</span>
+                <span className={`text-xs font-semibold font-mono ${item.color}`}>{item.value}</span>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+
+        {/* Phase 2 */}
+        <Card className="bg-[#1A1A1A] border-[#2A2A2A] border-l-4 border-l-[#3B82F6]">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-white text-base flex items-center gap-2">
+                <Target className="w-4 h-4 text-[#3B82F6]" />
+                Phase 2 — Full Liquidation
+              </CardTitle>
+              <Badge className="bg-[#3B82F6]/10 text-[#3B82F6]">{(results.phase2.liqPercent * 100).toFixed(0)}% remaining</Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <div className="p-3 rounded-lg bg-[#0D0D0D] text-center mb-3">
+              <p className="text-xs text-[#888]">Target Price</p>
+              <p className="text-2xl font-bold text-[#3B82F6]">${results.phase2.target.toLocaleString()}</p>
+              <p className="text-xs text-[#666]">{((results.phase2.target / results.entryPrice - 1) * 100).toFixed(0)}% price increase needed</p>
+            </div>
+            {[
+              { label: "Liquidation Value", value: `$${fmt(results.phase2.value)}`, color: "text-white" },
+              { label: "Gross Profit", value: `$${fmt(results.phase2.grossProfit)}`, color: "text-white" },
+              { label: "User Profit (85%)", value: `$${fmt(results.phase2.userProfit)}`, color: "text-[#00C853]" },
+              { label: "Platform Fee (15%)", value: `$${fmt(results.phase2.platformFee)}`, color: "text-[#3B82F6]" },
+              { label: "Phase 2 ROI", value: `${fmt(results.phase2.roi)}%`, color: "text-[#00C853]" },
+            ].map((item) => (
+              <div key={item.label} className="flex justify-between p-2.5 rounded bg-[#0D0D0D]">
+                <span className="text-xs text-[#999]">{item.label}</span>
+                <span className={`text-xs font-semibold font-mono ${item.color}`}>{item.value}</span>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Total Summary */}
+      <Card className="bg-[#1A1A1A] border-[#2A2A2A] border-t-4 border-t-[#00C853]">
+        <CardContent className="p-6">
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 text-center">
+            <div>
+              <p className="text-xs text-[#888] mb-1">Investment</p>
+              <p className="text-xl font-bold text-white">${results.poolInvestment}</p>
+            </div>
+            <div>
+              <p className="text-xs text-[#888] mb-1">Total User Profit</p>
+              <p className="text-xl font-bold text-[#00C853]">${fmt(results.totalUserProfit)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-[#888] mb-1">Platform Revenue</p>
+              <p className="text-xl font-bold text-[#F0B90B]">${fmt(results.totalPlatformFee)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-[#888] mb-1">Total ROI</p>
+              <p className="text-xl font-bold text-[#00C853]">{fmt(results.totalROI)}%</p>
+            </div>
+          </div>
+          <div className="mt-4 p-3 rounded-lg bg-[#00C853]/5 border border-[#00C853]/20 flex items-center gap-2">
+            <Info className="w-4 h-4 text-[#00C853] shrink-0" />
+            <p className="text-xs text-[#00C853]">
+              Formula: User Net Profit = (Crypto Amount × Liquidation Price × Liquidation %) × 85% − Pool Investment.
+              All calculations assume both phases hit their targets. Actual returns depend on market conditions.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
