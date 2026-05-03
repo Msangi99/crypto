@@ -13,7 +13,7 @@ import { userAPI } from '../../services/api';
 import { useAuthStore } from '../../store/authStore';
 
 const { width } = Dimensions.get('window');
-const LOGO = require('../../../assets/logo.png');
+const LOGO = require('../../CLB logo.png');
 
 export default function HomeScreen({ navigation }: any) {
   const { user } = useAuthStore();
