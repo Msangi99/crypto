@@ -10,7 +10,7 @@ import Button from '../../components/ui/Button';
 import { authAPI } from '../../services/api';
 import { useAuthStore } from '../../store/authStore';
 
-const LOGO = require('../../assets/logo.png');
+const LOGO = require('../../../assets/logo.png');
 
 export default function ConnectWalletScreen() {
   const [walletAddress, setWalletAddress] = useState('');
