@@ -40,19 +40,13 @@ export default function ConnectWalletScreen() {
   };
 
   return (
-    <LinearGradient colors={['#0D0D0D', '#0D0D0D']} style={styles.container}>
+    <LinearGradient colors={[Colors.bg, Colors.bg]} style={styles.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-          {/* Header */}
           <View style={styles.header}>
-            <View style={styles.logoContainer}>
-              <View style={styles.logoGlow} />
-              <Image source={LOGO} style={styles.logoImage} resizeMode="contain" />
-            </View>
-            <Text style={styles.title}>CryptoLoanBoost</Text>
-            <Text style={styles.subtitle}>
-              Enter your BSC wallet address to access your CLB dashboard
-            </Text>
+            <Image source={LOGO} style={styles.logo} resizeMode="contain" />
+            <Text style={styles.title}>Connect Wallet</Text>
+            <Text style={styles.subtitle}>Enter your BEP-20 wallet address to get started</Text>
           </View>
 
           {/* Hint card */}
@@ -114,6 +108,7 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   scroll: { padding: Spacing.lg, paddingTop: 60, gap: Spacing.lg },
   header: { alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.sm },
+  logo: { width: 80, height: 80, marginBottom: Spacing.sm },
   logoContainer: {
     width: 100, height: 100,
     alignItems: 'center', justifyContent: 'center',

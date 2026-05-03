@@ -30,10 +30,10 @@ export default function CalculatorScreen() {
   };
 
   return (
-    <LinearGradient colors={['#0D0D0D', '#0D0D0D']} style={styles.container}>
+    <LinearGradient colors={[Colors.bg, Colors.bg]} style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Profit Calculator</Text>
-        <Text style={styles.subtitle}>Estimate your returns before joining</Text>
+        <Text style={styles.subtitle}>Estimate your leverage & returns</Text>
       </View>
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>

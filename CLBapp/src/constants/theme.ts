@@ -1,6 +1,6 @@
 export const Colors = {
   // Primary palette — Gold + Black (CLB / Binance-inspired brand)
-  // Must match admin dashboard: globals.css (:root variables)
+  // Trust Wallet/MetaMask inspired modern dark theme
   primary: '#F0B90B',        // Binance gold — accent & primary
   primaryDark: '#C99A00',
   primaryLight: '#FCD535',
@@ -11,11 +11,12 @@ export const Colors = {
 
   blue: '#3B82F6',           // chart / info accent
   purple: '#A855F7',
+  cyan: '#06B6D4',
 
-  // Background hierarchy (pure blacks, NOT navy)
-  bg: '#0D0D0D',             // deepest dark
-  bgCard: '#1A1A1A',         // card surface
-  bgElevated: '#222222',     // elevated surfaces
+  // Background hierarchy (modern dark theme)
+  bg: '#000000',             // pure black background
+  bgCard: '#141414',         // card surface
+  bgElevated: '#1F1F1F',     // elevated surfaces
   bgInput: '#2A2A2A',        // input fields
 
   // Borders / dividers
@@ -23,25 +24,27 @@ export const Colors = {
   borderLight: '#3A3A3A',
 
   // Text
-  textPrimary: '#F5F5F5',
-  textSecondary: '#999999',
-  textMuted: '#666666',
+  textPrimary: '#FFFFFF',
+  textSecondary: '#A0A0A0',
+  textMuted: '#6B6B6B',
   textGold: '#F0B90B',
 
   // Status
-  success: '#00C853',
-  successBg: 'rgba(0, 200, 83, 0.10)',
-  error: '#FF3D57',
-  errorBg: 'rgba(255, 61, 87, 0.10)',
-  warning: '#FCD535',
-  warningBg: 'rgba(252, 213, 53, 0.10)',
+  success: '#00D26A',
+  successBg: 'rgba(0, 210, 106, 0.15)',
+  error: '#FF4757',
+  errorBg: 'rgba(255, 71, 87, 0.15)',
+  warning: '#F0B90B',
+  warningBg: 'rgba(240, 185, 11, 0.15)',
 
-  // Gradients (stop arrays for expo-linear-gradient)
+  // Gradients (stop arrays for expo-linear-gradient) - more vibrant
   gradientPrimary: ['#F0B90B', '#C99A00'] as const,
-  gradientGold: ['#F0B90B', '#C99A00'] as const,
-  gradientCard: ['#1A1A1A', '#222222'] as const,
-  gradientDark: ['#0D0D0D', '#1A1A1A'] as const,
-  gradientSuccess: ['#00C853', '#00A040'] as const,
+  gradientGold: ['#FCD535', '#F0B90B'] as const,
+  gradientCard: ['#1F1F1F', '#141414'] as const,
+  gradientDark: ['#000000', '#141414'] as const,
+  gradientSuccess: ['#00D26A', '#00A852'] as const,
+  gradientBlue: ['#3B82F6', '#2563EB'] as const,
+  gradientPurple: ['#A855F7', '#7C3AED'] as const,
 };
 
 export const Spacing = {

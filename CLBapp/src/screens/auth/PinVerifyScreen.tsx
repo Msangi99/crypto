@@ -60,7 +60,7 @@ export default function PinVerifyScreen({ onVerified }: PinVerifyScreenProps) {
   }, [pin]);
 
   return (
-    <LinearGradient colors={['#0D0D0D', '#0D0D0D']} style={styles.container}>
+    <LinearGradient colors={[Colors.bg, Colors.bg]} style={styles.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           <View style={styles.header}>

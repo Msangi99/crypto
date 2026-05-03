@@ -50,13 +50,13 @@ export default function HomeScreen({ navigation }: any) {
   const pnlPct = totalInvested > 0 ? ((pnl / totalInvested) * 100).toFixed(2) : '0.00';
 
   return (
-    <LinearGradient colors={['#0D0D0D', '#0D0D0D']} style={styles.container}>
+    <LinearGradient colors={[Colors.bg, Colors.bg]} style={styles.container}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
       >
         {/* Top Header */}
-        <LinearGradient colors={['#0D0D0D', 'transparent']} style={styles.header}>
+        <LinearGradient colors={[Colors.bg, 'transparent']} style={styles.header}>
           <View style={styles.headerLeft}>
             <Image source={LOGO} style={styles.headerLogo} resizeMode="contain" />
             <View>
@@ -76,7 +76,7 @@ export default function HomeScreen({ navigation }: any) {
         {/* Portfolio Balance Card */}
         <View style={styles.balanceSection}>
           <LinearGradient
-            colors={['#222222', '#1A1A1A']}
+            colors={Colors.gradientCard}
             style={styles.balanceCard}
             start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
           >
@@ -180,7 +180,7 @@ export default function HomeScreen({ navigation }: any) {
 
         {/* Referral Promo */}
         <View style={[styles.section, { marginBottom: 100 }]}>
-          <LinearGradient colors={['#222222', '#1A1A1A']} style={styles.referralCard}>
+          <LinearGradient colors={Colors.gradientCard} style={styles.referralCard}>
             <LinearGradient colors={Colors.gradientGold} style={styles.referralIconBg}>
               <Ionicons name="gift-outline" size={24} color="#fff" />
             </LinearGradient>
