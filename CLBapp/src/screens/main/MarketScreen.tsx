@@ -32,7 +32,8 @@ export default function MarketScreen() {
     setRefreshing(false);
   };
 
-  const coins = data?.coins ?? [];
+  const coins = data?.market?.coins ?? [];
+  const targets = data?.market?.targets ?? {};
 
   return (
     <LinearGradient colors={[Colors.bg, Colors.bg]} style={styles.container}>
@@ -61,7 +62,7 @@ export default function MarketScreen() {
         {/* Liquidation Targets */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Liquidation Targets</Text>
-          {data?.targets && Object.entries(data.targets).map(([asset, targets]: any) => {
+          {Object.entries(targets).map(([asset, t]: any) => {
             const coin = coins.find((c: any) => c.symbol === asset);
             const icon = coin?.icon || COIN_ICONS[asset] || asset[0];
             const color = coin?.color || Colors.gold;
@@ -77,11 +78,11 @@ export default function MarketScreen() {
                 <View style={{ alignItems: 'flex-end', gap: 4 }}>
                   <View style={styles.targetPhase}>
                     <Text style={styles.targetPhaseLabel}>P1</Text>
-                    <Text style={styles.targetPhaseValue}>${targets.phase1.toLocaleString()}</Text>
+                    <Text style={styles.targetPhaseValue}>${t.phase1?.toLocaleString() ?? 0}</Text>
                   </View>
                   <View style={styles.targetPhase}>
                     <Text style={[styles.targetPhaseLabel, { color: Colors.gold }]}>P2</Text>
-                    <Text style={[styles.targetPhaseValue, { color: Colors.gold }]}>${targets.phase2.toLocaleString()}</Text>
+                    <Text style={[styles.targetPhaseValue, { color: Colors.gold }]}>${t.phase2?.toLocaleString() ?? 0}</Text>
                   </View>
                 </View>
               </LinearGradient>

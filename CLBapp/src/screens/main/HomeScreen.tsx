@@ -44,9 +44,10 @@ export default function HomeScreen({ navigation }: any) {
     ? `${user.walletAddress.slice(0, 6)}...${user.walletAddress.slice(-4)}`
     : '';
 
-  const totalValue = dashboard?.portfolio?.totalValue ?? 0;
-  const totalInvested = dashboard?.totalInvested ?? 0;
-  const pnl = totalValue - totalInvested;
+  const stats = dashboard?.dashboard?.stats ?? {};
+  const totalValue = stats.portfolioValueUsd ?? 0;
+  const totalInvested = stats.totalDepositedUsd ?? 0;
+  const pnl = stats.unrealizedPnlUsd ?? 0;
   const pnlPct = totalInvested > 0 ? ((pnl / totalInvested) * 100).toFixed(2) : '0.00';
 
   return (
@@ -111,13 +112,13 @@ export default function HomeScreen({ navigation }: any) {
               <View style={styles.balanceDivider} />
               <View style={styles.balanceGridItem}>
                 <Text style={styles.bgiLabel}>Active Pools</Text>
-                <Text style={styles.bgiValue}>{dashboard?.activePools ?? 0}</Text>
+                <Text style={styles.bgiValue}>{stats.activePools ?? 0}</Text>
               </View>
               <View style={styles.balanceDivider} />
               <View style={styles.balanceGridItem}>
                 <Text style={styles.bgiLabel}>Referral Earnings</Text>
                 <Text style={[styles.bgiValue, { color: Colors.gold }]}>
-                  ${(dashboard?.referralEarnings ?? 0).toFixed(2)}
+                  ${(stats.referralEarnings ?? 0).toFixed(2)}
                 </Text>
               </View>
             </View>
@@ -152,9 +153,9 @@ export default function HomeScreen({ navigation }: any) {
             </TouchableOpacity>
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.marketScroll}>
-            {market?.prices
-              ? Object.entries(market.prices).map(([coin, data]: any) => (
-                  <MarketChip key={coin} coin={coin} data={data} />
+            {market?.market?.coins?.length
+              ? market.market.coins.slice(0, 6).map((coin: any) => (
+                  <MarketChip key={coin.symbol} coin={coin} />
                 ))
               : ['BTC', 'ETH', 'BNB'].map((c) => <MarketChipSkeleton key={c} label={c} />)}
           </ScrollView>
@@ -168,7 +169,7 @@ export default function HomeScreen({ navigation }: any) {
               <Text style={styles.seeAll}>See All</Text>
             </TouchableOpacity>
           </View>
-          {dashboard?.recentActivity?.slice(0, 4).map((act: any, i: number) => (
+          {dashboard?.dashboard?.recentActivity?.slice(0, 4).map((act: any, i: number) => (
             <ActivityRow key={i} item={act} />
           )) ?? (
             <View style={styles.emptyState}>
@@ -199,13 +200,13 @@ export default function HomeScreen({ navigation }: any) {
   );
 }
 
-function MarketChip({ coin, data }: { coin: string; data: any }) {
-  const change = data.change24h ?? 0;
+function MarketChip({ coin }: { coin: any }) {
+  const change = coin.change24h ?? 0;
   const isUp = change >= 0;
   return (
     <LinearGradient colors={Colors.gradientCard} style={styles.marketChip}>
-      <Text style={styles.mcCoin}>{coin.toUpperCase()}</Text>
-      <Text style={styles.mcPrice}>${Number(data.price ?? 0).toLocaleString()}</Text>
+      <Text style={styles.mcCoin}>{coin.symbol}</Text>
+      <Text style={styles.mcPrice}>${Number(coin.price ?? 0).toLocaleString()}</Text>
       <View style={[styles.mcChangeBadge, { backgroundColor: isUp ? Colors.successBg : Colors.errorBg }]}>
         <Ionicons name={isUp ? 'caret-up' : 'caret-down'} size={10} color={isUp ? Colors.success : Colors.error} />
         <Text style={[styles.mcChange, { color: isUp ? Colors.success : Colors.error }]}>
