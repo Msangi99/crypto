@@ -18,6 +18,10 @@ import {
   Blocks,
   ShieldAlert,
   Calculator,
+  Droplets,
+  Wallet,
+  Ticket,
+  Rocket,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useSidebar } from "@/lib/sidebar-context";
@@ -33,8 +37,12 @@ const navItems = [
   { href: "/dashboard/payments", label: "Payments", icon: CreditCard },
   { href: "/dashboard/transactions", label: "Transactions", icon: ArrowLeftRight },
   { href: "/dashboard/referrals", label: "Referrals", icon: Users },
+  { href: "/dashboard/liquidity", label: "Liquidity", icon: Droplets },
+  { href: "/dashboard/wallets", label: "Wallets", icon: Wallet },
+  { href: "/dashboard/receipts", label: "Receipts", icon: Ticket },
   { href: "/dashboard/security", label: "Security", icon: ShieldAlert },
   { href: "/dashboard/calculator", label: "Calculator", icon: Calculator },
+  { href: "/dashboard/roadmap", label: "Roadmap", icon: Rocket },
   { href: "/dashboard/settings", label: "Settings", icon: Settings },
 ];
 

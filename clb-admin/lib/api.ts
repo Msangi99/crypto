@@ -113,6 +113,20 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
+  updatePool: (id: string, data: {
+    name?: string; description?: string; tokenSymbol?: string;
+    minDeposit?: number; maxDeposit?: number; apy?: number;
+    status?: string; endDate?: string;
+  }) =>
+    request<{ success: boolean; pool: Record<string, unknown> }>(`/api/pools/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+  deletePool: (id: string) =>
+    request<{ success: boolean; message: string }>(`/api/pools/${id}`, {
+      method: "DELETE",
+    }),
+
   // Transactions
   getTransactions: (page = 1, limit = 20) =>
     request<{

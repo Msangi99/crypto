@@ -308,6 +308,72 @@ export default async function poolRoutes(fastify: FastifyInstance) {
     }
   );
 
+  // PUT /pools/:id — update pool (admin)
+  fastify.put<{
+    Params: { id: string };
+    Body: {
+      name?: string; description?: string; tokenSymbol?: string;
+      minDeposit?: number; maxDeposit?: number; apy?: number;
+      status?: string; endDate?: string;
+    };
+  }>(
+    '/:id',
+    { preHandler: [authMiddleware] },
+    async (request, reply) => {
+      const user = await prisma.user.findUnique({ where: { id: request.userId } });
+      if (!user || user.role !== 'ADMIN') {
+        return reply.status(403).send({ success: false, error: 'Admin access required' });
+      }
+
+      const existing = await prisma.pool.findUnique({ where: { id: request.params.id } });
+      if (!existing) {
+        return reply.status(404).send({ success: false, error: 'Pool not found' });
+      }
+
+      const { name, description, tokenSymbol, minDeposit, maxDeposit, apy, status, endDate } = request.body;
+
+      const pool = await prisma.pool.update({
+        where: { id: request.params.id },
+        data: {
+          ...(name !== undefined && { name }),
+          ...(description !== undefined && { description }),
+          ...(tokenSymbol !== undefined && { tokenSymbol }),
+          ...(minDeposit !== undefined && { minDeposit }),
+          ...(maxDeposit !== undefined && { maxDeposit }),
+          ...(apy !== undefined && { apy }),
+          ...(status !== undefined && { status: status as 'ACTIVE' | 'PAUSED' | 'COMPLETED' | 'CANCELLED' }),
+          ...(endDate !== undefined && { endDate: new Date(endDate) }),
+        },
+      });
+
+      return { success: true, pool };
+    }
+  );
+
+  // DELETE /pools/:id — delete pool (admin)
+  fastify.delete<{ Params: { id: string } }>(
+    '/:id',
+    { preHandler: [authMiddleware] },
+    async (request, reply) => {
+      const user = await prisma.user.findUnique({ where: { id: request.userId } });
+      if (!user || user.role !== 'ADMIN') {
+        return reply.status(403).send({ success: false, error: 'Admin access required' });
+      }
+
+      const existing = await prisma.pool.findUnique({ where: { id: request.params.id } });
+      if (!existing) {
+        return reply.status(404).send({ success: false, error: 'Pool not found' });
+      }
+
+      // Delete dependents first
+      await prisma.deposit.deleteMany({ where: { poolId: request.params.id } });
+      await prisma.poolMember.deleteMany({ where: { poolId: request.params.id } });
+      await prisma.pool.delete({ where: { id: request.params.id } });
+
+      return { success: true, message: 'Pool deleted' };
+    }
+  );
+
   // POST /pools/:id/deposit — record deposit
   fastify.post<{ Params: { id: string }; Body: { amount: number; txHash: string } }>(
     '/:id/deposit',

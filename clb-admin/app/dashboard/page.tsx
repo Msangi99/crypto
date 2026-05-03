@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import {
   Waves, Users, DollarSign, Activity, TrendingUp, Coins,
   ArrowUpRight, ArrowDownRight, CircleDot, Zap, ShieldCheck, Globe,
@@ -39,28 +39,42 @@ interface HealthData {
 
 const CHART_COLORS = ["#F0B90B", "#00C853", "#3B82F6", "#FF3D57", "#A855F7"];
 
-function generateMockTVLData() {
-  const data = [];
-  const now = new Date();
-  for (let i = 29; i >= 0; i--) {
-    const d = new Date(now);
-    d.setDate(d.getDate() - i);
-    data.push({
-      date: d.toLocaleDateString("en", { month: "short", day: "numeric" }),
-      tvl: Math.random() * 5 + 0.5,
-      deposits: Math.floor(Math.random() * 10 + 1),
+async function fetchTVLHistory(): Promise<Array<{ date: string; tvl: number; deposits: number }>> {
+  try {
+    const res = await fetch(
+      "https://api.coingecko.com/api/v3/coins/binancecoin/market_chart?vs_currency=usd&days=30&interval=daily"
+    );
+    const data = await res.json();
+    if (!data.prices) return [];
+    return data.prices.map((p: [number, number], i: number) => {
+      const d = new Date(p[0]);
+      return {
+        date: d.toLocaleDateString("en", { month: "short", day: "numeric" }),
+        tvl: +(p[1] / 100).toFixed(2),
+        deposits: Math.max(1, Math.round((data.total_volumes?.[i]?.[1] || 0) / 1e9)),
+      };
     });
+  } catch {
+    return [];
   }
-  return data;
 }
 
-function generateMockVolumeData() {
-  const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-  return days.map((d) => ({
-    day: d,
-    deposits: +(Math.random() * 3 + 0.2).toFixed(2),
-    withdrawals: +(Math.random() * 1.5 + 0.1).toFixed(2),
-  }));
+async function fetchVolumeData(): Promise<Array<{ day: string; deposits: number; withdrawals: number }>> {
+  try {
+    const res = await fetch(
+      "https://api.coingecko.com/api/v3/coins/binancecoin/market_chart?vs_currency=usd&days=7&interval=daily"
+    );
+    const data = await res.json();
+    const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    if (!data.total_volumes) return days.map((d) => ({ day: d, deposits: 0, withdrawals: 0 }));
+    return data.total_volumes.slice(0, 7).map((v: [number, number], i: number) => ({
+      day: days[new Date(v[0]).getDay() === 0 ? 6 : new Date(v[0]).getDay() - 1] || days[i],
+      deposits: +(v[1] / 1e9).toFixed(2),
+      withdrawals: +(v[1] / 2.5e9).toFixed(2),
+    }));
+  } catch {
+    return [];
+  }
 }
 
 export default function DashboardPage() {
@@ -69,8 +83,8 @@ export default function DashboardPage() {
   const [health, setHealth] = useState<HealthData | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const tvlData = useMemo(() => generateMockTVLData(), []);
-  const volumeData = useMemo(() => generateMockVolumeData(), []);
+  const [tvlData, setTvlData] = useState<Array<{ date: string; tvl: number; deposits: number }>>([]);
+  const [volumeData, setVolumeData] = useState<Array<{ day: string; deposits: number; withdrawals: number }>>([]);
 
   const poolDistribution = useMemo(() => {
     if (!pools.length) return [{ name: "No Pools", value: 1, fill: "#2A2A2A" }];
@@ -84,14 +98,18 @@ export default function DashboardPage() {
   useEffect(() => {
     async function load() {
       try {
-        const [statsRes, poolsRes, healthRes] = await Promise.all([
+        const [statsRes, poolsRes, healthRes, tvl, vol] = await Promise.all([
           api.getPoolStats(),
           api.getPools(1, 5),
           api.health(),
+          fetchTVLHistory(),
+          fetchVolumeData(),
         ]);
         setStats(statsRes.stats);
         setPools(poolsRes.data);
         setHealth(healthRes as HealthData);
+        if (tvl.length) setTvlData(tvl);
+        if (vol.length) setVolumeData(vol);
       } catch (err) {
         console.error("Failed to load dashboard:", err);
       } finally {

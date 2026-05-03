@@ -47,6 +47,9 @@ export default function PackagesPage() {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editPkg, setEditPkg] = useState<PoolPackage | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editForm, setEditForm] = useState({ name: "", description: "", minDeposit: "100", apy: "85", status: "ACTIVE" });
   const [form, setForm] = useState<{
     name: string; description: string; tokenSymbol: string; minDeposit: string;
     maxDeposit: string; apy: string; leverage: string; phase1Target: string;
@@ -116,6 +119,62 @@ export default function PackagesPage() {
       toast.error(err instanceof Error ? err.message : "Failed to seed packages");
     } finally {
       setCreating(false);
+    }
+  };
+
+  const handleEditOpen = (pkg: PoolPackage) => {
+    setEditPkg(pkg);
+    setEditForm({
+      name: pkg.name,
+      description: pkg.description || "",
+      minDeposit: String(pkg.minDeposit),
+      apy: String(pkg.apy),
+      status: pkg.status,
+    });
+    setEditDialogOpen(true);
+  };
+
+  const handleEditSave = async () => {
+    if (!editPkg) return;
+    setCreating(true);
+    try {
+      await api.updatePool(editPkg.id, {
+        name: editForm.name,
+        description: editForm.description,
+        minDeposit: parseFloat(editForm.minDeposit),
+        apy: parseFloat(editForm.apy),
+        status: editForm.status,
+      });
+      toast.success("Package updated!");
+      setEditDialogOpen(false);
+      setEditPkg(null);
+      loadPackages();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update");
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleDelete = async (pkg: PoolPackage) => {
+    if (!confirm(`Delete "${pkg.name}"? This will also remove all deposits and memberships for this pool.`)) return;
+    try {
+      await api.deletePool(pkg.id);
+      toast.success("Package deleted");
+      loadPackages();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to delete");
+    }
+  };
+
+  const handleStatusToggle = async (pkg: PoolPackage) => {
+    const newStatus = pkg.status === "ACTIVE" ? "PAUSED" : "ACTIVE";
+    try {
+      await api.updatePool(pkg.id, { status: newStatus });
+      toast.success(`Pool ${newStatus === "ACTIVE" ? "activated" : "paused"}`);
+      loadPackages();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update status");
     }
   };
 
@@ -242,10 +301,13 @@ export default function PackagesPage() {
                       </div>
                     </div>
                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button className="p-1.5 rounded-md hover:bg-[#2A2A2A] text-[#999] hover:text-white">
+                      <button onClick={() => handleStatusToggle(pkg)} className="p-1.5 rounded-md hover:bg-[#2A2A2A] text-[#999] hover:text-[#F0B90B]" title={pkg.status === "ACTIVE" ? "Pause pool" : "Activate pool"}>
+                        {pkg.status === "ACTIVE" ? "⏸" : "▶"}
+                      </button>
+                      <button onClick={() => handleEditOpen(pkg)} className="p-1.5 rounded-md hover:bg-[#2A2A2A] text-[#999] hover:text-white">
                         <Pencil className="w-3.5 h-3.5" />
                       </button>
-                      <button className="p-1.5 rounded-md hover:bg-[#FF3D57]/10 text-[#999] hover:text-[#FF3D57]">
+                      <button onClick={() => handleDelete(pkg)} className="p-1.5 rounded-md hover:bg-[#FF3D57]/10 text-[#999] hover:text-[#FF3D57]">
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
@@ -287,6 +349,50 @@ export default function PackagesPage() {
           })}
         </div>
       )}
+      {/* Edit Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="bg-[#1A1A1A] border-[#2A2A2A] text-white sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Edit Package</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            <div className="space-y-2">
+              <Label>Package Name</Label>
+              <Input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} className="bg-[#0D0D0D] border-[#2A2A2A]" />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Pool Price (USD)</Label>
+                <Input type="number" value={editForm.minDeposit} onChange={(e) => setEditForm({ ...editForm, minDeposit: e.target.value })} className="bg-[#0D0D0D] border-[#2A2A2A]" />
+              </div>
+              <div className="space-y-2">
+                <Label>Profit Share (%)</Label>
+                <Input type="number" value={editForm.apy} onChange={(e) => setEditForm({ ...editForm, apy: e.target.value })} className="bg-[#0D0D0D] border-[#2A2A2A]" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Status</Label>
+              <Select value={editForm.status} onValueChange={(v) => { if (v) setEditForm({ ...editForm, status: v }); }}>
+                <SelectTrigger className="bg-[#0D0D0D] border-[#2A2A2A]"><SelectValue /></SelectTrigger>
+                <SelectContent className="bg-[#1A1A1A] border-[#2A2A2A]">
+                  <SelectItem value="ACTIVE">Active</SelectItem>
+                  <SelectItem value="PAUSED">Paused</SelectItem>
+                  <SelectItem value="COMPLETED">Completed</SelectItem>
+                  <SelectItem value="CANCELLED">Cancelled</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Description</Label>
+              <Textarea value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} className="bg-[#0D0D0D] border-[#2A2A2A]" />
+            </div>
+            <Button onClick={handleEditSave} disabled={creating} className="w-full bg-[#F0B90B] text-[#0D0D0D] hover:bg-[#FCD535] font-semibold">
+              {creating ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Pencil className="w-4 h-4 mr-2" />}
+              Save Changes
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

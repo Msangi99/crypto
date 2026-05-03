@@ -14,6 +14,7 @@ import poolRoutes from './routes/pool';
 import referralRoutes from './routes/referral';
 import priceRoutes from './routes/price';
 import transactionRoutes from './routes/transaction';
+import adminRoutes from './routes/admin';
 
 const buildApp = async () => {
   const fastify = Fastify({
@@ -141,6 +142,7 @@ const buildApp = async () => {
   await fastify.register(referralRoutes, { prefix: '/api/referrals' });
   await fastify.register(priceRoutes, { prefix: '/api/prices' });
   await fastify.register(transactionRoutes, { prefix: '/api/transactions' });
+  await fastify.register(adminRoutes, { prefix: '/api/admin' });
 
   // ─── Root Route ────────────────────────────────
   fastify.get('/', async () => {
@@ -155,6 +157,7 @@ const buildApp = async () => {
         referrals: '/api/referrals',
         prices: '/api/prices',
         transactions: '/api/transactions',
+        admin: '/api/admin',
       },
     };
   });
