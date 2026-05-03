@@ -14,6 +14,7 @@ model User {
   nonce         String    @default(uuid())
   username      String?
   email         String?   @unique
+  passwordHash  String?
   role          UserRole  @default(USER)
   isActive      Boolean   @default(true)
   createdAt     DateTime  @default(now())

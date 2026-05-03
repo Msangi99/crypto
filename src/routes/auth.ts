@@ -1,5 +1,6 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { ethers } from 'ethers';
+import bcrypt from 'bcryptjs';
 import prisma from '../config/db';
 import { authMiddleware } from '../middleware/auth';
 
@@ -218,6 +219,75 @@ export default async function authRoutes(fastify: FastifyInstance) {
       }
 
       return { success: true, user };
+    }
+  );
+
+  // POST /auth/admin-login — admin email/password login
+  fastify.post<{ Body: { email: string; password: string } }>(
+    '/admin-login',
+    {
+      schema: {
+        tags: ['Auth'],
+        summary: 'Admin login with email and password',
+        body: {
+          type: 'object',
+          required: ['email', 'password'],
+          properties: {
+            email: { type: 'string', format: 'email' },
+            password: { type: 'string', minLength: 6 },
+          },
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              success: { type: 'boolean' },
+              token: { type: 'string' },
+              user: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string' },
+                  walletAddress: { type: 'string' },
+                  username: { type: 'string', nullable: true },
+                  role: { type: 'string' },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    async (request: FastifyRequest<{ Body: { email: string; password: string } }>, reply: FastifyReply) => {
+      const { email, password } = request.body;
+
+      const user = await prisma.user.findFirst({
+        where: { email: email.toLowerCase(), role: 'ADMIN' },
+      });
+
+      if (!user || !user.passwordHash) {
+        return reply.status(401).send({ success: false, error: 'Invalid email or password' });
+      }
+
+      const valid = await bcrypt.compare(password, user.passwordHash);
+      if (!valid) {
+        return reply.status(401).send({ success: false, error: 'Invalid email or password' });
+      }
+
+      const token = fastify.jwt.sign(
+        { id: user.id, walletAddress: user.walletAddress },
+        { expiresIn: '7d' }
+      );
+
+      return {
+        success: true,
+        token,
+        user: {
+          id: user.id,
+          walletAddress: user.walletAddress,
+          username: user.username,
+          role: user.role,
+        },
+      };
     }
   );
 
