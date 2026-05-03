@@ -5,7 +5,7 @@ import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Radius, FontSize } from '../constants/theme';
 
-const LOGO = require('../assets/logo.png');
+const LOGO = require('../../assets/logo.png');
 
 import HomeScreen from '../screens/main/HomeScreen';
 import PortfolioScreen from '../screens/main/PortfolioScreen';
