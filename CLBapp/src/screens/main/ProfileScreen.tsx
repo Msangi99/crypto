@@ -285,6 +285,7 @@ export default function ProfileScreen({ navigation }: any) {
         </TouchableOpacity>
 
         <View style={{ height: 80 }} />
+        </View>
       </ScrollView>
 
       {/* Edit Profile Modal */}
