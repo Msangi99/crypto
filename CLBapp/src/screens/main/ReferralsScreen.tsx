@@ -131,35 +131,18 @@ function EarningsView({ earnings }: { earnings: any }) {
   const referralList = earningsData.referralList ?? [];
 
   return (
-    <View style={{ gap: Spacing.sm }}>
-      {/* Total Earnings Card */}
-      <LinearGradient colors={Colors.gradientCard} style={styles.totalCard}>
-        <Text style={styles.totalLabel}>Total Referral Earnings</Text>
-        <Text style={styles.totalValue}>{(earningsData.totalBonusReceived ?? 0).toFixed(4)} BNB</Text>
-        <View style={styles.totalStats}>
-          <View style={styles.totalStatItem}>
-            <Text style={styles.totalStatLabel}>Direct Referrals</Text>
-            <Text style={styles.totalStatValue}>{earningsData.directReferrals ?? 0}</Text>
-          </View>
-          <View style={styles.totalStatDivider} />
-          <View style={styles.totalStatItem}>
-            <Text style={styles.totalStatLabel}>Network Size</Text>
-            <Text style={styles.totalStatValue}>{referralList.length}</Text>
-          </View>
-        </View>
-      </LinearGradient>
-
-      {/* Commission Rates */}
-      <View style={styles.ratesCard}>
-        <Text style={styles.ratesTitle}>Commission Rates</Text>
-        <View style={styles.ratesGrid}>
+    <View style={{ gap: Spacing.lg }}>
+      {/* Commission Rates Grid */}
+      <View style={styles.commissionSection}>
+        <Text style={styles.sectionTitle}>Commission Structure</Text>
+        <View style={styles.commissionGrid}>
           {rates.map((rate: any, i: number) => (
-            <View key={i} style={styles.rateCard}>
-              <View style={[styles.rateDot, { backgroundColor: LEVEL_COLORS[i] }]} />
-              <Text style={[styles.rateLevel, { color: LEVEL_COLORS[i] }]}>L{i + 1}</Text>
-              <Text style={styles.rateValue}>{rate.rate}</Text>
-              <Text style={styles.rateDesc}>{rate.description}</Text>
-            </View>
+            <LinearGradient key={i} colors={Colors.gradientCard} style={styles.commissionCard}>
+              <View style={[styles.commissionDot, { backgroundColor: LEVEL_COLORS[i] }]} />
+              <Text style={[styles.commissionLevel, { color: LEVEL_COLORS[i] }]}>L{i + 1}</Text>
+              <Text style={styles.commissionRate}>{rate.rate}</Text>
+              <Text style={styles.commissionDesc}>{rate.description}</Text>
+            </LinearGradient>
           ))}
         </View>
       </View>
@@ -168,20 +151,52 @@ function EarningsView({ earnings }: { earnings: any }) {
       {recentBonuses.length > 0 && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Recent Bonuses</Text>
-          {recentBonuses.slice(0, 5).map((bonus: any, i: number) => (
-            <View key={i} style={styles.bonusRow}>
-              <View style={[styles.bonusIcon, { backgroundColor: Colors.gold + '22' }]}>
-                <Ionicons name="gift-outline" size={16} color={Colors.gold} />
+          <View style={styles.bonusList}>
+            {recentBonuses.slice(0, 5).map((bonus: any, i: number) => (
+              <View key={i} style={styles.bonusRow}>
+                <View style={[styles.bonusIcon, { backgroundColor: Colors.gold + '22' }]}>
+                  <Ionicons name="gift-outline" size={18} color={Colors.gold} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.bonusType}>Referral Bonus</Text>
+                  <Text style={styles.bonusDate}>{new Date(bonus.createdAt).toLocaleDateString()}</Text>
+                </View>
+                <Text style={[styles.bonusAmount, { color: Colors.gold }]}>
+                  +{bonus.amount.toFixed(4)} BNB
+                </Text>
               </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.bonusType}>Referral Bonus</Text>
-                <Text style={styles.bonusDate}>{new Date(bonus.createdAt).toLocaleDateString()}</Text>
+            ))}
+          </View>
+        </View>
+      )}
+
+      {/* Referral List */}
+      {referralList.length > 0 && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Your Referrals</Text>
+          <View style={styles.referralList}>
+            {referralList.slice(0, 5).map((ref: any, i: number) => (
+              <View key={i} style={styles.referralRow}>
+                <View style={styles.referralAvatar}>
+                  <Text style={styles.referralAvatarText}>
+                    {(ref.username ?? ref.wallet ?? '?')[0].toUpperCase()}
+                  </Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.referralName}>{ref.username || 'Anonymous'}</Text>
+                  <Text style={styles.referralAddr}>
+                    {ref.wallet ? `${ref.wallet.slice(0, 8)}...${ref.wallet.slice(-4)}` : ''}
+                  </Text>
+                </View>
+                <View style={styles.referralReward}>
+                  <Text style={styles.referralRewardLabel}>Reward</Text>
+                  <Text style={[styles.referralRewardValue, { color: Colors.gold }]}>
+                    {ref.reward.toFixed(4)} BNB
+                  </Text>
+                </View>
               </View>
-              <Text style={[styles.bonusAmount, { color: Colors.gold }]}>
-                +{bonus.amount.toFixed(4)} BNB
-              </Text>
-            </View>
-          ))}
+            ))}
+          </View>
         </View>
       )}
     </View>
@@ -309,6 +324,35 @@ const styles = StyleSheet.create({
   },
   statLabel: { fontSize: FontSize.xs, color: Colors.textMuted, fontWeight: '600' },
   statValue: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.textPrimary },
+  // Commission Cards
+  commissionSection: { gap: Spacing.sm },
+  commissionGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
+  commissionCard: {
+    flex: 1, minWidth: '45%', borderRadius: Radius.lg, padding: Spacing.md, gap: 6,
+    borderWidth: 1, borderColor: Colors.border, alignItems: 'center',
+  },
+  commissionDot: { width: 10, height: 10, borderRadius: 5 },
+  commissionLevel: { fontSize: FontSize.md, fontWeight: '800' },
+  commissionRate: { fontSize: FontSize.lg, fontWeight: '700', color: Colors.textPrimary },
+  commissionDesc: { fontSize: 9, color: Colors.textMuted, textAlign: 'center' },
+  // Bonus List
+  bonusList: { gap: Spacing.xs },
+  // Referral List
+  referralList: { gap: Spacing.xs },
+  referralRow: {
+    flexDirection: 'row', alignItems: 'center', gap: Spacing.md,
+    paddingVertical: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.border + '40',
+  },
+  referralAvatar: {
+    width: 36, height: 36, borderRadius: 10, backgroundColor: Colors.bgElevated,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  referralAvatarText: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.primary },
+  referralName: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.textPrimary },
+  referralAddr: { fontSize: FontSize.xs, color: Colors.textMuted },
+  referralReward: { alignItems: 'flex-end', gap: 2 },
+  referralRewardLabel: { fontSize: 9, color: Colors.textMuted },
+  referralRewardValue: { fontSize: FontSize.sm, fontWeight: '700' },
   ratesCard: {
     backgroundColor: Colors.bgCard, borderRadius: Radius.lg,
     borderWidth: 1, borderColor: Colors.border, padding: Spacing.md, gap: Spacing.sm,
