@@ -26,6 +26,7 @@ model User {
   pinHash       String?
   pinSalt       String?
   biometricEnabled Boolean @default(false)
+  tokenVersion  Int      @default(0)
 
   // Relations
   deposits      Deposit[]

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Alert } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { useAuthStore } from '../store/authStore';
@@ -17,12 +18,25 @@ import { Colors } from '../constants/theme';
 const Stack = createStackNavigator();
 
 export default function RootNavigator() {
-  const { isAuthenticated, isLoading, loadFromStorage, user, pinVerified, setPinVerified } = useAuthStore();
+  const { isAuthenticated, isLoading, loadFromStorage, user, pinVerified, setPinVerified, logout } = useAuthStore();
   const [showSplash, setShowSplash] = useState(true);
 
   useEffect(() => {
     loadFromStorage();
   }, []);
+
+  // Register global auth expiry callback
+  useEffect(() => {
+    globalThis.__CLB_AUTH_EXPIRED__ = (msg?: string) => {
+      logout();
+      Alert.alert(
+        'Session Expired',
+        msg || 'Your session has expired. Please log in again.',
+        [{ text: 'OK' }]
+      );
+    };
+    return () => { globalThis.__CLB_AUTH_EXPIRED__ = undefined; };
+  }, [logout]);
 
   if (showSplash) {
     return <SplashScreen onFinish={() => setShowSplash(false)} />;

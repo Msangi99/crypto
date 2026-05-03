@@ -180,15 +180,15 @@ export default async function authRoutes(fastify: FastifyInstance) {
         fastify.log.warn(`⚠️  DEV MODE: Skipping signature verification for ${normalized}`);
       }
 
-      // Rotate nonce
+      // Rotate nonce + increment tokenVersion (invalidates old tokens on other devices)
       const updatedUser = await prisma.user.update({
         where: { id: user.id },
-        data: { nonce: crypto.randomUUID() },
+        data: { nonce: crypto.randomUUID(), tokenVersion: { increment: 1 } },
       });
 
-      // Generate JWT (include role for admin middleware)
+      // Generate JWT (include tokenVersion for single-device enforcement)
       const token = fastify.jwt.sign(
-        { id: user.id, walletAddress: normalized, role: user.role },
+        { id: user.id, walletAddress: normalized, role: user.role, tokenVersion: updatedUser.tokenVersion },
         { expiresIn: '7d' }
       );
 
@@ -253,9 +253,15 @@ export default async function authRoutes(fastify: FastifyInstance) {
         fastify.log.info(`🆕 New user created via dev-login: ${normalized}`);
       }
 
-      // Generate JWT
+      // Increment tokenVersion (invalidates old tokens on other devices)
+      const updatedUser = await prisma.user.update({
+        where: { id: user.id },
+        data: { tokenVersion: { increment: 1 } },
+      });
+
+      // Generate JWT (include tokenVersion for single-device enforcement)
       const token = fastify.jwt.sign(
-        { id: user.id, walletAddress: normalized, role: user.role },
+        { id: user.id, walletAddress: normalized, role: user.role, tokenVersion: updatedUser.tokenVersion },
         { expiresIn: '7d' }
       );
 
@@ -422,8 +428,14 @@ export default async function authRoutes(fastify: FastifyInstance) {
         return reply.status(401).send({ success: false, error: 'Invalid email or password' });
       }
 
+      // Increment tokenVersion (invalidates old admin tokens on other devices)
+      const updatedUser = await prisma.user.update({
+        where: { id: user.id },
+        data: { tokenVersion: { increment: 1 } },
+      });
+
       const token = fastify.jwt.sign(
-        { id: user.id, walletAddress: user.walletAddress, role: user.role },
+        { id: user.id, walletAddress: user.walletAddress, role: user.role, tokenVersion: updatedUser.tokenVersion },
         { expiresIn: '7d' }
       );
 

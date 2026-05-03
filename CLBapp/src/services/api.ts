@@ -16,6 +16,28 @@ api.interceptors.request.use(async (config) => {
   return config;
 });
 
+// Handle 401 — token expired or logged in from another device
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    if (error.response?.status === 401) {
+      const msg = error.response?.data?.error || '';
+      // Clear stored auth data
+      await SecureStore.deleteItemAsync('clb_token');
+      // Notify app to redirect to login
+      if (typeof globalThis.__CLB_AUTH_EXPIRED__ === 'function') {
+        globalThis.__CLB_AUTH_EXPIRED__(msg);
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
+// Global callback for auth expiry (set by RootNavigator)
+declare global {
+  var __CLB_AUTH_EXPIRED__: ((msg?: string) => void) | undefined;
+}
+
 // ─── Auth ─────────────────────────────────────────────────
 // Backend flow: GET /nonce (creates user if new) → POST /verify (returns JWT)
 // Dev flow: POST /dev-login (no signature needed, for mobile app testing)
