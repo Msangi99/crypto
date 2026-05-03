@@ -1,0 +1,53 @@
+import { create } from 'zustand';
+import * as SecureStore from 'expo-secure-store';
+
+interface User {
+  id: string;
+  walletAddress: string;
+  username?: string;
+  referralCode: string;
+  createdAt: string;
+}
+
+interface AuthState {
+  token: string | null;
+  user: User | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  setAuth: (token: string, user: User) => Promise<void>;
+  logout: () => Promise<void>;
+  loadFromStorage: () => Promise<void>;
+}
+
+export const useAuthStore = create<AuthState>((set) => ({
+  token: null,
+  user: null,
+  isAuthenticated: false,
+  isLoading: true,
+
+  setAuth: async (token, user) => {
+    await SecureStore.setItemAsync('clb_token', token);
+    await SecureStore.setItemAsync('clb_user', JSON.stringify(user));
+    set({ token, user, isAuthenticated: true });
+  },
+
+  logout: async () => {
+    await SecureStore.deleteItemAsync('clb_token');
+    await SecureStore.deleteItemAsync('clb_user');
+    set({ token: null, user: null, isAuthenticated: false });
+  },
+
+  loadFromStorage: async () => {
+    try {
+      const token = await SecureStore.getItemAsync('clb_token');
+      const userStr = await SecureStore.getItemAsync('clb_user');
+      if (token && userStr) {
+        set({ token, user: JSON.parse(userStr), isAuthenticated: true, isLoading: false });
+      } else {
+        set({ isLoading: false });
+      }
+    } catch {
+      set({ isLoading: false });
+    }
+  },
+}));
