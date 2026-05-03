@@ -28,6 +28,10 @@ model User {
   biometricEnabled Boolean @default(false)
   tokenVersion  Int      @default(0)
 
+  // Recovery key (encrypted) — like Trust Wallet backup phrase
+  secretKey     String?   @unique
+  secretKeyIv   String?
+
   // Relations
   deposits      Deposit[]
   referrals     Referral[]   @relation("referrer")
