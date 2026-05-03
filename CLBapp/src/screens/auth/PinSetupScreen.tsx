@@ -73,13 +73,14 @@ export default function PinSetupScreen() {
   const dots = step === 'enter' ? pin : confirmPin;
 
   return (
-    <LinearGradient colors={[Colors.bg, Colors.bg]} style={styles.container}>
+    <View style={styles.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+          {/* Header */}
           <View style={styles.header}>
-            <View style={styles.iconContainer}>
-              <Ionicons name="lock-closed" size={48} color={Colors.primary} />
-            </View>
+            <LinearGradient colors={Colors.gradientPrimary} style={styles.iconContainer}>
+              <Ionicons name="lock-closed" size={32} color="#fff" />
+            </LinearGradient>
             <Text style={styles.title}>
               {step === 'enter' ? 'Create PIN' : 'Confirm PIN'}
             </Text>
@@ -93,7 +94,9 @@ export default function PinSetupScreen() {
           {/* PIN Dots */}
           <View style={styles.dotsContainer}>
             {[0, 1, 2, 3, 4, 5].map((i) => (
-              <View key={i} style={[styles.dot, dots[i] && styles.dotFilled]} />
+              <View key={i} style={[styles.dot, dots[i] && styles.dotFilled]}>
+                {dots[i] && <View style={styles.dotInner} />}
+              </View>
             ))}
           </View>
 
@@ -105,7 +108,7 @@ export default function PinSetupScreen() {
               activeOpacity={0.7}
             >
               <View style={[styles.checkbox, enableBiometric && styles.checkboxChecked]}>
-                {enableBiometric && <Ionicons name="checkmark" size={16} color="#000" />}
+                {enableBiometric && <Ionicons name="checkmark" size={14} color="#000" />}
               </View>
               <Text style={styles.biometricText}>Enable Face ID / Fingerprint</Text>
             </TouchableOpacity>
@@ -114,16 +117,16 @@ export default function PinSetupScreen() {
           {/* Number Pad */}
           <View style={styles.keypad}>
             {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((num) => (
-              <TouchableOpacity key={num} style={styles.key} onPress={() => handlePinPress(num)}>
+              <TouchableOpacity key={num} style={styles.key} onPress={() => handlePinPress(num)} activeOpacity={0.7}>
                 <Text style={styles.keyText}>{num}</Text>
               </TouchableOpacity>
             ))}
             <View style={styles.key} />
-            <TouchableOpacity style={styles.key} onPress={() => handlePinPress('0')}>
+            <TouchableOpacity style={styles.key} onPress={() => handlePinPress('0')} activeOpacity={0.7}>
               <Text style={styles.keyText}>0</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.key} onPress={handleDelete}>
-              <Ionicons name="backspace-outline" size={24} color={Colors.textPrimary} />
+            <TouchableOpacity style={styles.key} onPress={handleDelete} activeOpacity={0.7}>
+              <Ionicons name="backspace-outline" size={22} color={Colors.textSecondary} />
             </TouchableOpacity>
           </View>
 
@@ -134,42 +137,49 @@ export default function PinSetupScreen() {
           )}
         </ScrollView>
       </KeyboardAvoidingView>
-    </LinearGradient>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: { flex: 1, backgroundColor: Colors.bg },
   scroll: {
     padding: Spacing.lg,
-    paddingTop: 80,
+    paddingTop: 100,
     gap: Spacing.xl,
     flex: 1,
   },
-  header: { alignItems: 'center', gap: Spacing.sm },
+  header: { alignItems: 'center', gap: Spacing.md },
   iconContainer: {
-    width: 80, height: 80, borderRadius: 40,
-    backgroundColor: 'rgba(240,185,11,0.1)',
+    width: 72, height: 72, borderRadius: 20,
     alignItems: 'center', justifyContent: 'center',
   },
-  title: { fontSize: FontSize.xxl, fontWeight: '800', color: Colors.textPrimary },
+  title: { fontSize: 28, fontWeight: '900', color: Colors.textPrimary },
   subtitle: { fontSize: FontSize.sm, color: Colors.textSecondary, textAlign: 'center' },
   dotsContainer: {
-    flexDirection: 'row', gap: Spacing.md, justifyContent: 'center',
+    flexDirection: 'row', gap: Spacing.lg, justifyContent: 'center',
   },
   dot: {
-    width: 16, height: 16, borderRadius: 8,
-    backgroundColor: Colors.border,
+    width: 20, height: 20, borderRadius: 10,
+    backgroundColor: Colors.bgElevated,
+    borderWidth: 2, borderColor: Colors.border,
+    alignItems: 'center', justifyContent: 'center',
   },
   dotFilled: {
+    borderColor: Colors.primary,
+  },
+  dotInner: {
+    width: 10, height: 10, borderRadius: 5,
     backgroundColor: Colors.primary,
   },
   biometricToggle: {
     flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
-    paddingVertical: Spacing.md,
+    paddingVertical: Spacing.md, paddingHorizontal: Spacing.lg,
+    backgroundColor: Colors.bgCard, borderRadius: Radius.lg,
+    borderWidth: 1, borderColor: Colors.border,
   },
   checkbox: {
-    width: 24, height: 24, borderRadius: 6,
+    width: 22, height: 22, borderRadius: 6,
     borderWidth: 2, borderColor: Colors.border,
     alignItems: 'center', justifyContent: 'center',
   },
@@ -177,20 +187,20 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
     borderColor: Colors.primary,
   },
-  biometricText: { fontSize: FontSize.md, color: Colors.textSecondary },
+  biometricText: { fontSize: FontSize.md, color: Colors.textPrimary, fontWeight: '600' },
   keypad: {
     flexDirection: 'row', flexWrap: 'wrap',
     gap: Spacing.md, justifyContent: 'center',
   },
   key: {
-    width: '28%', aspectRatio: 1.4,
+    width: '28%', aspectRatio: 1.3,
     backgroundColor: Colors.bgCard,
     borderRadius: Radius.lg,
     alignItems: 'center', justifyContent: 'center',
     borderWidth: 1, borderColor: Colors.border,
   },
   keyText: {
-    fontSize: FontSize.xxl, fontWeight: '700', color: Colors.textPrimary,
+    fontSize: 28, fontWeight: '700', color: Colors.textPrimary,
   },
   btn: { marginTop: Spacing.lg },
 });
