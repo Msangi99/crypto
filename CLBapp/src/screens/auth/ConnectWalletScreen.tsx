@@ -49,7 +49,6 @@ export default function ConnectWalletScreen() {
             <Text style={styles.subtitle}>Enter your BEP-20 wallet address to get started</Text>
           </View>
 
-          {/* Hint card */}
           <View style={styles.hintCard}>
             <Ionicons name="information-circle-outline" size={18} color={Colors.primary} />
             <Text style={styles.hintText}>
@@ -57,7 +56,6 @@ export default function ConnectWalletScreen() {
             </Text>
           </View>
 
-          {/* Wallet Address Input */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Wallet Address (BEP-20)</Text>
             <View style={styles.inputRow}>
@@ -84,7 +82,6 @@ export default function ConnectWalletScreen() {
             style={styles.btn}
           />
 
-          {/* Features */}
           <View style={styles.featuresGrid}>
             {[
               { icon: 'shield-checkmark-outline', label: 'Non-Custodial' },
@@ -109,17 +106,6 @@ const styles = StyleSheet.create({
   scroll: { padding: Spacing.lg, paddingTop: 60, gap: Spacing.lg },
   header: { alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.sm },
   logo: { width: 80, height: 80, marginBottom: Spacing.sm, backgroundColor: '#FFFFFF', borderRadius: 16 },
-  logoContainer: {
-    width: 100, height: 100,
-    alignItems: 'center', justifyContent: 'center',
-    marginBottom: Spacing.sm,
-  },
-  logoGlow: {
-    position: 'absolute',
-    width: 120, height: 120, borderRadius: 60,
-    backgroundColor: 'rgba(240,185,11,0.15)',
-  },
-  logoImage: { width: 90, height: 90 },
   title: { fontSize: FontSize.xxl, fontWeight: '900', color: Colors.textPrimary, letterSpacing: 0.5 },
   subtitle: { fontSize: FontSize.sm, color: Colors.textSecondary, textAlign: 'center', lineHeight: 20 },
   hintCard: {
