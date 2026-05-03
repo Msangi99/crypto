@@ -23,16 +23,8 @@ async function main() {
   const contractAddress = await poolManager.getAddress();
   console.log(`✅ PoolManager deployed at: ${contractAddress}\n`);
 
-  // Create default pool
-  console.log("🏊 Creating default staking pool...");
-  const tx = await poolManager.createPool(
-    "CLB Main Pool",                          // name
-    ethers.parseEther("0.01"),                // min deposit: 0.01 BNB
-    ethers.parseEther("100"),                 // max deposit: 100 BNB
-    1000                                       // APY: 10% (1000 basis points)
-  );
-  await tx.wait();
-  console.log("✅ Default pool created (CLB Main Pool, 10% APY)\n");
+  // Skip pool creation to save gas — create pools later via backend or separate script
+  console.log("💡 Pool creation skipped (save gas). Create pools via contract after deployment.\n");
 
   // ─── Save deployment info ──────────────────────
   const deploymentInfo = {
