@@ -2,6 +2,7 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { ethers } from 'ethers';
 import bcrypt from 'bcryptjs';
 import prisma from '../config/db';
+import { env } from '../config/env';
 import { authMiddleware } from '../middleware/auth';
 
 // Swagger schemas
@@ -161,14 +162,21 @@ export default async function authRoutes(fastify: FastifyInstance) {
       }
 
       // Verify signature
-      const message = `Sign this message to authenticate.\nNonce: ${user.nonce}`;
-      try {
-        const recoveredAddress = ethers.verifyMessage(message, signature);
-        if (recoveredAddress.toLowerCase() !== normalized) {
-          return reply.status(401).send({ success: false, error: 'Signature verification failed' });
+      // Dev mode: accept demo signatures (prefix 'demo-sig') to allow mobile app testing
+      const isDemoSig = signature.startsWith('demo-sig') && env.NODE_ENV === 'development';
+
+      if (!isDemoSig) {
+        const message = `Sign this message to authenticate.\nNonce: ${user.nonce}`;
+        try {
+          const recoveredAddress = ethers.verifyMessage(message, signature);
+          if (recoveredAddress.toLowerCase() !== normalized) {
+            return reply.status(401).send({ success: false, error: 'Signature verification failed' });
+          }
+        } catch {
+          return reply.status(401).send({ success: false, error: 'Invalid signature' });
         }
-      } catch {
-        return reply.status(401).send({ success: false, error: 'Invalid signature' });
+      } else {
+        fastify.log.warn(`⚠️  DEV MODE: Skipping signature verification for ${normalized}`);
       }
 
       // Rotate nonce
@@ -191,6 +199,74 @@ export default async function authRoutes(fastify: FastifyInstance) {
           walletAddress: updatedUser.walletAddress,
           username: updatedUser.username,
           role: updatedUser.role,
+        },
+      };
+    }
+  );
+
+  // POST /auth/dev-login — development login without signature (for mobile app testing)
+  fastify.post<{ Body: { walletAddress: string } }>(
+    '/dev-login',
+    {
+      schema: {
+        tags: ['Auth'],
+        summary: 'Dev login (no signature required)',
+        description: 'Authenticates a wallet address without requiring a signature. Creates user if new. For development/testing only.',
+        body: {
+          type: 'object',
+          properties: {
+            walletAddress: { type: 'string' },
+          },
+          required: ['walletAddress'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              success: { type: 'boolean' },
+              token: { type: 'string' },
+              user: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string' },
+                  walletAddress: { type: 'string' },
+                  username: { type: 'string', nullable: true },
+                  role: { type: 'string' },
+                  referralCode: { type: 'string', nullable: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { walletAddress } = request.body;
+      const normalized = walletAddress.toLowerCase();
+
+      // Find or create user
+      let user = await prisma.user.findUnique({ where: { walletAddress: normalized } });
+
+      if (!user) {
+        user = await prisma.user.create({ data: { walletAddress: normalized } });
+        fastify.log.info(`🆕 New user created via dev-login: ${normalized}`);
+      }
+
+      // Generate JWT
+      const token = fastify.jwt.sign(
+        { id: user.id, walletAddress: normalized, role: user.role },
+        { expiresIn: '7d' }
+      );
+
+      return {
+        success: true,
+        token,
+        user: {
+          id: user.id,
+          walletAddress: user.walletAddress,
+          username: user.username,
+          role: user.role,
+          referralCode: user.referralCode,
         },
       };
     }

@@ -14,8 +14,6 @@ const LOGO = require('../../../assets/logo.png');
 
 export default function ConnectWalletScreen() {
   const [walletAddress, setWalletAddress] = useState('');
-  const [referralCode, setReferralCode] = useState('');
-  const [mode, setMode] = useState<'connect' | 'register'>('connect');
   const [loading, setLoading] = useState(false);
   const { setAuth } = useAuthStore();
 
@@ -27,51 +25,13 @@ export default function ConnectWalletScreen() {
     }
     setLoading(true);
     try {
-      if (mode === 'register') {
-        // User is explicitly registering
-        const res = await authAPI.register(addr, referralCode.trim() || undefined);
-        const { token, user } = res.data;
-        await setAuth(token, user);
-      } else {
-        // Try login first
-        try {
-          const res = await authAPI.login(addr, 'demo-sig');
-          const { token, user } = res.data;
-          await setAuth(token, user);
-        } catch (loginErr: any) {
-          const loginMsg = loginErr?.response?.data?.message ?? '';
-          const isNewUser =
-            loginErr?.response?.status === 404 ||
-            loginMsg.toLowerCase().includes('not found') ||
-            loginMsg.toLowerCase().includes('register') ||
-            loginMsg.toLowerCase().includes('does not exist');
-
-          if (isNewUser) {
-            // Auto-register new wallet seamlessly
-            try {
-              const res = await authAPI.register(addr, referralCode.trim() || undefined);
-              const { token, user } = res.data;
-              await setAuth(token, user);
-            } catch (regErr: any) {
-              const regMsg = regErr?.response?.data?.message || 'Registration failed.';
-              if (regMsg.toLowerCase().includes('referral') || regMsg.toLowerCase().includes('code')) {
-                // Referral code required or invalid — show register tab
-                setMode('register');
-                Alert.alert(
-                  'Enter Referral Code',
-                  'A valid referral code is required to register. Please enter one below.',
-                );
-              } else {
-                Alert.alert('Registration Failed', regMsg);
-              }
-            }
-          } else {
-            Alert.alert('Connection Failed', loginMsg || 'Could not connect. Please try again.');
-          }
-        }
-      }
+      // Dev login: creates user if new, returns JWT directly (no signature needed)
+      // TODO: Replace with proper wallet signing (SIWE/WalletConnect) for production
+      const res = await authAPI.devLogin(addr);
+      const { token, user } = res.data;
+      await setAuth(token, user);
     } catch (err: any) {
-      const msg = err?.response?.data?.message || 'Something went wrong. Please try again.';
+      const msg = err?.response?.data?.error || err?.response?.data?.message || err.message || 'Connection failed.';
       Alert.alert('Error', msg);
     } finally {
       setLoading(false);
@@ -94,33 +54,17 @@ export default function ConnectWalletScreen() {
             </Text>
           </View>
 
-          {/* Trust Wallet hint */}
+          {/* Hint card */}
           <View style={styles.hintCard}>
             <Ionicons name="information-circle-outline" size={18} color={Colors.primary} />
             <Text style={styles.hintText}>
-              Use your Trust Wallet / MetaMask BSC address. No private key required.
+              Use your Trust Wallet / MetaMask BSC address. New wallets are registered automatically.
             </Text>
           </View>
 
-          {/* Mode tabs */}
-          <View style={styles.tabRow}>
-            {(['connect', 'register'] as const).map((m) => (
-              <TouchableOpacity key={m} onPress={() => setMode(m)} style={[styles.tab, mode === m && styles.tabActive]}>
-                <Text style={[styles.tabText, mode === m && styles.tabTextActive]}>
-                  {m === 'connect' ? '🔗 Connect' : '✨ Register'}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-          <Text style={styles.modeHint}>
-            {mode === 'connect'
-              ? 'New wallet? No worries — we\'ll register you automatically.'
-              : 'Creating a new account. Referral code is optional.'}
-          </Text>
-
-          {/* Input */}
+          {/* Wallet Address Input */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Wallet Address</Text>
+            <Text style={styles.label}>Wallet Address (BEP-20)</Text>
             <View style={styles.inputRow}>
               <Ionicons name="wallet-outline" size={18} color={Colors.textMuted} style={styles.inputIcon} />
               <TextInput
@@ -131,31 +75,14 @@ export default function ConnectWalletScreen() {
                 style={styles.input}
                 autoCapitalize="none"
                 autoCorrect={false}
-                returnKeyType="done"
+                returnKeyType="go"
+                onSubmitEditing={handleConnect}
               />
             </View>
           </View>
 
-          {mode === 'register' && (
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Referral Code (optional)</Text>
-              <View style={styles.inputRow}>
-                <Ionicons name="gift-outline" size={18} color={Colors.textMuted} style={styles.inputIcon} />
-                <TextInput
-                  value={referralCode}
-                  onChangeText={setReferralCode}
-                  placeholder="Enter referral code"
-                  placeholderTextColor={Colors.textMuted}
-                  style={styles.input}
-                  autoCapitalize="characters"
-                  returnKeyType="done"
-                />
-              </View>
-            </View>
-          )}
-
           <Button
-            label={mode === 'connect' ? 'Connect / Get Started' : 'Create Account'}
+            label="Connect / Get Started"
             onPress={handleConnect}
             loading={loading}
             fullWidth
@@ -210,11 +137,6 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   hintText: { flex: 1, fontSize: FontSize.sm, color: Colors.textSecondary, lineHeight: 18 },
-  tabRow: { flexDirection: 'row', backgroundColor: Colors.bgCard, borderRadius: Radius.full, padding: 4 },
-  tab: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: Radius.full },
-  tabActive: { backgroundColor: Colors.primary },
-  tabText: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.textMuted },
-  tabTextActive: { color: '#fff' },
   inputGroup: { gap: 8 },
   label: { fontSize: FontSize.sm, color: Colors.textSecondary, fontWeight: '500' },
   inputRow: {
@@ -247,5 +169,4 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
   },
   featureLabel: { fontSize: FontSize.sm, color: Colors.textSecondary, fontWeight: '500' },
-  modeHint: { fontSize: FontSize.xs, color: Colors.textMuted, textAlign: 'center', marginTop: -Spacing.sm },
 });

@@ -17,13 +17,19 @@ api.interceptors.request.use(async (config) => {
 });
 
 // ─── Auth ─────────────────────────────────────────────────
+// Backend flow: GET /nonce (creates user if new) → POST /verify (returns JWT)
+// Dev flow: POST /dev-login (no signature needed, for mobile app testing)
 export const authAPI = {
-  login: (walletAddress: string, signature: string) =>
-    api.post('/api/auth/login', { walletAddress, signature }),
-  register: (walletAddress: string, referralCode?: string) =>
-    api.post('/api/auth/register', { walletAddress, referralCode }),
-  nonce: (walletAddress: string) =>
+  getNonce: (walletAddress: string) =>
     api.get(`/api/auth/nonce/${walletAddress}`),
+  verify: (walletAddress: string, signature: string) =>
+    api.post('/api/auth/verify', { walletAddress, signature }),
+  devLogin: (walletAddress: string) =>
+    api.post('/api/auth/dev-login', { walletAddress }),
+  getProfile: () =>
+    api.get('/api/auth/profile'),
+  updateProfile: (data: { username?: string; email?: string }) =>
+    api.put('/api/auth/profile', data),
 };
 
 // ─── User Dashboard ────────────────────────────────────────
