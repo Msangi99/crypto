@@ -11,6 +11,34 @@ import Button from '../../components/ui/Button';
 import { poolsAPI, userAPI } from '../../services/api';
 import { useAuthStore } from '../../store/authStore';
 
+const COIN_ICONS: Record<string, string> = {
+  BTC: 'logo-bitcoin',
+  ETH: 'logo-ethereum',
+  BNB: 'cube',
+  SOL: 'flash',
+  ADA: 'card',
+  DOGE: 'paw',
+  DOT: 'ellipse',
+  MATIC: 'layers',
+  AVAX: 'snow',
+  LINK: 'link',
+  UNI: 'infinite',
+  XRP: 'water',
+  LTC: 'diamond',
+  USDT: 'cash',
+  USDC: 'cash',
+  DAI: 'cash',
+};
+
+function CoinIcon({ symbol }: { symbol: string }) {
+  const iconName = (COIN_ICONS[symbol?.toUpperCase()] || 'cube-outline') as any;
+  return (
+    <View style={styles.coinIconBg}>
+      <Ionicons name={iconName} size={22} color={Colors.primary} />
+    </View>
+  );
+}
+
 // Pool deposit address (BSC) — replace with actual pool smart contract or treasury
 const POOL_DEPOSIT_ADDRESS = '0x742d35Cc6634C0532925a3b844Bc9e7595f2bD18';
 
@@ -133,16 +161,16 @@ export default function PoolDetailScreen({ route, navigation }: any) {
 
   if (!pool) {
     return (
-      <LinearGradient colors={[Colors.bg, Colors.bg]} style={styles.container}>
+      <View style={styles.container}>
         <View style={styles.loading}>
           <Text style={styles.loadingText}>Loading pool...</Text>
         </View>
-      </LinearGradient>
+      </View>
     );
   }
 
   return (
-    <LinearGradient colors={[Colors.bg, Colors.bg]} style={styles.container}>
+    <View style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
         {/* Header */}
         <View style={styles.header}>
@@ -154,38 +182,45 @@ export default function PoolDetailScreen({ route, navigation }: any) {
         </View>
 
         {/* Pool Info Card */}
-        <LinearGradient colors={Colors.gradientCard} style={styles.poolCard}>
-          <View style={styles.poolHeader}>
-            <View style={styles.poolIcon}>
-              <Ionicons name="wallet-outline" size={28} color={Colors.primary} />
+        <View style={styles.content}>
+          <View style={styles.poolCard}>
+            <View style={styles.poolHeader}>
+              <CoinIcon symbol={pool.tokenSymbol} />
+              <View style={{ flex: 1, marginLeft: Spacing.md }}>
+                <Text style={styles.poolName}>{pool.name}</Text>
+                <View style={styles.poolTokenRow}>
+                  <Text style={styles.poolToken}>{pool.tokenSymbol} Pool</Text>
+                  <View style={styles.poolDot} />
+                  <Badge
+                    label={pool.status || 'Active'}
+                    variant={pool.status === 'ACTIVE' ? 'success' : 'warning'}
+                  />
+                </View>
+              </View>
+              <View style={styles.poolApyBox}>
+                <Text style={styles.poolApyValue}>{pool.apy}%</Text>
+                <Text style={styles.poolApyLabel}>APY</Text>
+              </View>
             </View>
-            <View style={{ flex: 1, marginLeft: Spacing.md }}>
-              <Text style={styles.poolName}>{pool.name}</Text>
-              <Text style={styles.poolToken}>{pool.tokenSymbol} Pool</Text>
+
+            <View style={styles.poolStats}>
+              <Stat label="TVL" value={`$${Number(pool.totalStaked).toLocaleString()}`} />
+              <Stat label="Members" value={`${pool._count?.members || pool.memberCount || 0}`} />
+              <Stat label="Min Deposit" value={`$${pool.minDeposit}`} />
             </View>
-            <Badge
-              label={pool.status || 'ACTIVE'}
-              variant={pool.status === 'ACTIVE' ? 'success' : 'warning'}
-            />
-          </View>
 
-          <View style={styles.poolStats}>
-            <Stat label="APY" value={`${pool.apy}%`} accent />
-            <Stat label="TVL" value={`$${Number(pool.totalStaked).toLocaleString()}`} />
-            <Stat label="Members" value={`${pool._count?.members || pool.memberCount || 0}`} />
+            <View style={styles.poolMeta}>
+              {pool.maxDeposit && <Meta label="Max Deposit" value={`$${pool.maxDeposit}`} />}
+              {pool.endDate && <Meta label="End Date" value={new Date(pool.endDate).toLocaleDateString()} />}
+            </View>
           </View>
-
-          <View style={styles.poolMeta}>
-            <Meta label="Min Deposit" value={`$${pool.minDeposit}`} />
-            {pool.maxDeposit && <Meta label="Max Deposit" value={`$${pool.maxDeposit}`} />}
-            {pool.endDate && <Meta label="End Date" value={new Date(pool.endDate).toLocaleDateString()} />}
-          </View>
-        </LinearGradient>
 
         {/* Leverage Tiers */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Leverage Tiers</Text>
-          <Text style={styles.sectionSubtitle}>Higher deposits unlock higher leverage</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Leverage Tiers</Text>
+            <Text style={styles.sectionSubtitle}>Deposit more → earn more</Text>
+          </View>
           
           {[
             { tier: 1, deposit: '$100', leverage: '10x' },
@@ -195,29 +230,33 @@ export default function PoolDetailScreen({ route, navigation }: any) {
             { tier: 5, deposit: '$700', leverage: '40x' },
             { tier: 6, deposit: '$1,000', leverage: '60x' },
           ].map((t) => (
-            <LinearGradient key={t.tier} colors={Colors.gradientCard} style={styles.tierCard}>
-              <View style={styles.tierBadge}>
-                <Text style={styles.tierBadgeText}>Tier {t.tier}</Text>
+            <View key={t.tier} style={styles.tierCard}>
+              <View style={styles.tierLeft}>
+                <View style={styles.tierBadge}>
+                  <Text style={styles.tierBadgeText}>#{t.tier}</Text>
+                </View>
+                <Text style={styles.tierDeposit}>{t.deposit}</Text>
               </View>
-              <View style={styles.tierContent}>
-                <Text style={styles.tierDeposit}>Deposit: {t.deposit}</Text>
-                <Text style={styles.tierLeverage}>{t.leverage} Leverage</Text>
+              <View style={styles.tierRight}>
+                <Text style={styles.tierLeverage}>{t.leverage}</Text>
+                <Text style={styles.tierLabel}>Leverage</Text>
               </View>
-            </LinearGradient>
+            </View>
           ))}
         </View>
 
         {/* Risk Warning */}
         <View style={styles.warningCard}>
-          <Ionicons name="warning-outline" size={20} color={Colors.gold} />
+          <Ionicons name="warning-outline" size={18} color={Colors.primary} />
           <Text style={styles.warningText}>
             Trading with leverage involves significant risk. You may lose more than your initial deposit.
           </Text>
         </View>
+        </View>
       </ScrollView>
 
       {/* Bottom Action Bar */}
-      <LinearGradient colors={[Colors.bgCard, Colors.bgCard]} style={styles.actionBar}>
+      <View style={styles.actionBar}>
         <Button
           label="Deposit"
           onPress={() => setShowDepositModal(true)}
@@ -229,7 +268,7 @@ export default function PoolDetailScreen({ route, navigation }: any) {
           variant="outline"
           style={{ flex: 1, marginLeft: Spacing.sm }}
         />
-      </LinearGradient>
+      </View>
 
       {/* Deposit Modal — 3-step flow */}
       <Modal
@@ -239,7 +278,7 @@ export default function PoolDetailScreen({ route, navigation }: any) {
         onRequestClose={() => { setShowDepositModal(false); setDepositStep(1); setTxHash(''); }}
       >
         <View style={styles.modalOverlay}>
-          <LinearGradient colors={[Colors.bgCard, Colors.bgCard]} style={styles.modalContent}>
+          <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>
                 Deposit · Step {depositStep}/3
@@ -398,7 +437,7 @@ export default function PoolDetailScreen({ route, navigation }: any) {
                 </View>
               </View>
             )}
-          </LinearGradient>
+          </View>
         </View>
       </Modal>
 
@@ -410,7 +449,7 @@ export default function PoolDetailScreen({ route, navigation }: any) {
         onRequestClose={() => setShowLoanModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <LinearGradient colors={[Colors.bgCard, Colors.bgCard]} style={styles.modalContent}>
+          <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Borrow Loan</Text>
               <TouchableOpacity onPress={() => setShowLoanModal(false)}>
@@ -445,10 +484,10 @@ export default function PoolDetailScreen({ route, navigation }: any) {
               loading={loading}
               fullWidth
             />
-          </LinearGradient>
+          </View>
         </View>
       </Modal>
-    </LinearGradient>
+    </View>
   );
 }
 
@@ -474,32 +513,53 @@ function Meta({ label, value }: any) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: { flex: 1, backgroundColor: Colors.bg },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   loadingText: { fontSize: FontSize.md, color: Colors.textSecondary },
 
   // Header
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: Spacing.lg, paddingTop: 56, paddingBottom: Spacing.lg,
+    paddingHorizontal: Spacing.lg, paddingTop: 56, paddingBottom: Spacing.md,
   },
   backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  title: { fontSize: FontSize.xxl, fontWeight: '800', color: Colors.textPrimary },
+  title: { fontSize: 24, fontWeight: '800', color: Colors.textPrimary },
+
+  // Content
+  content: { paddingHorizontal: Spacing.lg, gap: Spacing.lg },
+
+  // Coin Icon
+  coinIconBg: {
+    width: 52, height: 52, borderRadius: 14,
+    backgroundColor: 'rgba(240,185,11,0.1)', borderWidth: 1, borderColor: 'rgba(240,185,11,0.2)',
+    alignItems: 'center', justifyContent: 'center',
+  },
 
   // Pool Card
   poolCard: {
-    marginHorizontal: Spacing.lg, borderRadius: Radius.xl, padding: Spacing.lg,
-    borderWidth: 1, borderColor: Colors.border, marginBottom: Spacing.lg, gap: Spacing.md,
+    backgroundColor: Colors.bgCard, borderRadius: Radius.xl, padding: Spacing.lg,
+    borderWidth: 1, borderColor: Colors.border, gap: Spacing.md,
   },
   poolHeader: {
     flexDirection: 'row', alignItems: 'center',
   },
-  poolIcon: {
-    width: 56, height: 56, borderRadius: 16,
-    backgroundColor: Colors.bgElevated, alignItems: 'center', justifyContent: 'center',
+  poolName: { fontSize: 18, fontWeight: '800', color: Colors.textPrimary },
+  poolTokenRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3,
   },
-  poolName: { fontSize: FontSize.lg, fontWeight: '700', color: Colors.textPrimary },
-  poolToken: { fontSize: FontSize.sm, color: Colors.textSecondary },
+  poolToken: { fontSize: 13, fontWeight: '700', color: Colors.textSecondary },
+  poolDot: {
+    width: 4, height: 4, borderRadius: 2,
+    backgroundColor: Colors.textMuted,
+  },
+  poolApyBox: {
+    alignItems: 'flex-end', gap: 2,
+  },
+  poolApyValue: {
+    fontSize: 26, fontWeight: '900',
+    color: Colors.primary,
+  },
+  poolApyLabel: { fontSize: 11, fontWeight: '700', color: Colors.textMuted },
   poolStats: {
     flexDirection: 'row', paddingTop: Spacing.sm,
     borderTopWidth: 1, borderTopColor: Colors.border,
@@ -511,45 +571,49 @@ const styles = StyleSheet.create({
   metaRow: {
     flexDirection: 'row', justifyContent: 'space-between',
   },
-  metaLabel: { fontSize: FontSize.sm, color: Colors.textSecondary },
-  metaValue: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.textPrimary },
+  metaLabel: { fontSize: 13, color: Colors.textSecondary },
+  metaValue: { fontSize: 13, fontWeight: '700', color: Colors.textPrimary },
 
   // Section
-  section: {
-    paddingHorizontal: Spacing.lg, marginBottom: Spacing.lg,
+  section: { marginBottom: Spacing.lg },
+  sectionHeader: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    marginBottom: Spacing.sm,
   },
-  sectionTitle: { fontSize: FontSize.lg, fontWeight: '700', color: Colors.textPrimary },
-  sectionSubtitle: { fontSize: FontSize.sm, color: Colors.textSecondary, marginTop: 4 },
+  sectionTitle: { fontSize: 18, fontWeight: '800', color: Colors.textPrimary },
+  sectionSubtitle: { fontSize: 13, color: Colors.textSecondary },
 
   // Tier Card
   tierCard: {
+    backgroundColor: Colors.bgCard,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     borderRadius: Radius.lg, padding: Spacing.md,
     borderWidth: 1, borderColor: Colors.border, marginBottom: Spacing.sm,
   },
+  tierLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   tierBadge: {
-    backgroundColor: 'rgba(240,185,11,0.15)', paddingHorizontal: 8, paddingVertical: 4,
-    borderRadius: 6, alignSelf: 'flex-start', marginBottom: Spacing.sm,
+    backgroundColor: 'rgba(240,185,11,0.12)', paddingHorizontal: 8, paddingVertical: 4,
+    borderRadius: 6,
   },
-  tierBadgeText: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.primary },
-  tierContent: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-  },
-  tierDeposit: { fontSize: FontSize.sm, color: Colors.textSecondary },
-  tierLeverage: { fontSize: FontSize.md, fontWeight: '700', color: Colors.primary },
+  tierBadgeText: { fontSize: 11, fontWeight: '800', color: Colors.primary },
+  tierDeposit: { fontSize: 14, fontWeight: '700', color: Colors.textPrimary },
+  tierRight: { alignItems: 'flex-end' },
+  tierLeverage: { fontSize: 20, fontWeight: '900', color: Colors.primary },
+  tierLabel: { fontSize: 11, fontWeight: '700', color: Colors.textMuted },
 
   // Warning
   warningCard: {
-    flexDirection: 'row', gap: Spacing.sm, marginHorizontal: Spacing.lg,
+    flexDirection: 'row', gap: Spacing.sm,
     backgroundColor: 'rgba(240,185,11,0.08)', borderWidth: 1, borderColor: 'rgba(240,185,11,0.2)',
-    borderRadius: Radius.md, padding: Spacing.md, marginBottom: Spacing.lg,
+    borderRadius: Radius.md, padding: Spacing.md,
   },
-  warningText: { flex: 1, fontSize: FontSize.sm, color: Colors.textSecondary, lineHeight: 18 },
+  warningText: { flex: 1, fontSize: 13, color: Colors.textSecondary, lineHeight: 18 },
 
   // Action Bar
   actionBar: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
     flexDirection: 'row', paddingHorizontal: Spacing.lg, paddingVertical: Spacing.lg,
-    borderTopWidth: 1, borderTopColor: Colors.border,
+    backgroundColor: Colors.bgCard, borderTopWidth: 1, borderTopColor: Colors.border,
   },
 
   // Modal
@@ -557,30 +621,26 @@ const styles = StyleSheet.create({
     flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'flex-end',
   },
   modalContent: {
+    backgroundColor: Colors.bgCard,
     borderTopLeftRadius: Radius.xl, borderTopRightRadius: Radius.xl,
     padding: Spacing.xl, gap: Spacing.lg,
   },
   modalHeader: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
   },
-  modalTitle: { fontSize: FontSize.xl, fontWeight: '700', color: Colors.textPrimary },
+  modalTitle: { fontSize: 20, fontWeight: '800', color: Colors.textPrimary },
   modalBody: { gap: Spacing.md },
-  balanceRow: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-  },
-  balanceLabel: { fontSize: FontSize.sm, color: Colors.textSecondary },
-  balanceValue: { fontSize: FontSize.md, fontWeight: '700', color: Colors.textPrimary },
   inputGroup: { gap: Spacing.xs },
-  inputLabel: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.textSecondary },
+  inputLabel: { fontSize: 13, fontWeight: '700', color: Colors.textSecondary },
   input: {
     backgroundColor: Colors.bg, borderWidth: 1, borderColor: Colors.border,
-    borderRadius: Radius.md, padding: Spacing.md, fontSize: FontSize.md,
+    borderRadius: Radius.md, padding: Spacing.md, fontSize: 16,
     color: Colors.textPrimary,
   },
   infoRow: {
     flexDirection: 'row', gap: 6, alignItems: 'center',
   },
-  infoText: { flex: 1, fontSize: FontSize.xs, color: Colors.textSecondary },
+  infoText: { flex: 1, fontSize: 12, color: Colors.textSecondary },
 
   // Deposit step styles
   stepBadge: {
@@ -588,27 +648,27 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(240,185,11,0.12)', paddingHorizontal: 12, paddingVertical: 8,
     borderRadius: Radius.md, marginBottom: Spacing.md,
   },
-  stepBadgeText: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.primary },
+  stepBadgeText: { fontSize: 13, fontWeight: '700', color: Colors.primary },
   conversionRow: {
     flexDirection: 'row', justifyContent: 'space-between',
-    backgroundColor: Colors.bgElevated, borderRadius: Radius.md, padding: Spacing.md,
+    backgroundColor: Colors.bg, borderRadius: Radius.md, padding: Spacing.md,
   },
-  conversionText: { fontSize: FontSize.sm, color: Colors.primary, fontWeight: '600' },
+  conversionText: { fontSize: 13, color: Colors.primary, fontWeight: '700' },
   transferCard: {
     alignItems: 'center', backgroundColor: 'rgba(240,185,11,0.08)',
     borderRadius: Radius.lg, padding: Spacing.lg, marginBottom: Spacing.md,
     borderWidth: 1, borderColor: 'rgba(240,185,11,0.2)',
   },
-  transferLabel: { fontSize: FontSize.xs, color: Colors.textMuted, marginBottom: 4 },
-  transferAmount: { fontSize: FontSize.xxl, fontWeight: '800', color: Colors.primary },
-  transferUsd: { fontSize: FontSize.sm, color: Colors.textSecondary, marginTop: 2 },
+  transferLabel: { fontSize: 12, color: Colors.textMuted, marginBottom: 4 },
+  transferAmount: { fontSize: 32, fontWeight: '900', color: Colors.primary },
+  transferUsd: { fontSize: 13, color: Colors.textSecondary, marginTop: 2 },
   addressCard: {
-    backgroundColor: Colors.bgElevated, borderRadius: Radius.md, padding: Spacing.md,
+    backgroundColor: Colors.bg, borderRadius: Radius.md, padding: Spacing.md,
     marginBottom: Spacing.md,
   },
-  addressLabel: { fontSize: FontSize.xs, color: Colors.textMuted, marginBottom: 6 },
+  addressLabel: { fontSize: 12, color: Colors.textMuted, marginBottom: 6 },
   addressRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  addressText: { flex: 1, fontSize: FontSize.sm, color: Colors.textPrimary, fontWeight: '600' },
+  addressText: { flex: 1, fontSize: 13, color: Colors.textPrimary, fontWeight: '700', fontFamily: 'monospace' },
   copyBtn: { padding: 8 },
   stepsList: { gap: 10, marginBottom: Spacing.lg },
   stepItem: { flexDirection: 'row', alignItems: 'center', gap: 10 },
@@ -616,8 +676,8 @@ const styles = StyleSheet.create({
     width: 24, height: 24, borderRadius: 12, backgroundColor: Colors.primary + '22',
     alignItems: 'center', justifyContent: 'center',
   },
-  stepNumText: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.primary },
-  stepItemText: { fontSize: FontSize.sm, color: Colors.textSecondary },
+  stepNumText: { fontSize: 12, fontWeight: '700', color: Colors.primary },
+  stepItemText: { fontSize: 13, color: Colors.textSecondary },
   modalActions: { flexDirection: 'row', marginTop: Spacing.sm },
   txInput: { fontFamily: 'monospace' },
 });
