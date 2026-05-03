@@ -33,7 +33,8 @@ export default function PoolsScreen({ navigation }: any) {
   };
 
   return (
-    <LinearGradient colors={[Colors.bg, Colors.bg]} style={styles.container}>
+    <View style={styles.container}>
+      {/* Header */}
       <View style={styles.header}>
         <View>
           <Text style={styles.title}>Liquidity Pools</Text>
@@ -47,7 +48,7 @@ export default function PoolsScreen({ navigation }: any) {
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
-        contentContainerStyle={{ padding: Spacing.lg, paddingTop: 0 }}
+        contentContainerStyle={{ padding: Spacing.lg, paddingTop: 0, gap: Spacing.lg, paddingBottom: 100 }}
       >
         {/* Featured Pool */}
         {pools.length > 0 && (
@@ -134,7 +135,7 @@ export default function PoolsScreen({ navigation }: any) {
           ))
         )}
       </ScrollView>
-    </LinearGradient>
+    </View>
   );
 }
 
@@ -160,12 +161,12 @@ function Metric({ label, value, accent }: any) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: { flex: 1, backgroundColor: Colors.bg },
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
-    paddingHorizontal: Spacing.lg, paddingTop: 56, paddingBottom: Spacing.lg,
+    paddingHorizontal: Spacing.lg, paddingTop: 56, paddingBottom: Spacing.sm,
   },
-  title: { fontSize: FontSize.xxl, fontWeight: '800', color: Colors.textPrimary },
+  title: { fontSize: 28, fontWeight: '900', color: Colors.textPrimary },
   subtitle: { fontSize: FontSize.sm, color: Colors.textSecondary, marginTop: 4 },
   filterBtn: {
     width: 40, height: 40, borderRadius: Radius.md,
