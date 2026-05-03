@@ -1,22 +1,57 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, KeyboardAvoidingView,
   Platform, Alert, ScrollView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import * as LocalAuthentication from 'expo-local-authentication';
 import { Colors, FontSize, Spacing, Radius } from '../../constants/theme';
 import Button from '../../components/ui/Button';
 import { authAPI } from '../../services/api';
+import { useAuthStore } from '../../store/authStore';
 
 interface PinVerifyScreenProps {
   onVerified: () => void;
 }
 
 export default function PinVerifyScreen({ onVerified }: PinVerifyScreenProps) {
+  const { user } = useAuthStore();
   const [pin, setPin] = useState('');
   const [attempts, setAttempts] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [biometricAvailable, setBiometricAvailable] = useState(false);
+  const [showPinPad, setShowPinPad] = useState(false);
+
+  // Check biometric availability and attempt authentication on mount
+  useEffect(() => {
+    const checkBiometric = async () => {
+      const hasHardware = await LocalAuthentication.hasHardwareAsync();
+      const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+      
+      if (hasHardware && isEnrolled && user?.biometricEnabled) {
+        setBiometricAvailable(true);
+        try {
+          const result = await LocalAuthentication.authenticateAsync({
+            promptMessage: 'Unlock CLB App',
+            fallbackLabel: 'Use PIN',
+            cancelLabel: 'Cancel',
+          });
+          if (result.success) {
+            onVerified();
+          } else {
+            setShowPinPad(true);
+          }
+        } catch (error) {
+          setShowPinPad(true);
+        }
+      } else {
+        setShowPinPad(true);
+      }
+    };
+
+    checkBiometric();
+  }, [user?.biometricEnabled, onVerified]);
 
   const handlePinPress = (digit: string) => {
     if (pin.length < 6) setPin(pin + digit);
@@ -63,46 +98,55 @@ export default function PinVerifyScreen({ onVerified }: PinVerifyScreenProps) {
     <View style={styles.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-          {/* Header */}
-          <View style={styles.header}>
-            <LinearGradient colors={Colors.gradientPrimary} style={styles.iconContainer}>
-              <Ionicons name="lock-open" size={32} color="#fff" />
-            </LinearGradient>
-            <Text style={styles.title}>Enter PIN</Text>
-            <Text style={styles.subtitle}>Enter your PIN to unlock the app</Text>
-            {attempts > 0 && (
-              <Text style={styles.attempts}>
-                {attempts} of 3 attempts used
-              </Text>
-            )}
-          </View>
-
-          {/* PIN Dots */}
-          <View style={styles.dotsContainer}>
-            {[0, 1, 2, 3, 4, 5].map((i) => (
-              <View key={i} style={[styles.dot, pin[i] && styles.dotFilled]}>
-                {pin[i] && <View style={styles.dotInner} />}
+          {!showPinPad ? (
+            <View style={styles.loadingContainer}>
+              <Ionicons name="finger-print" size={48} color={Colors.primary} />
+              <Text style={styles.loadingText}>Authenticating...</Text>
+            </View>
+          ) : (
+            <>
+              {/* Header */}
+              <View style={styles.header}>
+                <LinearGradient colors={Colors.gradientPrimary} style={styles.iconContainer}>
+                  <Ionicons name="lock-open" size={32} color="#fff" />
+                </LinearGradient>
+                <Text style={styles.title}>Enter PIN</Text>
+                <Text style={styles.subtitle}>Enter your PIN to unlock the app</Text>
+                {attempts > 0 && (
+                  <Text style={styles.attempts}>
+                    {attempts} of 3 attempts used
+                  </Text>
+                )}
               </View>
-            ))}
-          </View>
 
-          {/* Number Pad */}
-          <View style={styles.keypad}>
-            {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((num) => (
-              <TouchableOpacity key={num} style={styles.key} onPress={() => handlePinPress(num)} activeOpacity={0.7}>
-                <Text style={styles.keyText}>{num}</Text>
-              </TouchableOpacity>
-            ))}
-            <View style={styles.key} />
-            <TouchableOpacity style={styles.key} onPress={() => handlePinPress('0')} activeOpacity={0.7}>
-              <Text style={styles.keyText}>0</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.key} onPress={handleDelete} activeOpacity={0.7}>
-              <Ionicons name="backspace-outline" size={22} color={Colors.textSecondary} />
-            </TouchableOpacity>
-          </View>
+              {/* PIN Dots */}
+              <View style={styles.dotsContainer}>
+                {[0, 1, 2, 3, 4, 5].map((i) => (
+                  <View key={i} style={[styles.dot, pin[i] && styles.dotFilled]}>
+                    {pin[i] && <View style={styles.dotInner} />}
+                  </View>
+                ))}
+              </View>
 
-          <Button label="Unlock" onPress={handleVerify} loading={loading} fullWidth style={styles.btn} />
+              {/* Number Pad */}
+              <View style={styles.keypad}>
+                {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((num) => (
+                  <TouchableOpacity key={num} style={styles.key} onPress={() => handlePinPress(num)} activeOpacity={0.7}>
+                    <Text style={styles.keyText}>{num}</Text>
+                  </TouchableOpacity>
+                ))}
+                <View style={styles.key} />
+                <TouchableOpacity style={styles.key} onPress={() => handlePinPress('0')} activeOpacity={0.7}>
+                  <Text style={styles.keyText}>0</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.key} onPress={handleDelete} activeOpacity={0.7}>
+                  <Ionicons name="backspace-outline" size={22} color={Colors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+
+              <Button label="Unlock" onPress={handleVerify} loading={loading} fullWidth style={styles.btn} />
+            </>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
@@ -117,6 +161,10 @@ const styles = StyleSheet.create({
     gap: Spacing.xl,
     flex: 1,
   },
+  loadingContainer: {
+    flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.md,
+  },
+  loadingText: { fontSize: FontSize.md, color: Colors.textSecondary },
   header: { alignItems: 'center', gap: Spacing.md },
   iconContainer: {
     width: 72, height: 72, borderRadius: 20,
