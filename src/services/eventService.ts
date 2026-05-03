@@ -18,6 +18,9 @@ const getContract = (): ethers.Contract | null => {
   return contract;
 };
 
+let listenersActive = false;
+let pollingInterval: NodeJS.Timeout | null = null;
+
 export const eventService = {
   // Start listening for blockchain events
   startListening(): void {
@@ -27,100 +30,109 @@ export const eventService = {
       return;
     }
 
-    console.log('👂 Starting blockchain event listeners...');
+    if (listenersActive) {
+      console.warn('⚠️  Event listeners already active');
+      return;
+    }
 
-    // Listen for Deposit events
-    c.on('Deposited', async (user: string, poolId: bigint, amount: bigint) => {
-      console.log(`📥 Deposit detected — user: ${user}, pool: ${poolId}, amount: ${ethers.formatEther(amount)} BNB`);
+    console.log('⏸️  Event polling DISABLED — public BSC RPC rate limits eth_getLogs');
+    console.log('💡 Enable after deploying contract and using paid RPC endpoint');
+    listenersActive = true;
 
-      try {
-        // Find user by wallet
-        const dbUser = await prisma.user.findUnique({
-          where: { walletAddress: user.toLowerCase() },
-        });
-        if (!dbUser) return;
+    // TODO: Re-enable polling when contract is deployed with paid RPC
+    // const pollEvents = async () => { ... };
+    // pollingInterval = setInterval(pollEvents, 15000);
+  },
 
-        // Record deposit in database
-        await prisma.deposit.create({
-          data: {
-            userId: dbUser.id,
-            poolId: poolId.toString(),
-            amount: parseFloat(ethers.formatEther(amount)),
-            txHash: `event-${Date.now()}`,
-            status: 'CONFIRMED',
-            confirmedAt: new Date(),
-          },
-        });
+  async handleDepositEvent(user: string, poolId: bigint, amount: bigint): Promise<void> {
+    console.log(`📥 Deposit detected — user: ${user}, pool: ${poolId}, amount: ${ethers.formatEther(amount)} BNB`);
 
-        console.log(`✅ Deposit recorded for ${user}`);
-      } catch (error) {
-        console.error('❌ Error processing Deposited event:', error);
-      }
-    });
+    try {
+      const dbUser = await prisma.user.findUnique({
+        where: { walletAddress: user.toLowerCase() },
+      });
+      if (!dbUser) return;
 
-    // Listen for Withdrawal events
-    c.on('Withdrawn', async (user: string, poolId: bigint, amount: bigint) => {
-      console.log(`📤 Withdrawal detected — user: ${user}, pool: ${poolId}, amount: ${ethers.formatEther(amount)} BNB`);
+      await prisma.deposit.create({
+        data: {
+          userId: dbUser.id,
+          poolId: poolId.toString(),
+          amount: parseFloat(ethers.formatEther(amount)),
+          txHash: `event-${Date.now()}`,
+          status: 'CONFIRMED',
+          confirmedAt: new Date(),
+        },
+      });
 
-      try {
-        const dbUser = await prisma.user.findUnique({
-          where: { walletAddress: user.toLowerCase() },
-        });
-        if (!dbUser) return;
+      console.log(`✅ Deposit recorded for ${user}`);
+    } catch (error) {
+      console.error('❌ Error processing Deposited event:', error);
+    }
+  },
 
-        await prisma.transaction.create({
-          data: {
-            userId: dbUser.id,
-            type: 'WITHDRAWAL',
-            amount: parseFloat(ethers.formatEther(amount)),
-            fromAddress: env.POOL_MANAGER_CONTRACT,
-            toAddress: user,
-            status: 'SUCCESS',
-          },
-        });
+  async handleWithdrawEvent(user: string, poolId: bigint, amount: bigint): Promise<void> {
+    console.log(`📤 Withdrawal detected — user: ${user}, pool: ${poolId}, amount: ${ethers.formatEther(amount)} BNB`);
 
-        console.log(`✅ Withdrawal recorded for ${user}`);
-      } catch (error) {
-        console.error('❌ Error processing Withdrawn event:', error);
-      }
-    });
+    try {
+      const dbUser = await prisma.user.findUnique({
+        where: { walletAddress: user.toLowerCase() },
+      });
+      if (!dbUser) return;
 
-    // Listen for Referral Reward events
-    c.on('ReferralRewarded', async (referrer: string, referred: string, reward: bigint) => {
-      console.log(`🎁 Referral reward — referrer: ${referrer}, referred: ${referred}, reward: ${ethers.formatEther(reward)} BNB`);
+      await prisma.transaction.create({
+        data: {
+          userId: dbUser.id,
+          type: 'WITHDRAWAL',
+          amount: parseFloat(ethers.formatEther(amount)),
+          fromAddress: env.POOL_MANAGER_CONTRACT,
+          toAddress: user,
+          status: 'SUCCESS',
+        },
+      });
 
-      try {
-        const referrerUser = await prisma.user.findUnique({
-          where: { walletAddress: referrer.toLowerCase() },
-        });
-        if (!referrerUser) return;
+      console.log(`✅ Withdrawal recorded for ${user}`);
+    } catch (error) {
+      console.error('❌ Error processing Withdrawn event:', error);
+    }
+  },
 
-        await prisma.transaction.create({
-          data: {
-            userId: referrerUser.id,
-            type: 'REFERRAL_BONUS',
-            amount: parseFloat(ethers.formatEther(reward)),
-            fromAddress: env.POOL_MANAGER_CONTRACT,
-            toAddress: referrer,
-            status: 'SUCCESS',
-          },
-        });
+  async handleReferralEvent(referrer: string, referred: string, reward: bigint): Promise<void> {
+    console.log(`🎁 Referral reward — referrer: ${referrer}, referred: ${referred}, reward: ${ethers.formatEther(reward)} BNB`);
 
-        console.log(`✅ Referral reward recorded for ${referrer}`);
-      } catch (error) {
-        console.error('❌ Error processing ReferralRewarded event:', error);
-      }
-    });
+    try {
+      const referrerUser = await prisma.user.findUnique({
+        where: { walletAddress: referrer.toLowerCase() },
+      });
+      if (!referrerUser) return;
 
-    console.log('✅ All event listeners active');
+      await prisma.transaction.create({
+        data: {
+          userId: referrerUser.id,
+          type: 'REFERRAL_BONUS',
+          amount: parseFloat(ethers.formatEther(reward)),
+          fromAddress: env.POOL_MANAGER_CONTRACT,
+          toAddress: referrer,
+          status: 'SUCCESS',
+        },
+      });
+
+      console.log(`✅ Referral reward recorded for ${referrer}`);
+    } catch (error) {
+      console.error('❌ Error processing ReferralRewarded event:', error);
+    }
   },
 
   // Stop listening
   stopListening(): void {
+    if (pollingInterval) {
+      clearInterval(pollingInterval);
+      pollingInterval = null;
+    }
+    listenersActive = false;
     const c = getContract();
     if (c) {
       c.removeAllListeners();
-      console.log('🛑 Event listeners stopped');
     }
+    console.log('🛑 Event listeners stopped');
   },
 };
