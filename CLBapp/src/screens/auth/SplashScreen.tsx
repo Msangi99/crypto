@@ -4,7 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, FontSize, Spacing } from '../../constants/theme';
 
 const { width, height } = Dimensions.get('window');
-const LOGO = require('../../CLB logo.png');
+const LOGO = require('../../assets/logo.png');
 
 interface Props {
   onFinish: () => void;
