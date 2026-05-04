@@ -579,8 +579,8 @@ export default async function userDashboardRoutes(fastify: FastifyInstance) {
 
       const receipts = deposits.map(d => ({
         receiptId: `CLB-R-${d.id.slice(0, 8).toUpperCase()}`,
-        poolName: d.pool.name,
-        poolSymbol: d.pool.tokenSymbol,
+        poolName: d.pool?.name ?? 'N/A',
+        poolSymbol: d.pool?.tokenSymbol ?? '',
         amount: Number(d.amount),
         txHash: d.txHash,
         status: d.status,
@@ -664,8 +664,8 @@ export default async function userDashboardRoutes(fastify: FastifyInstance) {
         activities.push({
           id: d.id,
           type: 'POOL_DEPOSIT',
-          title: `Joined ${d.pool.name}`,
-          description: `${d.pool.tokenSymbol} pool — ${Number(d.amount)} BNB`,
+          title: `Joined ${d.pool?.name ?? 'Unknown'}`,
+          description: `${d.pool?.tokenSymbol ?? ''} pool — ${Number(d.amount)} BNB`,
           amount: Number(d.amount),
           status: d.status,
           timestamp: d.createdAt.toISOString(),
