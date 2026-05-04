@@ -17,6 +17,9 @@ import transactionRoutes from './routes/transaction';
 import adminRoutes from './routes/admin';
 import userDashboardRoutes from './routes/userDashboard';
 import notificationRoutes from './routes/notifications';
+import loanRoutes from './routes/loans';
+import tokenRoutes from './routes/tokens';
+import withdrawalRoutes from './routes/withdrawals';
 
 const buildApp = async () => {
   const fastify = Fastify({
@@ -148,6 +151,9 @@ const buildApp = async () => {
   await fastify.register(adminRoutes, { prefix: '/api/admin' });
   await fastify.register(userDashboardRoutes, { prefix: '/api/user' });
   await fastify.register(notificationRoutes, { prefix: '/api/notifications' });
+  await fastify.register(loanRoutes, { prefix: '/api/loans' });
+  await fastify.register(tokenRoutes, { prefix: '/api/tokens' });
+  await fastify.register(withdrawalRoutes, { prefix: '/api/withdrawals' });
 
   // ─── Root Route ────────────────────────────────
   fastify.get('/', async () => {
@@ -164,6 +170,9 @@ const buildApp = async () => {
         transactions: '/api/transactions',
         admin: '/api/admin',
         user: '/api/user',
+        loans: '/api/loans',
+        tokens: '/api/tokens',
+        withdrawals: '/api/withdrawals',
       },
     };
   });

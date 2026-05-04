@@ -39,6 +39,11 @@ model User {
   poolMemberships PoolMember[]
   transactions  Transaction[]
   notifications Notification[]
+  loans         Loan[]
+  tokenBalances TokenBalance[]
+  transfersOut  TokenTransfer[] @relation("TransferFrom")
+  transfersIn   TokenTransfer[] @relation("TransferTo")
+  withdrawals   Withdrawal[]
 
   @@map("users")
 }
@@ -97,24 +102,33 @@ model PoolMember {
 
 // ─── Deposit ────────────────────────────────────────
 model Deposit {
-  id          String        @id @default(uuid())
-  userId      String
-  poolId      String
-  amount      Decimal
-  txHash      String?       @unique
-  status      DepositStatus @default(PENDING)
-  confirmedAt DateTime?
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  id            String        @id @default(uuid())
+  userId        String
+  poolId        String?
+  amount        Decimal
+  amountUsd     Decimal?
+  chain         String        @default("BNB")  // BTC, ETH, BNB, SOL etc.
+  fromAddress   String?
+  toAddress     String?
+  txHash        String?       @unique
+  status        DepositStatus @default(PENDING)
+  confirmations Int           @default(0)
+  confirmedAt   DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
-  user        User          @relation(fields: [userId], references: [id])
-  pool        Pool          @relation(fields: [poolId], references: [id])
+  // Relations
+  user          User          @relation(fields: [userId], references: [id])
+  pool          Pool?         @relation(fields: [poolId], references: [id])
+  loanId        String?
+  loan          Loan?         @relation(fields: [loanId], references: [id])
 
   @@map("deposits")
 }
 
 enum DepositStatus {
   PENDING
+  CONFIRMING
   CONFIRMED
   FAILED
   REFUNDED
@@ -167,6 +181,8 @@ enum TransactionType {
   REWARD
   REFERRAL_BONUS
   FEE
+  LOAN
+  TRANSFER
 }
 
 enum TxStatus {
@@ -201,4 +217,121 @@ enum NotificationType {
   REFERRAL
   SECURITY
   POOL
+  LOAN
+  TRANSFER
+}
+
+// ─── Loan (Crypto-Backed Lending) ──────────────────
+model Loan {
+  id                 String     @id @default(uuid())
+  userId             String
+  collateralChain    String     // BTC, ETH, BNB — what user deposited
+  collateralAmount   Decimal    // Amount of crypto deposited
+  collateralPriceUsd Decimal    // USD price at time of loan
+  collateralValueUsd Decimal    // Total USD value of collateral
+  loanAmount         Decimal    // Amount of CLB tokens issued
+  loanToken          String     @default("CLB") // CLB, CLBg, CLBs
+  targetPriceUsd     Decimal    // Price at which loan auto-settles
+  ltvPercent         Decimal    @default(50)  // Loan-to-value ratio
+  interestRate       Decimal    @default(0)   // Annual interest rate
+  status             LoanStatus @default(PENDING)
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+  settledAt          DateTime?
+  liquidatedAt       DateTime?
+
+  // Relations
+  user               User       @relation(fields: [userId], references: [id])
+  deposits           Deposit[]
+
+  @@index([userId, status])
+  @@map("loans")
+}
+
+enum LoanStatus {
+  PENDING      // Waiting for deposit confirmation
+  ACTIVE       // Deposit confirmed, CLB tokens issued
+  SETTLED      // Collateral price reached target, loan repaid
+  LIQUIDATED   // Collateral value dropped too low
+  CANCELLED    // User cancelled before deposit
+  REPAID       // User manually repaid
+}
+
+// ─── CLB Token Balances ────────────────────────────
+model TokenBalance {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   // CLB, CLBg, CLBs
+  balance   Decimal  @default(0)
+  locked    Decimal  @default(0)  // Locked in active loans
+  updatedAt DateTime @updatedAt
+
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([userId, token])
+  @@map("token_balances")
+}
+
+// ─── Token Transfer History ────────────────────────
+model TokenTransfer {
+  id          String         @id @default(uuid())
+  fromUserId  String
+  toUserId    String?
+  toAddress   String?        // External wallet address
+  token       String         // CLB, CLBg, CLBs
+  amount      Decimal
+  fee         Decimal        @default(0)
+  type        TokenTransferType
+  status      TokenTxStatus  @default(PENDING)
+  txHash      String?        @unique
+  note        String?
+  createdAt   DateTime       @default(now())
+
+  fromUser    User           @relation("TransferFrom", fields: [fromUserId], references: [id])
+  toUser      User?          @relation("TransferTo", fields: [toUserId], references: [id])
+
+  @@index([fromUserId, createdAt])
+  @@index([toUserId, createdAt])
+  @@map("token_transfers")
+}
+
+enum TokenTransferType {
+  INTERNAL     // Between platform users
+  EXTERNAL     // To external wallet (e.g. Trust Wallet)
+  LOAN_ISSUE   // Tokens issued from loan
+  LOAN_REPAY   // Tokens returned on loan settlement
+  REWARD       // Reward tokens
+}
+
+enum TokenTxStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+// ─── Withdrawal ────────────────────────────────────
+model Withdrawal {
+  id           String           @id @default(uuid())
+  userId       String
+  token        String           // CLB, CLBg, CLBs or BTC, ETH, BNB
+  amount       Decimal
+  toAddress    String
+  fee          Decimal          @default(0)
+  status       WithdrawalStatus @default(PENDING)
+  txHash       String?          @unique
+  createdAt    DateTime         @default(now())
+  processedAt  DateTime?
+
+  user         User             @relation(fields: [userId], references: [id])
+
+  @@index([userId, status])
+  @@map("withdrawals")
+}
+
+enum WithdrawalStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  REJECTED
 }

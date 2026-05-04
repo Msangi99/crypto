@@ -1,0 +1,310 @@
+import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import prisma from '../config/db';
+import { authMiddleware } from '../middleware/auth';
+import { Decimal } from '@prisma/client/runtime/library';
+
+// CLB Token tiers based on collateral value
+const TOKEN_TIERS: Record<string, { minUsd: number; token: string; ltv: number; interest: number }> = {
+  CLBg: { minUsd: 5000, token: 'CLBg', ltv: 60, interest: 5 },   // Gold tier: $5k+
+  CLBs: { minUsd: 1000, token: 'CLBs', ltv: 50, interest: 8 },   // Silver tier: $1k+
+  CLB:  { minUsd: 100,  token: 'CLB',  ltv: 40, interest: 12 },   // Standard tier: $100+
+};
+
+function getTier(usdValue: number): typeof TOKEN_TIERS[string] {
+  if (usdValue >= 5000) return TOKEN_TIERS.CLBg;
+  if (usdValue >= 1000) return TOKEN_TIERS.CLBs;
+  return TOKEN_TIERS.CLB;
+}
+
+export default async function loanRoutes(fastify: FastifyInstance) {
+
+  // ─── POST /loans/request — Request a new loan ──────────
+  fastify.post<{
+    Body: {
+      collateralChain: string;
+      collateralAmount: number;
+      collateralPriceUsd: number;
+      targetPriceUsd?: number;
+    };
+  }>(
+    '/request',
+    { preHandler: [authMiddleware] },
+    async (request: FastifyRequest<{
+      Body: {
+        collateralChain: string;
+        collateralAmount: number;
+        collateralPriceUsd: number;
+        targetPriceUsd?: number;
+      };
+    }>, reply: FastifyReply) => {
+      const userId = request.userId!;
+      const { collateralChain, collateralAmount, collateralPriceUsd, targetPriceUsd } = request.body;
+
+      if (!collateralChain || !collateralAmount || !collateralPriceUsd) {
+        return reply.status(400).send({ success: false, error: 'Missing required fields' });
+      }
+      if (collateralAmount <= 0) {
+        return reply.status(400).send({ success: false, error: 'Amount must be positive' });
+      }
+
+      const collateralValueUsd = collateralAmount * collateralPriceUsd;
+      const tier = getTier(collateralValueUsd);
+      const loanAmount = (collateralValueUsd * tier.ltv) / 100;
+      const target = targetPriceUsd || collateralPriceUsd * 1.5; // Default: 50% price increase
+
+      // Create loan
+      const loan = await prisma.loan.create({
+        data: {
+          userId,
+          collateralChain: collateralChain.toUpperCase(),
+          collateralAmount,
+          collateralPriceUsd,
+          collateralValueUsd,
+          loanAmount,
+          loanToken: tier.token,
+          targetPriceUsd: target,
+          ltvPercent: tier.ltv,
+          interestRate: tier.interest,
+          status: 'PENDING',
+        },
+      });
+
+      // Create a deposit record for tracking
+      await prisma.deposit.create({
+        data: {
+          userId,
+          amount: collateralAmount,
+          amountUsd: collateralValueUsd,
+          chain: collateralChain.toUpperCase(),
+          status: 'PENDING',
+          loanId: loan.id,
+        },
+      });
+
+      // Notify user
+      await prisma.notification.create({
+        data: {
+          userId,
+          type: 'LOAN',
+          title: 'Loan Request Created',
+          body: `Your ${tier.token} loan request for ${loanAmount.toFixed(2)} tokens is pending. Please send ${collateralAmount} ${collateralChain.toUpperCase()} to complete.`,
+          data: { loanId: loan.id, token: tier.token, amount: loanAmount },
+        },
+      });
+
+      return {
+        success: true,
+        loan: {
+          id: loan.id,
+          collateralChain: loan.collateralChain,
+          collateralAmount: Number(loan.collateralAmount),
+          collateralValueUsd: Number(loan.collateralValueUsd),
+          loanAmount: Number(loan.loanAmount),
+          loanToken: loan.loanToken,
+          targetPriceUsd: Number(loan.targetPriceUsd),
+          ltvPercent: Number(loan.ltvPercent),
+          interestRate: Number(loan.interestRate),
+          status: loan.status,
+          createdAt: loan.createdAt,
+        },
+      };
+    }
+  );
+
+  // ─── POST /loans/:id/confirm-deposit — Confirm deposit & issue tokens ─
+  fastify.post<{ Params: { id: string }; Body: { txHash: string } }>(
+    '/:id/confirm-deposit',
+    { preHandler: [authMiddleware] },
+    async (request: FastifyRequest<{ Params: { id: string }; Body: { txHash: string } }>, reply: FastifyReply) => {
+      const userId = request.userId!;
+      const { id } = request.params;
+      const { txHash } = request.body;
+
+      if (!txHash) {
+        return reply.status(400).send({ success: false, error: 'txHash is required' });
+      }
+
+      const loan = await prisma.loan.findFirst({
+        where: { id, userId, status: 'PENDING' },
+        include: { deposits: true },
+      });
+
+      if (!loan) {
+        return reply.status(404).send({ success: false, error: 'Loan not found or not pending' });
+      }
+
+      // Update deposit with txHash
+      const deposit = loan.deposits[0];
+      if (deposit) {
+        await prisma.deposit.update({
+          where: { id: deposit.id },
+          data: { txHash, status: 'CONFIRMING', confirmations: 1 },
+        });
+      }
+
+      // Activate loan & issue CLB tokens
+      const [updatedLoan] = await prisma.$transaction([
+        prisma.loan.update({
+          where: { id },
+          data: { status: 'ACTIVE' },
+        }),
+        // Upsert token balance
+        prisma.tokenBalance.upsert({
+          where: { userId_token: { userId, token: loan.loanToken } },
+          create: { userId, token: loan.loanToken, balance: loan.loanAmount },
+          update: { balance: { increment: loan.loanAmount } },
+        }),
+        // Record token transfer
+        prisma.tokenTransfer.create({
+          data: {
+            fromUserId: userId,
+            token: loan.loanToken,
+            amount: loan.loanAmount,
+            type: 'LOAN_ISSUE',
+            status: 'COMPLETED',
+            txHash,
+            note: `Loan #${id.slice(0, 8)} — ${loan.collateralAmount} ${loan.collateralChain} collateral`,
+          },
+        }),
+        // Confirm deposit
+        prisma.deposit.update({
+          where: { id: deposit?.id },
+          data: { status: 'CONFIRMED', confirmedAt: new Date() },
+        }),
+        // Transaction log
+        prisma.transaction.create({
+          data: {
+            userId,
+            type: 'LOAN',
+            amount: loan.loanAmount,
+            txHash,
+            status: 'SUCCESS',
+            metadata: {
+              loanId: id,
+              token: loan.loanToken,
+              collateral: `${loan.collateralAmount} ${loan.collateralChain}`,
+            },
+          },
+        }),
+      ]);
+
+      // Notify
+      await prisma.notification.create({
+        data: {
+          userId,
+          type: 'LOAN',
+          title: `${loan.loanToken} Tokens Issued!`,
+          body: `${Number(loan.loanAmount).toFixed(2)} ${loan.loanToken} tokens have been added to your wallet.`,
+          data: { loanId: id, amount: Number(loan.loanAmount) },
+        },
+      });
+
+      return {
+        success: true,
+        message: `${Number(loan.loanAmount).toFixed(2)} ${loan.loanToken} tokens issued to your wallet`,
+        loan: {
+          id: updatedLoan.id,
+          status: updatedLoan.status,
+          loanAmount: Number(updatedLoan.loanAmount),
+          loanToken: updatedLoan.loanToken,
+        },
+      };
+    }
+  );
+
+  // ─── GET /loans — List user loans ─────────────────────
+  fastify.get(
+    '/',
+    { preHandler: [authMiddleware] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const userId = request.userId!;
+
+      const loans = await prisma.loan.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+        include: { deposits: { select: { txHash: true, status: true } } },
+      });
+
+      return {
+        success: true,
+        loans: loans.map((l) => ({
+          id: l.id,
+          collateralChain: l.collateralChain,
+          collateralAmount: Number(l.collateralAmount),
+          collateralPriceUsd: Number(l.collateralPriceUsd),
+          collateralValueUsd: Number(l.collateralValueUsd),
+          loanAmount: Number(l.loanAmount),
+          loanToken: l.loanToken,
+          targetPriceUsd: Number(l.targetPriceUsd),
+          ltvPercent: Number(l.ltvPercent),
+          interestRate: Number(l.interestRate),
+          status: l.status,
+          createdAt: l.createdAt,
+          settledAt: l.settledAt,
+          deposits: l.deposits,
+        })),
+      };
+    }
+  );
+
+  // ─── GET /loans/:id — Loan detail ─────────────────────
+  fastify.get<{ Params: { id: string } }>(
+    '/:id',
+    { preHandler: [authMiddleware] },
+    async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+      const userId = request.userId!;
+      const { id } = request.params;
+
+      const loan = await prisma.loan.findFirst({
+        where: { id, userId },
+        include: { deposits: true },
+      });
+
+      if (!loan) {
+        return reply.status(404).send({ success: false, error: 'Loan not found' });
+      }
+
+      return {
+        success: true,
+        loan: {
+          id: loan.id,
+          collateralChain: loan.collateralChain,
+          collateralAmount: Number(loan.collateralAmount),
+          collateralPriceUsd: Number(loan.collateralPriceUsd),
+          collateralValueUsd: Number(loan.collateralValueUsd),
+          loanAmount: Number(loan.loanAmount),
+          loanToken: loan.loanToken,
+          targetPriceUsd: Number(loan.targetPriceUsd),
+          ltvPercent: Number(loan.ltvPercent),
+          interestRate: Number(loan.interestRate),
+          status: loan.status,
+          createdAt: loan.createdAt,
+          settledAt: loan.settledAt,
+          liquidatedAt: loan.liquidatedAt,
+          deposits: loan.deposits.map((d) => ({
+            id: d.id,
+            amount: Number(d.amount),
+            chain: d.chain,
+            txHash: d.txHash,
+            status: d.status,
+            confirmedAt: d.confirmedAt,
+          })),
+        },
+      };
+    }
+  );
+
+  // ─── GET /loans/tiers — Available loan tiers ──────────
+  fastify.get('/tiers', async () => {
+    return {
+      success: true,
+      tiers: Object.entries(TOKEN_TIERS).map(([key, t]) => ({
+        token: t.token,
+        minUsd: t.minUsd,
+        ltv: t.ltv,
+        interestRate: t.interest,
+        description: key === 'CLBg' ? 'Gold Tier' : key === 'CLBs' ? 'Silver Tier' : 'Standard Tier',
+      })),
+    };
+  });
+}

@@ -113,6 +113,45 @@ export const notificationsAPI = {
     api.delete(`/api/notifications/${id}`),
 };
 
+// ─── Loans ─────────────────────────────────────────────────
+export const loansAPI = {
+  request: (data: {
+    collateralChain: string;
+    collateralAmount: number;
+    collateralPriceUsd: number;
+    targetPriceUsd?: number;
+  }) => api.post('/api/loans/request', data),
+  confirmDeposit: (loanId: string, txHash: string) =>
+    api.post(`/api/loans/${loanId}/confirm-deposit`, { txHash }),
+  list: () => api.get('/api/loans'),
+  detail: (id: string) => api.get(`/api/loans/${id}`),
+  tiers: () => api.get('/api/loans/tiers'),
+};
+
+// ─── Tokens (CLB, CLBg, CLBs) ──────────────────────────────
+export const tokensAPI = {
+  balances: () => api.get('/api/tokens/balances'),
+  prices: () => api.get('/api/tokens/prices'),
+  transfer: (data: {
+    toAddress: string;
+    token: string;
+    amount: number;
+    note?: string;
+  }) => api.post('/api/tokens/transfer', data),
+  history: (page = 1, limit = 20, token?: string) =>
+    api.get(`/api/tokens/history?page=${page}&limit=${limit}${token ? `&token=${token}` : ''}`),
+};
+
+// ─── Withdrawals ────────────────────────────────────────────
+export const withdrawalsAPI = {
+  request: (data: { token: string; amount: number; toAddress: string }) =>
+    api.post('/api/withdrawals/request', data),
+  list: (page = 1, limit = 20, status?: string) =>
+    api.get(`/api/withdrawals?page=${page}&limit=${limit}${status ? `&status=${status}` : ''}`),
+  detail: (id: string) => api.get(`/api/withdrawals/${id}`),
+  fees: () => api.get('/api/withdrawals/fees'),
+};
+
 // ─── Health ───────────────────────────────────────────────
 export const healthAPI = {
   check: () => api.get('/health'),
