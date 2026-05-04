@@ -72,30 +72,40 @@ export default function PinSetupScreen() {
 
   const dots = step === 'enter' ? pin : confirmPin;
 
+  const filledCount = dots.length;
+
   return (
     <View style={styles.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-          {/* Header */}
-          <View style={styles.header}>
+          {/* Dark Gradient Header */}
+          <LinearGradient colors={['#1A1F35', '#0B0E1A']} style={styles.headerGradient}>
             <View style={styles.iconContainer}>
               <Ionicons name="lock-closed" size={28} color={Colors.primary} />
             </View>
             <Text style={styles.title}>
-              {step === 'enter' ? 'Create PIN' : 'Confirm PIN'}
+              {step === 'enter' ? 'Create Your PIN' : 'Confirm Your PIN'}
             </Text>
             <Text style={styles.subtitle}>
               {step === 'enter'
-                ? 'Create a 6-digit PIN to secure your account'
-                : 'Enter your PIN again to confirm'}
+                ? 'This 6-digit PIN will protect your wallet'
+                : 'Re-enter your PIN to confirm'}
             </Text>
-          </View>
+          </LinearGradient>
 
           {/* Step Indicator */}
           <View style={styles.stepRow}>
-            <View style={[styles.stepDot, step === 'enter' && styles.stepDotActive]} />
-            <View style={styles.stepLine} />
-            <View style={[styles.stepDot, step === 'confirm' && styles.stepDotActive]} />
+            <View style={[styles.stepDot, step === 'enter' && styles.stepDotActive]}>
+              {step === 'enter' && <Text style={styles.stepDotText}>1</Text>}
+            </View>
+            <View style={[styles.stepLine, step === 'confirm' && styles.stepLineActive]} />
+            <View style={[styles.stepDot, step === 'confirm' && styles.stepDotActive]}>
+              {step === 'confirm' && <Text style={styles.stepDotText}>2</Text>}
+            </View>
+          </View>
+          <View style={styles.stepLabels}>
+            <Text style={[styles.stepLabel, step === 'enter' && styles.stepLabelActive]}>Create</Text>
+            <Text style={[styles.stepLabel, step === 'confirm' && styles.stepLabelActive]}>Confirm</Text>
           </View>
 
           {/* PIN Dots */}
@@ -107,6 +117,11 @@ export default function PinSetupScreen() {
             ))}
           </View>
 
+          {/* Progress hint */}
+          <Text style={styles.progressHint}>
+            {filledCount < 6 ? `${filledCount}/6 digits entered` : 'PIN complete!'}
+          </Text>
+
           {/* Biometric Toggle (only on first step) */}
           {step === 'enter' && (
             <TouchableOpacity
@@ -117,10 +132,21 @@ export default function PinSetupScreen() {
               <View style={[styles.checkbox, enableBiometric && styles.checkboxChecked]}>
                 {enableBiometric && <Ionicons name="checkmark" size={14} color="#000" />}
               </View>
-              <Ionicons name="finger-print-outline" size={18} color={Colors.primary} />
-              <Text style={styles.biometricText}>Enable Face ID / Fingerprint</Text>
+              <View style={styles.biometricIconBg}>
+                <Ionicons name="finger-print-outline" size={16} color={Colors.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.biometricText}>Enable Biometrics</Text>
+                <Text style={styles.biometricSubtext}>Face ID / Fingerprint unlock</Text>
+              </View>
             </TouchableOpacity>
           )}
+
+          {/* Security Info */}
+          <View style={styles.securityCard}>
+            <Ionicons name="shield-checkmark-outline" size={16} color="#00D6A1" />
+            <Text style={styles.securityText}>Your PIN is encrypted locally and never sent to our servers</Text>
+          </View>
 
           {/* Number Pad */}
           <View style={styles.keypad}>
@@ -134,14 +160,14 @@ export default function PinSetupScreen() {
               <Text style={styles.keyText}>0</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.key} onPress={handleDelete} activeOpacity={0.7}>
-              <Ionicons name="backspace-outline" size={22} color={Colors.textSecondary} />
+              <Ionicons name="backspace-outline" size={22} color={Colors.textMuted} />
             </TouchableOpacity>
           </View>
 
           {step === 'confirm' ? (
             <Button label="Confirm PIN" onPress={handleConfirm} loading={loading} fullWidth style={styles.btn} />
           ) : (
-            <Button label="Next" onPress={handleNext} fullWidth style={styles.btn} />
+            <Button label="Continue" onPress={handleNext} fullWidth style={styles.btn} />
           )}
         </ScrollView>
       </KeyboardAvoidingView>
@@ -152,41 +178,68 @@ export default function PinSetupScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
   scroll: {
-    padding: Spacing.lg, paddingTop: 80, gap: Spacing.xl, flex: 1,
+    gap: 0, flex: 1,
   },
-  header: { alignItems: 'center', gap: Spacing.md },
+
+  // Header Gradient
+  headerGradient: {
+    alignItems: 'center', paddingHorizontal: Spacing.lg,
+    paddingTop: 60, paddingBottom: Spacing.xl, gap: Spacing.md,
+  },
   iconContainer: {
     width: 64, height: 64, borderRadius: 20,
-    backgroundColor: 'rgba(240,185,11,0.1)', borderWidth: 1, borderColor: 'rgba(240,185,11,0.2)',
+    backgroundColor: 'rgba(240,185,11,0.12)', borderWidth: 1, borderColor: 'rgba(240,185,11,0.25)',
     alignItems: 'center', justifyContent: 'center',
   },
-  title: { fontSize: 28, fontWeight: '900', color: Colors.textPrimary },
-  subtitle: { fontSize: 14, fontWeight: '600', color: Colors.textMuted, textAlign: 'center' },
+  title: { fontSize: 26, fontWeight: '900', color: Colors.textPrimary },
+  subtitle: { fontSize: 14, fontWeight: '600', color: Colors.textMuted, textAlign: 'center', lineHeight: 20 },
 
   // Step Indicator
-  stepRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 0 },
-  stepDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: Colors.border },
-  stepDotActive: { backgroundColor: Colors.primary, width: 24, borderRadius: 5 },
-  stepLine: { width: 40, height: 2, backgroundColor: Colors.border },
-
-  // PIN Dots
-  dotsContainer: {
-    flexDirection: 'row', gap: Spacing.lg, justifyContent: 'center',
+  stepRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 0,
+    paddingHorizontal: Spacing.lg, paddingVertical: Spacing.lg,
   },
-  dot: {
-    width: 20, height: 20, borderRadius: 10,
+  stepDot: {
+    width: 28, height: 28, borderRadius: 14,
     backgroundColor: Colors.bgCard, borderWidth: 2, borderColor: Colors.border,
     alignItems: 'center', justifyContent: 'center',
   },
-  dotFilled: { borderColor: Colors.primary },
+  stepDotActive: {
+    backgroundColor: Colors.primary, borderColor: Colors.primary,
+  },
+  stepDotText: { fontSize: 12, fontWeight: '800', color: '#000' },
+  stepLine: { width: 60, height: 2, backgroundColor: Colors.border },
+  stepLineActive: { backgroundColor: Colors.primary },
+  stepLabels: {
+    flexDirection: 'row', justifyContent: 'space-between',
+    paddingHorizontal: Spacing.xl + 10, marginBottom: Spacing.md,
+  },
+  stepLabel: { fontSize: 12, fontWeight: '600', color: Colors.textMuted },
+  stepLabelActive: { color: Colors.primary, fontWeight: '800' },
+
+  // PIN Dots
+  dotsContainer: {
+    flexDirection: 'row', gap: 20, justifyContent: 'center',
+    paddingHorizontal: Spacing.lg, paddingVertical: Spacing.lg,
+  },
+  dot: {
+    width: 24, height: 24, borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.04)', borderWidth: 2, borderColor: 'rgba(255,255,255,0.1)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  dotFilled: { borderColor: Colors.primary, backgroundColor: 'rgba(240,185,11,0.08)' },
   dotInner: {
-    width: 10, height: 10, borderRadius: 5, backgroundColor: Colors.primary,
+    width: 12, height: 12, borderRadius: 6, backgroundColor: Colors.primary,
+  },
+  progressHint: {
+    fontSize: 12, fontWeight: '600', color: Colors.textMuted, textAlign: 'center',
+    marginBottom: Spacing.md,
   },
 
   // Biometric Toggle
   biometricToggle: {
-    flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
-    paddingVertical: Spacing.md, paddingHorizontal: Spacing.lg,
+    flexDirection: 'row', alignItems: 'center', gap: Spacing.md,
+    marginHorizontal: Spacing.lg, paddingVertical: Spacing.md, paddingHorizontal: Spacing.md,
     backgroundColor: Colors.bgCard, borderRadius: Radius.lg,
     borderWidth: 1, borderColor: Colors.border,
   },
@@ -198,20 +251,34 @@ const styles = StyleSheet.create({
   checkboxChecked: {
     backgroundColor: Colors.primary, borderColor: Colors.primary,
   },
-  biometricText: { fontSize: 14, fontWeight: '700', color: Colors.textPrimary, flex: 1 },
+  biometricIconBg: {
+    width: 32, height: 32, borderRadius: 10,
+    backgroundColor: 'rgba(240,185,11,0.1)', alignItems: 'center', justifyContent: 'center',
+  },
+  biometricText: { fontSize: 14, fontWeight: '700', color: Colors.textPrimary },
+  biometricSubtext: { fontSize: 11, fontWeight: '600', color: Colors.textMuted },
+
+  // Security Card
+  securityCard: {
+    flexDirection: 'row', gap: 8, marginHorizontal: Spacing.lg,
+    backgroundColor: 'rgba(0,214,161,0.06)', borderWidth: 1, borderColor: 'rgba(0,214,161,0.12)',
+    borderRadius: Radius.lg, padding: Spacing.md, alignItems: 'center',
+  },
+  securityText: { flex: 1, fontSize: 12, fontWeight: '600', color: Colors.textMuted, lineHeight: 16 },
 
   // Keypad
   keypad: {
     flexDirection: 'row', flexWrap: 'wrap',
     gap: Spacing.sm, justifyContent: 'center',
+    paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md,
   },
   key: {
     width: '28%', aspectRatio: 1.3,
-    backgroundColor: Colors.bgCard, borderRadius: Radius.lg,
+    backgroundColor: Colors.bgCard, borderRadius: 16,
     alignItems: 'center', justifyContent: 'center',
     borderWidth: 1, borderColor: Colors.border,
   },
   keyEmpty: { width: '28%', aspectRatio: 1.3 },
   keyText: { fontSize: 26, fontWeight: '700', color: Colors.textPrimary },
-  btn: { marginTop: Spacing.lg },
+  btn: { marginTop: Spacing.lg, marginHorizontal: Spacing.lg, marginBottom: Spacing.xl },
 });
