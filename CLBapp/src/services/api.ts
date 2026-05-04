@@ -48,6 +48,8 @@ export const authAPI = {
     api.post('/api/auth/verify', { walletAddress, signature }),
   devLogin: (walletAddress: string) =>
     api.post('/api/auth/dev-login', { walletAddress }),
+  createWallet: () =>
+    api.post('/api/auth/create-wallet'),
   setupPin: (pin: string, enableBiometric = false) =>
     api.post('/api/auth/setup-pin', { pin, enableBiometric }),
   verifyPin: (pin: string) =>

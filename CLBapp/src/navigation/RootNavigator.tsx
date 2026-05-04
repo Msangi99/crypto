@@ -4,7 +4,9 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { useAuthStore } from '../store/authStore';
 import SplashScreen from '../screens/auth/SplashScreen';
-import ConnectWalletScreen from '../screens/auth/ConnectWalletScreen';
+import WelcomeScreen from '../screens/auth/WelcomeScreen';
+import CreateWalletScreen from '../screens/auth/CreateWalletScreen';
+import ImportWalletScreen from '../screens/auth/ImportWalletScreen';
 import PinSetupScreen from '../screens/auth/PinSetupScreen';
 import PinVerifyScreen from '../screens/auth/PinVerifyScreen';
 import TabNavigator from './TabNavigator';
@@ -70,7 +72,11 @@ export default function RootNavigator() {
     }}>
       <Stack.Navigator screenOptions={{ headerShown: false, cardStyle: { backgroundColor: Colors.bg } }}>
         {!isAuthenticated ? (
-          <Stack.Screen name="ConnectWallet" component={ConnectWalletScreen} />
+          <>
+            <Stack.Screen name="Welcome" component={WelcomeScreen} />
+            <Stack.Screen name="CreateWallet" component={CreateWalletScreen} />
+            <Stack.Screen name="ImportWallet" component={ImportWalletScreen} />
+          </>
         ) : needsPinSetup ? (
           <Stack.Screen name="PinSetup" component={PinSetupScreen} />
         ) : needsPinVerify ? (

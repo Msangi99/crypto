@@ -377,6 +377,66 @@ export default async function authRoutes(fastify: FastifyInstance) {
     }
   );
 
+  // POST /auth/create-wallet — generate a new wallet (Trust Wallet style)
+  fastify.post(
+    '/create-wallet',
+    {
+      schema: {
+        tags: ['Auth'],
+        summary: 'Create a new wallet',
+        description: 'Generates a new wallet with a 12-word recovery phrase, wallet address, and JWT. The recovery phrase is shown once — user must back it up.',
+      },
+    },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      // Generate wallet using ethers.js (creates real BEP-20/ETH address + mnemonic)
+      const wallet = ethers.Wallet.createRandom();
+      const walletAddress = wallet.address.toLowerCase();
+      const mnemonic = wallet.mnemonic?.phrase;
+
+      if (!mnemonic) {
+        return reply.status(500).send({ success: false, error: 'Failed to generate wallet' });
+      }
+
+      // Encrypt and store the recovery phrase
+      const { encrypted, iv } = encryptSecretKey(mnemonic);
+      const referralCode = generateReferralCode();
+
+      const user = await prisma.user.create({
+        data: {
+          walletAddress,
+          secretKey: encrypted,
+          secretKeyIv: iv,
+          referralCode,
+        },
+      });
+
+      // Generate JWT
+      const token = fastify.jwt.sign(
+        { id: user.id, walletAddress, role: user.role, tokenVersion: user.tokenVersion },
+        { expiresIn: '7d' }
+      );
+
+      fastify.log.info(`🆕 New wallet created: ${walletAddress}`);
+
+      return {
+        success: true,
+        token,
+        walletAddress,
+        seedPhrase: mnemonic,
+        user: {
+          id: user.id,
+          walletAddress: user.walletAddress,
+          username: user.username,
+          role: user.role,
+          referralCode: user.referralCode,
+          pinSetup: false,
+          biometricEnabled: false,
+          createdAt: user.createdAt,
+        },
+      };
+    }
+  );
+
   // POST /auth/setup-pin — set up PIN for mobile app security (protected)
   fastify.post<{ Body: { pin: string; enableBiometric?: boolean } }>(
     '/setup-pin',
