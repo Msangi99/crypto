@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, KeyboardAvoidingView,
-  Platform, Alert, ScrollView,
+  Platform, Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { Colors, FontSize, Spacing, Radius } from '../../constants/theme';
-import Button from '../../components/ui/Button';
 import { authAPI } from '../../services/api';
 import { useAuthStore } from '../../store/authStore';
 
@@ -23,45 +22,31 @@ export default function PinVerifyScreen({ onVerified }: PinVerifyScreenProps) {
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [showPinPad, setShowPinPad] = useState(false);
 
-  // Check biometric availability and attempt authentication on mount
   useEffect(() => {
     const checkBiometric = async () => {
-      console.log('[Biometric] Checking biometric availability...');
-      console.log('[Biometric] User biometricEnabled:', user?.biometricEnabled);
-      
       const hasHardware = await LocalAuthentication.hasHardwareAsync();
-      console.log('[Biometric] Has hardware:', hasHardware);
-      
       const isEnrolled = await LocalAuthentication.isEnrolledAsync();
-      console.log('[Biometric] Is enrolled:', isEnrolled);
-      
+
       if (hasHardware && isEnrolled && user?.biometricEnabled) {
         setBiometricAvailable(true);
-        console.log('[Biometric] Attempting biometric authentication...');
         try {
           const result = await LocalAuthentication.authenticateAsync({
-            promptMessage: 'Unlock CLB App',
+            promptMessage: 'Unlock CLB Wallet',
             fallbackLabel: 'Use PIN',
             cancelLabel: 'Cancel',
           });
-          console.log('[Biometric] Auth result:', result);
           if (result.success) {
-            console.log('[Biometric] Authentication successful, unlocking...');
             onVerified();
           } else {
-            console.log('[Biometric] Authentication failed, showing PIN pad');
             setShowPinPad(true);
           }
-        } catch (error) {
-          console.log('[Biometric] Authentication error:', error);
+        } catch {
           setShowPinPad(true);
         }
       } else {
-        console.log('[Biometric] Biometric not available or not enabled, showing PIN pad');
         setShowPinPad(true);
       }
     };
-
     checkBiometric();
   }, [user?.biometricEnabled, onVerified]);
 
@@ -69,15 +54,10 @@ export default function PinVerifyScreen({ onVerified }: PinVerifyScreenProps) {
     if (pin.length < 6) setPin(pin + digit);
   };
 
-  const handleDelete = () => {
-    setPin(pin.slice(0, -1));
-  };
+  const handleDelete = () => setPin(pin.slice(0, -1));
 
   const handleVerify = async () => {
-    if (pin.length !== 6) {
-      Alert.alert('Error', 'Please enter your 6-digit PIN');
-      return;
-    }
+    if (pin.length !== 6) return;
 
     setLoading(true);
     try {
@@ -88,7 +68,6 @@ export default function PinVerifyScreen({ onVerified }: PinVerifyScreenProps) {
       const newAttempts = attempts + 1;
       setAttempts(newAttempts);
       setPin('');
-      
       if (newAttempts >= 3) {
         Alert.alert('Too Many Attempts', 'Please try again later');
       } else {
@@ -100,79 +79,119 @@ export default function PinVerifyScreen({ onVerified }: PinVerifyScreenProps) {
   };
 
   // Auto-verify when 6 digits entered
-  React.useEffect(() => {
+  useEffect(() => {
     if (pin.length === 6 && !loading) {
-      handleVerify();
+      const timer = setTimeout(() => handleVerify(), 300);
+      return () => clearTimeout(timer);
     }
   }, [pin]);
 
+  const triggerBiometric = async () => {
+    try {
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: 'Unlock CLB Wallet',
+        fallbackLabel: 'Use PIN',
+      });
+      if (result.success) onVerified();
+    } catch {}
+  };
+
+  // Biometric waiting screen
+  if (!showPinPad) {
+    return (
+      <View style={styles.container}>
+        <LinearGradient colors={['#1A1F35', '#0B0E1A']} style={styles.biometricScreen}>
+          <View style={styles.biometricIconBg}>
+            <Ionicons name="finger-print" size={48} color={Colors.primary} />
+          </View>
+          <Text style={styles.biometricTitle}>Welcome Back</Text>
+          <Text style={styles.biometricSubtitle}>Use biometrics to unlock</Text>
+          <TouchableOpacity style={styles.usePinBtn} onPress={() => setShowPinPad(true)}>
+            <Ionicons name="keypad-outline" size={16} color={Colors.primary} />
+            <Text style={styles.usePinText}>Use PIN instead</Text>
+          </TouchableOpacity>
+        </LinearGradient>
+      </View>
+    );
+  }
+
+  // PIN entry screen
   return (
     <View style={styles.container}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-          {!showPinPad ? (
-            <LinearGradient colors={['#1A1F35', '#0B0E1A']} style={styles.biometricScreen}>
-              <View style={styles.biometricIconBg}>
-                <Ionicons name="finger-print" size={44} color={Colors.primary} />
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.flex1}
+      >
+        <View style={styles.flex1}>
+          {/* Header */}
+          <LinearGradient colors={['#1A1F35', '#0B0E1A']} style={styles.headerGradient}>
+            <View style={styles.iconContainer}>
+              <Ionicons name="lock-closed" size={28} color={Colors.primary} />
+            </View>
+            <Text style={styles.title}>Unlock Wallet</Text>
+            <Text style={styles.subtitle}>Enter your 6-digit PIN</Text>
+            {attempts > 0 && (
+              <View style={styles.attemptsBadge}>
+                <Ionicons name="warning-outline" size={12} color="#FF4757" />
+                <Text style={styles.attemptsText}>{attempts} of 3 attempts</Text>
               </View>
-              <Text style={styles.loadingTitle}>Welcome Back</Text>
-              <Text style={styles.loadingText}>Use biometrics to unlock your wallet</Text>
-              <View style={styles.biometricHint}>
-                <Ionicons name="information-circle-outline" size={14} color={Colors.textMuted} />
-                <Text style={styles.biometricHintText}>Biometric authentication required</Text>
-              </View>
-            </LinearGradient>
-          ) : (
-            <>
-              {/* Dark Gradient Header */}
-              <LinearGradient colors={['#1A1F35', '#0B0E1A']} style={styles.headerGradient}>
-                <View style={styles.iconContainer}>
-                  <Ionicons name="lock-open" size={28} color={Colors.primary} />
+            )}
+          </LinearGradient>
+
+          {/* PIN Dots */}
+          <View style={styles.dotsSection}>
+            <View style={styles.dotsContainer}>
+              {[0, 1, 2, 3, 4, 5].map((i) => (
+                <View key={i} style={[styles.dot, pin[i] && styles.dotFilled]}>
+                  {pin[i] && <View style={styles.dotInner} />}
                 </View>
-                <Text style={styles.title}>Unlock Wallet</Text>
-                <Text style={styles.subtitle}>Enter your 6-digit PIN to continue</Text>
-                {attempts > 0 && (
-                  <View style={styles.attemptsBadge}>
-                    <Ionicons name="warning-outline" size={12} color="#FF4757" />
-                    <Text style={styles.attemptsText}>{attempts} of 3 attempts</Text>
-                  </View>
-                )}
-              </LinearGradient>
+              ))}
+            </View>
+            <Text style={styles.progressHint}>
+              {pin.length < 6 ? `${pin.length}/6` : 'Verifying...'}
+            </Text>
+          </View>
 
-              {/* PIN Dots */}
-              <View style={styles.dotsContainer}>
-                {[0, 1, 2, 3, 4, 5].map((i) => (
-                  <View key={i} style={[styles.dot, pin[i] && styles.dotFilled]}>
-                    {pin[i] && <View style={styles.dotInner} />}
-                  </View>
-                ))}
-              </View>
-
-              {/* Progress hint */}
-              <Text style={styles.progressHint}>
-                {pin.length < 6 ? `${pin.length}/6 digits` : 'Verifying...'}
-              </Text>
-
-              {/* Number Pad */}
-              <View style={styles.keypad}>
-                {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((num) => (
-                  <TouchableOpacity key={num} style={styles.key} onPress={() => handlePinPress(num)} activeOpacity={0.7}>
-                    <Text style={styles.keyText}>{num}</Text>
-                  </TouchableOpacity>
-                ))}
-                <View style={styles.keyEmpty} />
-                <TouchableOpacity style={styles.key} onPress={() => handlePinPress('0')} activeOpacity={0.7}>
-                  <Text style={styles.keyText}>0</Text>
+          {/* Number Pad */}
+          <View style={styles.keypadSection}>
+            <View style={styles.keypadRow}>
+              {['1', '2', '3'].map((num) => (
+                <TouchableOpacity key={num} style={styles.key} onPress={() => handlePinPress(num)} activeOpacity={0.7}>
+                  <Text style={styles.keyText}>{num}</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.key} onPress={handleDelete} activeOpacity={0.7}>
-                  <Ionicons name="backspace-outline" size={22} color={Colors.textMuted} />
+              ))}
+            </View>
+            <View style={styles.keypadRow}>
+              {['4', '5', '6'].map((num) => (
+                <TouchableOpacity key={num} style={styles.key} onPress={() => handlePinPress(num)} activeOpacity={0.7}>
+                  <Text style={styles.keyText}>{num}</Text>
                 </TouchableOpacity>
-              </View>
-
-              <Button label="Unlock" onPress={handleVerify} loading={loading} fullWidth style={styles.btn} />
-            </>
-          )}
-        </ScrollView>
+              ))}
+            </View>
+            <View style={styles.keypadRow}>
+              {['7', '8', '9'].map((num) => (
+                <TouchableOpacity key={num} style={styles.key} onPress={() => handlePinPress(num)} activeOpacity={0.7}>
+                  <Text style={styles.keyText}>{num}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <View style={styles.keypadRow}>
+              {biometricAvailable ? (
+                <TouchableOpacity style={styles.key} onPress={triggerBiometric} activeOpacity={0.7}>
+                  <Ionicons name="finger-print" size={26} color={Colors.primary} />
+                </TouchableOpacity>
+              ) : (
+                <View style={styles.keyPlaceholder} />
+              )}
+              <TouchableOpacity style={styles.key} onPress={() => handlePinPress('0')} activeOpacity={0.7}>
+                <Text style={styles.keyText}>0</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.key} onPress={handleDelete} activeOpacity={0.7}>
+                <Ionicons name="backspace-outline" size={24} color={Colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
       </KeyboardAvoidingView>
     </View>
   );
@@ -180,7 +199,7 @@ export default function PinVerifyScreen({ onVerified }: PinVerifyScreenProps) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
-  scroll: { gap: 0, flex: 1 },
+  flex1: { flex: 1 },
 
   // Biometric Screen
   biometricScreen: {
@@ -188,73 +207,70 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.xl, gap: Spacing.md,
   },
   biometricIconBg: {
-    width: 88, height: 88, borderRadius: 28,
-    backgroundColor: 'rgba(240,185,11,0.12)', borderWidth: 1, borderColor: 'rgba(240,185,11,0.25)',
+    width: 96, height: 96, borderRadius: 32,
+    backgroundColor: 'rgba(240,185,11,0.1)', borderWidth: 1.5, borderColor: 'rgba(240,185,11,0.2)',
     alignItems: 'center', justifyContent: 'center',
   },
-  loadingTitle: { fontSize: 24, fontWeight: '900', color: Colors.textPrimary },
-  loadingText: { fontSize: 14, fontWeight: '600', color: Colors.textMuted, textAlign: 'center' },
-  biometricHint: {
-    flexDirection: 'row', gap: 6, marginTop: Spacing.md,
-    backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 99,
-    paddingHorizontal: 12, paddingVertical: 6,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)',
+  biometricTitle: { fontSize: 28, fontWeight: '900', color: Colors.textPrimary },
+  biometricSubtitle: { fontSize: 15, fontWeight: '600', color: Colors.textMuted },
+  usePinBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    marginTop: Spacing.xl, paddingHorizontal: 20, paddingVertical: 12,
+    borderRadius: 99, backgroundColor: 'rgba(240,185,11,0.08)',
+    borderWidth: 1, borderColor: 'rgba(240,185,11,0.15)',
   },
-  biometricHintText: { fontSize: 12, fontWeight: '600', color: Colors.textMuted },
+  usePinText: { fontSize: 14, fontWeight: '700', color: Colors.primary },
 
-  // Header Gradient
+  // Header
   headerGradient: {
     alignItems: 'center', paddingHorizontal: Spacing.lg,
-    paddingTop: 60, paddingBottom: Spacing.xl, gap: Spacing.md,
+    paddingTop: 60, paddingBottom: Spacing.xl, gap: Spacing.sm,
   },
   iconContainer: {
     width: 64, height: 64, borderRadius: 20,
-    backgroundColor: 'rgba(240,185,11,0.12)', borderWidth: 1, borderColor: 'rgba(240,185,11,0.25)',
+    backgroundColor: 'rgba(240,185,11,0.1)', borderWidth: 1.5, borderColor: 'rgba(240,185,11,0.2)',
     alignItems: 'center', justifyContent: 'center',
   },
   title: { fontSize: 26, fontWeight: '900', color: Colors.textPrimary },
-  subtitle: { fontSize: 14, fontWeight: '600', color: Colors.textMuted, textAlign: 'center' },
+  subtitle: { fontSize: 14, fontWeight: '600', color: Colors.textMuted },
 
-  // Attempts Badge
+  // Attempts
   attemptsBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: 'rgba(255,71,87,0.1)', borderWidth: 1, borderColor: 'rgba(255,71,87,0.2)',
-    paddingHorizontal: 10, paddingVertical: 4, borderRadius: 99,
+    backgroundColor: 'rgba(255,71,87,0.08)', borderWidth: 1, borderColor: 'rgba(255,71,87,0.15)',
+    paddingHorizontal: 12, paddingVertical: 5, borderRadius: 99,
   },
   attemptsText: { fontSize: 12, fontWeight: '700', color: '#FF4757' },
 
-  // PIN Dots
-  dotsContainer: {
-    flexDirection: 'row', gap: 20, justifyContent: 'center',
-    paddingHorizontal: Spacing.lg, paddingVertical: Spacing.lg,
-  },
+  // Dots
+  dotsSection: { alignItems: 'center', paddingVertical: Spacing.xl },
+  dotsContainer: { flexDirection: 'row', gap: 18, justifyContent: 'center' },
   dot: {
-    width: 24, height: 24, borderRadius: 12,
+    width: 20, height: 20, borderRadius: 10,
     backgroundColor: 'rgba(255,255,255,0.04)', borderWidth: 2, borderColor: 'rgba(255,255,255,0.1)',
     alignItems: 'center', justifyContent: 'center',
   },
-  dotFilled: { borderColor: Colors.primary, backgroundColor: 'rgba(240,185,11,0.08)' },
-  dotInner: {
-    width: 12, height: 12, borderRadius: 6, backgroundColor: Colors.primary,
-  },
+  dotFilled: { borderColor: Colors.primary, backgroundColor: 'rgba(240,185,11,0.1)' },
+  dotInner: { width: 10, height: 10, borderRadius: 5, backgroundColor: Colors.primary },
   progressHint: {
-    fontSize: 12, fontWeight: '600', color: Colors.textMuted, textAlign: 'center',
-    marginBottom: Spacing.md,
+    fontSize: 12, fontWeight: '600', color: Colors.textMuted, marginTop: Spacing.md,
   },
 
   // Keypad
-  keypad: {
-    flexDirection: 'row', flexWrap: 'wrap',
-    gap: Spacing.sm, justifyContent: 'center',
-    paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md,
+  keypadSection: {
+    paddingHorizontal: Spacing.xl, paddingBottom: 50,
+    justifyContent: 'flex-end',
+  },
+  keypadRow: {
+    flexDirection: 'row', justifyContent: 'space-between',
+    marginBottom: Spacing.sm,
   },
   key: {
-    width: '28%', aspectRatio: 1.3,
-    backgroundColor: Colors.bgCard, borderRadius: 16,
+    width: 76, height: 76, borderRadius: 38,
+    backgroundColor: 'rgba(255,255,255,0.04)',
     alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1, borderColor: Colors.border,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)',
   },
-  keyEmpty: { width: '28%', aspectRatio: 1.3 },
-  keyText: { fontSize: 26, fontWeight: '700', color: Colors.textPrimary },
-  btn: { marginTop: Spacing.lg, marginHorizontal: Spacing.lg, marginBottom: Spacing.xl },
+  keyPlaceholder: { width: 76, height: 76 },
+  keyText: { fontSize: 28, fontWeight: '500', color: Colors.textPrimary },
 });
