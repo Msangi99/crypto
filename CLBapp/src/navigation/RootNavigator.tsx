@@ -7,6 +7,7 @@ import SplashScreen from '../screens/auth/SplashScreen';
 import WelcomeScreen from '../screens/auth/WelcomeScreen';
 import CreateWalletScreen from '../screens/auth/CreateWalletScreen';
 import ImportWalletScreen from '../screens/auth/ImportWalletScreen';
+import ConnectWalletScreen from '../screens/auth/ConnectWalletScreen';
 import PinSetupScreen from '../screens/auth/PinSetupScreen';
 import PinVerifyScreen from '../screens/auth/PinVerifyScreen';
 import TabNavigator from './TabNavigator';
@@ -76,6 +77,7 @@ export default function RootNavigator() {
             <Stack.Screen name="Welcome" component={WelcomeScreen} />
             <Stack.Screen name="CreateWallet" component={CreateWalletScreen} />
             <Stack.Screen name="ImportWallet" component={ImportWalletScreen} />
+            <Stack.Screen name="ConnectWallet" component={ConnectWalletScreen} />
           </>
         ) : needsPinSetup ? (
           <Stack.Screen name="PinSetup" component={PinSetupScreen} />

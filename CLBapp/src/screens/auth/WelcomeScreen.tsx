@@ -67,6 +67,15 @@ export default function WelcomeScreen({ navigation }: any) {
             <Text style={styles.importBtnText}>I Already Have a Wallet</Text>
           </TouchableOpacity>
 
+          <TouchableOpacity
+            style={styles.connectBtn}
+            onPress={() => navigation.navigate('ConnectWallet')}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="link-outline" size={18} color={Colors.textSecondary} />
+            <Text style={styles.connectBtnText}>Connect with Address</Text>
+          </TouchableOpacity>
+
           <Text style={styles.disclaimer}>
             By continuing, you agree to our Terms of Service and Privacy Policy
           </Text>
@@ -137,6 +146,12 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(240,185,11,0.06)',
   },
   importBtnText: { fontSize: 15, fontWeight: '800', color: Colors.primary },
+
+  connectBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    paddingVertical: 14, gap: 8,
+  },
+  connectBtnText: { fontSize: 14, fontWeight: '600', color: Colors.textSecondary },
 
   disclaimer: {
     fontSize: 11, fontWeight: '500', color: Colors.textMuted,
