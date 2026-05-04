@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, FlatList,
-  RefreshControl, Alert, Dimensions,
+  RefreshControl, Alert, Dimensions, Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radius, Shadow } from '../../constants/theme';
 import { tokensAPI } from '../../services/api';
+
+const CLB_LOGO = require('../../../assets/clb-token.png');
 
 const { width } = Dimensions.get('window');
 
@@ -53,7 +55,7 @@ export default function WalletTokensScreen({ navigation }: any) {
       <TouchableOpacity style={styles.tokenCard} activeOpacity={0.8}>
         <View style={styles.tokenRow}>
           <View style={[styles.tokenIconBg, { backgroundColor: meta.color + '18' }]}>
-            <Ionicons name={meta.icon as any} size={22} color={meta.color} />
+            <Image source={CLB_LOGO} style={styles.tokenLogo} resizeMode="contain" />
           </View>
           <View style={styles.tokenInfo}>
             <Text style={styles.tokenName}>{meta.name}</Text>
@@ -237,6 +239,7 @@ const styles = StyleSheet.create({
     width: 44, height: 44, borderRadius: 14,
     alignItems: 'center', justifyContent: 'center',
   },
+  tokenLogo: { width: 32, height: 32, borderRadius: 8 },
   tokenInfo: { flex: 1 },
   tokenName: { fontSize: 15, fontWeight: '800', color: Colors.textPrimary },
   tokenTier: { fontSize: 12, fontWeight: '600', color: Colors.textMuted },

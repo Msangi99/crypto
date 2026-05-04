@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput, Alert,
-  ScrollView, KeyboardAvoidingView, Platform,
+  ScrollView, KeyboardAvoidingView, Platform, Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radius } from '../../constants/theme';
 import { withdrawalsAPI, tokensAPI } from '../../services/api';
+
+const CLB_LOGO = require('../../../assets/clb-token.png');
 
 const TOKENS = [
   { symbol: 'CLBg', name: 'CLB Gold', color: '#F0B90B', icon: 'diamond' },
@@ -110,7 +112,7 @@ export default function WithdrawScreen({ navigation }: any) {
                   style={[styles.tokenChip, selectedToken.symbol === t.symbol && { borderColor: t.color, backgroundColor: t.color + '12' }]}
                   onPress={() => setSelectedToken(t)}
                 >
-                  <Ionicons name={t.icon as any} size={18} color={selectedToken.symbol === t.symbol ? t.color : Colors.textMuted} />
+                  <Image source={CLB_LOGO} style={styles.chipLogo} resizeMode="contain" />
                   <Text style={[styles.tokenChipText, selectedToken.symbol === t.symbol && { color: t.color }]}>
                     {t.symbol}
                   </Text>
@@ -220,6 +222,7 @@ const styles = StyleSheet.create({
     flex: 1, alignItems: 'center', gap: 4, paddingVertical: 12, borderRadius: Radius.lg,
     backgroundColor: Colors.bgCard, borderWidth: 1.5, borderColor: Colors.border,
   },
+  chipLogo: { width: 22, height: 22, borderRadius: 6 },
   tokenChipText: { fontSize: 12, fontWeight: '800', color: Colors.textMuted },
   tokenChipBal: { fontSize: 10, fontWeight: '600', color: Colors.textMuted },
 

@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, FlatList,
-  RefreshControl,
+  RefreshControl, Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radius } from '../../constants/theme';
 import { loansAPI } from '../../services/api';
+
+const CLB_LOGO = require('../../../assets/clb-token.png');
 
 const STATUS_META: Record<string, { color: string; icon: string; label: string }> = {
   PENDING:    { color: '#F0B90B', icon: 'time', label: 'Pending' },
@@ -55,7 +57,7 @@ export default function MyLoansScreen({ navigation }: any) {
       <TouchableOpacity style={styles.loanCard} activeOpacity={0.8}>
         <View style={styles.loanHeader}>
           <View style={styles.loanTokenBadge}>
-            <View style={[styles.loanTokenDot, { backgroundColor: tokenColor }]} />
+            <Image source={CLB_LOGO} style={styles.loanTokenLogo} resizeMode="contain" />
             <Text style={[styles.loanTokenText, { color: tokenColor }]}>{item.loanToken}</Text>
           </View>
           <View style={[styles.statusBadge, { backgroundColor: status.color + '15' }]}>
@@ -190,7 +192,7 @@ const styles = StyleSheet.create({
   loanTokenBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
   },
-  loanTokenDot: { width: 10, height: 10, borderRadius: 5 },
+  loanTokenLogo: { width: 20, height: 20, borderRadius: 5 },
   loanTokenText: { fontSize: 14, fontWeight: '800' },
   statusBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
