@@ -47,13 +47,22 @@ export default function PinSetupScreen() {
   // Auto-advance to confirm step when 6 digits entered
   React.useEffect(() => {
     if (step === 'enter' && pin.length === 6) {
-      // Small delay so user sees the 6th dot fill
       const timer = setTimeout(() => {
         setStep('confirm');
       }, 400);
       return () => clearTimeout(timer);
     }
   }, [pin, step]);
+
+  // Auto-confirm when 6 confirm digits entered
+  React.useEffect(() => {
+    if (step === 'confirm' && confirmPin.length === 6 && !loading) {
+      const timer = setTimeout(() => {
+        handleConfirm();
+      }, 400);
+      return () => clearTimeout(timer);
+    }
+  }, [confirmPin, step, loading]);
 
   const handleConfirm = async () => {
     if (confirmPin.length !== 6) {
@@ -70,10 +79,10 @@ export default function PinSetupScreen() {
     setLoading(true);
     try {
       await authAPI.setupPin(pin, enableBiometric);
-      // Update user to mark PIN as set up
+      // Update user to mark PIN as set up, also mark pinVerified so user goes to main app
       const { token } = useAuthStore.getState();
       await setAuth(token!, { ...user!, pinSetup: true, biometricEnabled: enableBiometric });
-      Alert.alert('Success', 'PIN set successfully');
+      useAuthStore.getState().setPinVerified(true);
     } catch (err: any) {
       Alert.alert('Error', err?.response?.data?.error || 'Failed to set PIN');
     } finally {
