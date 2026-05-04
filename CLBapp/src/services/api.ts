@@ -97,6 +97,20 @@ export const priceAPI = {
   current: () => api.get('/api/price'),
 };
 
+// ─── Notifications ────────────────────────────────────────
+export const notificationsAPI = {
+  list: (page = 1, limit = 20, unreadOnly = false) =>
+    api.get(`/api/notifications?page=${page}&limit=${limit}&unreadOnly=${unreadOnly}`),
+  unreadCount: () =>
+    api.get('/api/notifications/unread-count'),
+  markRead: (id: string) =>
+    api.patch(`/api/notifications/${id}/read`),
+  markAllRead: () =>
+    api.patch('/api/notifications/mark-all-read'),
+  delete: (id: string) =>
+    api.delete(`/api/notifications/${id}`),
+};
+
 // ─── Health ───────────────────────────────────────────────
 export const healthAPI = {
   check: () => api.get('/health'),

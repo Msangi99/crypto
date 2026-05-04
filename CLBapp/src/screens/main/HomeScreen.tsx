@@ -7,7 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, FontSize, Spacing, Radius } from '../../constants/theme';
 import Badge from '../../components/ui/Badge';
-import { userAPI } from '../../services/api';
+import { userAPI, notificationsAPI } from '../../services/api';
 import { useAuthStore } from '../../store/authStore';
 
 const { width } = Dimensions.get('window');
@@ -19,12 +19,18 @@ export default function HomeScreen({ navigation }: any) {
   const [market, setMarket] = useState<any>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [balanceVisible, setBalanceVisible] = useState(true);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const load = useCallback(async () => {
     try {
-      const [d, m] = await Promise.all([userAPI.dashboard(), userAPI.market()]);
+      const [d, m, n] = await Promise.all([
+        userAPI.dashboard(),
+        userAPI.market(),
+        notificationsAPI.unreadCount().catch(() => ({ data: { unreadCount: 0 } })),
+      ]);
       setDashboard(d.data);
       setMarket(m.data);
+      setUnreadCount(n.data.unreadCount ?? 0);
     } catch (e) {
       console.error(e);
     }
@@ -68,9 +74,13 @@ export default function HomeScreen({ navigation }: any) {
                 </View>
               </View>
             </View>
-            <TouchableOpacity style={styles.notifBtn}>
-              <Ionicons name="notifications-outline" size={22} color={Colors.textSecondary} />
-              <View style={styles.notifBadge} />
+            <TouchableOpacity style={styles.notifBtn} onPress={() => navigation.navigate('Notifications')}>
+              <Ionicons name={unreadCount > 0 ? 'notifications' : 'notifications-outline'} size={22} color={unreadCount > 0 ? Colors.primary : Colors.textSecondary} />
+              {unreadCount > 0 && (
+                <View style={styles.notifBadge}>
+                  <Text style={styles.notifBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+                </View>
+              )}
             </TouchableOpacity>
           </View>
 
@@ -287,9 +297,12 @@ const styles = StyleSheet.create({
   address: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary },
   notifBtn: { position: 'relative', padding: 8 },
   notifBadge: {
-    position: 'absolute', top: 8, right: 8,
-    width: 8, height: 8, borderRadius: 4, backgroundColor: '#FF4757',
+    position: 'absolute', top: 4, right: 4,
+    minWidth: 18, height: 18, borderRadius: 9,
+    backgroundColor: '#FF4757', alignItems: 'center', justifyContent: 'center',
+    paddingHorizontal: 4,
   },
+  notifBadgeText: { fontSize: 10, fontWeight: '800', color: '#FFF' },
 
   // Balance Section
   balanceSection: {

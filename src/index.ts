@@ -16,6 +16,7 @@ import priceRoutes from './routes/price';
 import transactionRoutes from './routes/transaction';
 import adminRoutes from './routes/admin';
 import userDashboardRoutes from './routes/userDashboard';
+import notificationRoutes from './routes/notifications';
 
 const buildApp = async () => {
   const fastify = Fastify({
@@ -146,6 +147,7 @@ const buildApp = async () => {
   await fastify.register(transactionRoutes, { prefix: '/api/transactions' });
   await fastify.register(adminRoutes, { prefix: '/api/admin' });
   await fastify.register(userDashboardRoutes, { prefix: '/api/user' });
+  await fastify.register(notificationRoutes, { prefix: '/api/notifications' });
 
   // ─── Root Route ────────────────────────────────
   fastify.get('/', async () => {

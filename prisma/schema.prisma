@@ -38,6 +38,7 @@ model User {
   referredBy    Referral?    @relation("referred")
   poolMemberships PoolMember[]
   transactions  Transaction[]
+  notifications Notification[]
 
   @@map("users")
 }
@@ -172,4 +173,32 @@ enum TxStatus {
   PENDING
   SUCCESS
   FAILED
+}
+
+// ─── Notification ───────────────────────────────────
+model Notification {
+  id        String             @id @default(uuid())
+  userId    String
+  type      NotificationType   @default(INFO)
+  title     String
+  body      String
+  isRead    Boolean            @default(false)
+  data      Json?
+  createdAt DateTime           @default(now())
+
+  user      User               @relation(fields: [userId], references: [id])
+
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
+  @@map("notifications")
+}
+
+enum NotificationType {
+  INFO
+  DEPOSIT
+  WITHDRAWAL
+  REWARD
+  REFERRAL
+  SECURITY
+  POOL
 }

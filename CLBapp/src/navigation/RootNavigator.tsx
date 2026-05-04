@@ -13,6 +13,7 @@ import PositionDetailScreen from '../screens/main/PositionDetailScreen';
 import CalculatorScreen from '../screens/main/CalculatorScreen';
 import ReceiptsScreen from '../screens/main/ReceiptsScreen';
 import PoolDetailScreen from '../screens/main/PoolDetailScreen';
+import NotificationsScreen from '../screens/main/NotificationsScreen';
 import { Colors } from '../constants/theme';
 
 const Stack = createStackNavigator();
@@ -93,6 +94,9 @@ export default function RootNavigator() {
             />
             <Stack.Screen name="Receipts" component={ReceiptsScreen}
               options={{ headerShown: true, headerStyle: { backgroundColor: Colors.bgCard }, headerTintColor: Colors.textPrimary, headerTitle: 'Receipt Tokens' }}
+            />
+            <Stack.Screen name="Notifications" component={NotificationsScreen}
+              options={{ headerShown: false }}
             />
           </>
         )}
