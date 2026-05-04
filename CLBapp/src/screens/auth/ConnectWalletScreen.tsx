@@ -63,176 +63,227 @@ export default function ConnectWalletScreen() {
   };
 
   return (
-    <LinearGradient colors={[Colors.bg, Colors.bg]} style={styles.container}>
+    <View style={styles.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-          <View style={styles.header}>
-            <Image source={LOGO} style={styles.logo} resizeMode="contain" />
-            <Text style={styles.title}>Connect Wallet</Text>
-            <Text style={styles.subtitle}>Enter your BEP-20 wallet address to get started</Text>
-          </View>
-
-          <View style={styles.hintCard}>
-            <Ionicons name="information-circle-outline" size={18} color={Colors.primary} />
-            <Text style={styles.hintText}>
-              Use your Trust Wallet / MetaMask BSC address. New wallets are registered automatically.
-            </Text>
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Wallet Address (BEP-20)</Text>
-            <View style={styles.inputRow}>
-              <Ionicons name="wallet-outline" size={18} color={Colors.textMuted} style={styles.inputIcon} />
-              <TextInput
-                value={walletAddress}
-                onChangeText={setWalletAddress}
-                placeholder="0x..."
-                placeholderTextColor={Colors.textMuted}
-                style={styles.input}
-                autoCapitalize="none"
-                autoCorrect={false}
-                returnKeyType="go"
-                onSubmitEditing={handleConnect}
-              />
+          {/* Dark Gradient Header */}
+          <LinearGradient colors={['#1A1F35', '#0B0E1A']} style={styles.headerGradient}>
+            <View style={styles.logoRow}>
+              <Image source={LOGO} style={styles.logo} resizeMode="contain" />
             </View>
-          </View>
+            <Text style={styles.title}>CryptoLoanBoost</Text>
+            <Text style={styles.subtitle}>Connect your wallet to get started</Text>
 
-          <Button
-            label="Connect / Get Started"
-            onPress={handleConnect}
-            loading={loading}
-            fullWidth
-            style={styles.btn}
-          />
+            {/* Feature Pills */}
+            <View style={styles.pillsRow}>
+              {['BSC Chain', '60x Leverage', '5-Level Refs'].map((p) => (
+                <View key={p} style={styles.pill}>
+                  <Text style={styles.pillText}>{p}</Text>
+                </View>
+              ))}
+            </View>
+          </LinearGradient>
 
-          {/* Import Account */}
-          <TouchableOpacity
-            style={styles.importToggle}
-            onPress={() => setShowImport(!showImport)}
-          >
-            <Ionicons name="key-outline" size={18} color={Colors.primary} />
-            <Text style={styles.importToggleText}>
-              {showImport ? 'Hide Import Account' : 'Import Account from Secret Key'}
-            </Text>
-            <Ionicons
-              name={showImport ? 'chevron-up' : 'chevron-down'}
-              size={16}
-              color={Colors.textMuted}
-            />
-          </TouchableOpacity>
+          <View style={styles.content}>
+            {/* Info Banner */}
+            <View style={styles.infoBanner}>
+              <Ionicons name="information-circle-outline" size={16} color={Colors.primary} />
+              <Text style={styles.infoText}>
+                Use your Trust Wallet or MetaMask BSC address. New wallets are registered automatically.
+              </Text>
+            </View>
 
-          {showImport && (
-            <View style={styles.importSection}>
-              <View style={styles.hintCard}>
-                <Ionicons name="warning-outline" size={18} color={Colors.primary} />
-                <Text style={styles.hintText}>
-                  Enter your 12-word recovery phrase to restore your account on this device. You'll need to set up a new PIN.
-                </Text>
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Secret Key (12 words)</Text>
+            {/* Wallet Input */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Wallet Address (BEP-20)</Text>
+              <View style={styles.inputRow}>
+                <View style={styles.inputIconBg}>
+                  <Ionicons name="wallet-outline" size={18} color={Colors.primary} />
+                </View>
                 <TextInput
-                  value={secretKeyInput}
-                  onChangeText={setSecretKeyInput}
-                  placeholder="word1 word2 word3 ... word12"
+                  value={walletAddress}
+                  onChangeText={setWalletAddress}
+                  placeholder="0x..."
                   placeholderTextColor={Colors.textMuted}
-                  style={[styles.input, styles.secretInput]}
+                  style={styles.input}
                   autoCapitalize="none"
                   autoCorrect={false}
-                  multiline
-                  numberOfLines={3}
+                  returnKeyType="go"
+                  onSubmitEditing={handleConnect}
                 />
               </View>
-
-              <Button
-                label="Import Account"
-                onPress={handleImport}
-                loading={importLoading}
-                fullWidth
-                variant="outline"
-              />
             </View>
-          )}
 
-          <View style={styles.featuresGrid}>
-            {[
-              { icon: 'shield-checkmark-outline', label: 'Non-Custodial' },
-              { icon: 'trending-up-outline', label: 'Up to 60x Leverage' },
-              { icon: 'people-outline', label: '5-Level Referrals' },
-              { icon: 'lock-closed-outline', label: 'Secure & Encrypted' },
-            ].map((f) => (
-              <View key={f.label} style={styles.featureItem}>
-                <Ionicons name={f.icon as any} size={22} color={Colors.primary} />
-                <Text style={styles.featureLabel}>{f.label}</Text>
+            <Button
+              label="Connect & Get Started"
+              onPress={handleConnect}
+              loading={loading}
+              fullWidth
+              style={styles.btn}
+            />
+
+            {/* Import Account */}
+            <TouchableOpacity
+              style={styles.importToggle}
+              onPress={() => setShowImport(!showImport)}
+            >
+              <View style={styles.importToggleIcon}>
+                <Ionicons name="key-outline" size={16} color={Colors.primary} />
               </View>
-            ))}
+              <Text style={styles.importToggleText}>
+                {showImport ? 'Hide Import Account' : 'Import from Secret Key'}
+              </Text>
+              <Ionicons
+                name={showImport ? 'chevron-up' : 'chevron-down'}
+                size={16}
+                color={Colors.textMuted}
+              />
+            </TouchableOpacity>
+
+            {showImport && (
+              <View style={styles.importSection}>
+                <View style={styles.warnBanner}>
+                  <Ionicons name="warning-outline" size={16} color="#FF4757" />
+                  <Text style={styles.warnText}>
+                    Enter your 12-word recovery phrase to restore your account. You'll set up a new PIN.
+                  </Text>
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Secret Key (12 words)</Text>
+                  <TextInput
+                    value={secretKeyInput}
+                    onChangeText={setSecretKeyInput}
+                    placeholder="word1 word2 word3 ... word12"
+                    placeholderTextColor={Colors.textMuted}
+                    style={[styles.input, styles.secretInput]}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    multiline
+                    numberOfLines={3}
+                  />
+                </View>
+
+                <Button
+                  label="Import Account"
+                  onPress={handleImport}
+                  loading={importLoading}
+                  fullWidth
+                  variant="outline"
+                />
+              </View>
+            )}
+
+            {/* Features Grid */}
+            <View style={styles.featuresGrid}>
+              {[
+                { icon: 'shield-checkmark-outline', color: '#00D6A1', label: 'Non-Custodial' },
+                { icon: 'trending-up-outline', color: Colors.primary, label: '60x Leverage' },
+                { icon: 'people-outline', color: Colors.gold, label: '5-Level Refs' },
+                { icon: 'lock-closed-outline', color: '#00D6A1', label: 'Encrypted' },
+              ].map((f) => (
+                <View key={f.label} style={styles.featureItem}>
+                  <View style={[styles.featureIconBg, { backgroundColor: f.color + '18' }]}>
+                    <Ionicons name={f.icon as any} size={18} color={f.color} />
+                  </View>
+                  <Text style={styles.featureLabel}>{f.label}</Text>
+                </View>
+              ))}
+            </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </LinearGradient>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  scroll: { padding: Spacing.lg, paddingTop: 60, gap: Spacing.lg },
-  header: { alignItems: 'center', gap: Spacing.sm, marginBottom: Spacing.sm },
-  logo: { width: 80, height: 80, marginBottom: Spacing.sm, borderRadius: 16 },
-  title: { fontSize: FontSize.xxl, fontWeight: '900', color: Colors.textPrimary, letterSpacing: 0.5 },
-  subtitle: { fontSize: FontSize.sm, color: Colors.textSecondary, textAlign: 'center', lineHeight: 20 },
-  hintCard: {
-    flexDirection: 'row',
-    gap: 10,
-    backgroundColor: 'rgba(240,185,11,0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(240,185,11,0.2)',
-    borderRadius: Radius.md,
-    padding: Spacing.md,
-    alignItems: 'flex-start',
+  container: { flex: 1, backgroundColor: Colors.bg },
+  scroll: { gap: 0 },
+
+  // Header Gradient
+  headerGradient: {
+    alignItems: 'center', paddingHorizontal: Spacing.lg,
+    paddingTop: 60, paddingBottom: Spacing.xl, gap: Spacing.md,
   },
-  hintText: { flex: 1, fontSize: FontSize.sm, color: Colors.textSecondary, lineHeight: 18 },
+  logoRow: { marginBottom: Spacing.sm },
+  logo: { width: 72, height: 72, borderRadius: 18 },
+  title: { fontSize: 28, fontWeight: '900', color: Colors.textPrimary, letterSpacing: 0.5 },
+  subtitle: { fontSize: 14, fontWeight: '600', color: Colors.textMuted, textAlign: 'center' },
+
+  // Pills
+  pillsRow: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.sm },
+  pill: {
+    paddingHorizontal: 12, paddingVertical: 5, borderRadius: 99,
+    backgroundColor: 'rgba(240,185,11,0.1)', borderWidth: 1, borderColor: 'rgba(240,185,11,0.25)',
+  },
+  pillText: { fontSize: 11, fontWeight: '700', color: Colors.gold },
+
+  // Content
+  content: { padding: Spacing.lg, gap: Spacing.lg },
+
+  // Info Banner
+  infoBanner: {
+    flexDirection: 'row', gap: 8,
+    backgroundColor: 'rgba(240,185,11,0.08)', borderWidth: 1, borderColor: 'rgba(240,185,11,0.15)',
+    borderRadius: Radius.lg, padding: Spacing.md, alignItems: 'flex-start',
+  },
+  infoText: { flex: 1, fontSize: 12, fontWeight: '600', color: Colors.textSecondary, lineHeight: 18 },
+
+  // Input
   inputGroup: { gap: 8 },
-  label: { fontSize: FontSize.sm, color: Colors.textSecondary, fontWeight: '500' },
+  label: { fontSize: 13, fontWeight: '700', color: Colors.textSecondary },
   inputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.bgInput,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: Radius.md,
-    paddingHorizontal: Spacing.md,
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: Colors.bgCard, borderWidth: 1, borderColor: Colors.border,
+    borderRadius: Radius.lg, overflow: 'hidden',
   },
-  inputIcon: { marginRight: 10 },
-  input: { flex: 1, paddingVertical: 14, color: Colors.textPrimary, fontSize: FontSize.md },
-  btn: { marginTop: Spacing.sm },
-  featuresGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.md,
-    marginTop: Spacing.sm,
+  inputIconBg: {
+    width: 44, height: 44, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(240,185,11,0.08)',
   },
+  input: { flex: 1, paddingVertical: 14, color: Colors.textPrimary, fontSize: 14, paddingRight: Spacing.md },
+  btn: { marginTop: Spacing.xs },
+
+  // Features Grid
+  featuresGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, marginTop: Spacing.sm },
   featureItem: {
-    width: '45%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: Colors.bgCard,
-    borderRadius: Radius.md,
-    padding: Spacing.md,
-    borderWidth: 1,
-    borderColor: Colors.border,
+    width: '47%', flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: Colors.bgCard, borderRadius: Radius.lg, padding: Spacing.md,
+    borderWidth: 1, borderColor: Colors.border,
   },
-  featureLabel: { fontSize: FontSize.sm, color: Colors.textSecondary, fontWeight: '500' },
+  featureIconBg: {
+    width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center',
+  },
+  featureLabel: { fontSize: 12, fontWeight: '700', color: Colors.textSecondary },
+
   // Import Account
   importToggle: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    paddingVertical: Spacing.md,
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingVertical: Spacing.md, backgroundColor: Colors.bgCard,
+    borderRadius: Radius.lg, paddingHorizontal: Spacing.md,
+    borderWidth: 1, borderColor: Colors.border,
   },
-  importToggleText: { fontSize: FontSize.sm, color: Colors.primary, fontWeight: '600', flex: 1 },
+  importToggleIcon: {
+    width: 28, height: 28, borderRadius: 8,
+    backgroundColor: 'rgba(240,185,11,0.1)', alignItems: 'center', justifyContent: 'center',
+  },
+  importToggleText: { fontSize: 13, fontWeight: '700', color: Colors.primary, flex: 1 },
   importSection: { gap: Spacing.md },
+
+  // Warn Banner
+  warnBanner: {
+    flexDirection: 'row', gap: 8,
+    backgroundColor: 'rgba(255,71,87,0.08)', borderWidth: 1, borderColor: 'rgba(255,71,87,0.15)',
+    borderRadius: Radius.lg, padding: Spacing.md, alignItems: 'flex-start',
+  },
+  warnText: { flex: 1, fontSize: 12, fontWeight: '600', color: Colors.textSecondary, lineHeight: 18 },
+
+  // Secret Input
   secretInput: {
     minHeight: 80, textAlignVertical: 'top',
-    fontFamily: 'monospace', fontSize: FontSize.sm,
+    fontFamily: 'monospace', fontSize: 13,
+    backgroundColor: Colors.bgCard, borderWidth: 1, borderColor: Colors.border,
+    borderRadius: Radius.lg, padding: Spacing.md,
   },
 });

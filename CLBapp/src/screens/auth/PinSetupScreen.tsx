@@ -78,9 +78,9 @@ export default function PinSetupScreen() {
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           {/* Header */}
           <View style={styles.header}>
-            <LinearGradient colors={Colors.gradientPrimary} style={styles.iconContainer}>
-              <Ionicons name="lock-closed" size={32} color="#fff" />
-            </LinearGradient>
+            <View style={styles.iconContainer}>
+              <Ionicons name="lock-closed" size={28} color={Colors.primary} />
+            </View>
             <Text style={styles.title}>
               {step === 'enter' ? 'Create PIN' : 'Confirm PIN'}
             </Text>
@@ -89,6 +89,13 @@ export default function PinSetupScreen() {
                 ? 'Create a 6-digit PIN to secure your account'
                 : 'Enter your PIN again to confirm'}
             </Text>
+          </View>
+
+          {/* Step Indicator */}
+          <View style={styles.stepRow}>
+            <View style={[styles.stepDot, step === 'enter' && styles.stepDotActive]} />
+            <View style={styles.stepLine} />
+            <View style={[styles.stepDot, step === 'confirm' && styles.stepDotActive]} />
           </View>
 
           {/* PIN Dots */}
@@ -110,6 +117,7 @@ export default function PinSetupScreen() {
               <View style={[styles.checkbox, enableBiometric && styles.checkboxChecked]}>
                 {enableBiometric && <Ionicons name="checkmark" size={14} color="#000" />}
               </View>
+              <Ionicons name="finger-print-outline" size={18} color={Colors.primary} />
               <Text style={styles.biometricText}>Enable Face ID / Fingerprint</Text>
             </TouchableOpacity>
           )}
@@ -121,7 +129,7 @@ export default function PinSetupScreen() {
                 <Text style={styles.keyText}>{num}</Text>
               </TouchableOpacity>
             ))}
-            <View style={styles.key} />
+            <View style={styles.keyEmpty} />
             <TouchableOpacity style={styles.key} onPress={() => handlePinPress('0')} activeOpacity={0.7}>
               <Text style={styles.keyText}>0</Text>
             </TouchableOpacity>
@@ -144,34 +152,38 @@ export default function PinSetupScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
   scroll: {
-    padding: Spacing.lg,
-    paddingTop: 100,
-    gap: Spacing.xl,
-    flex: 1,
+    padding: Spacing.lg, paddingTop: 80, gap: Spacing.xl, flex: 1,
   },
   header: { alignItems: 'center', gap: Spacing.md },
   iconContainer: {
-    width: 72, height: 72, borderRadius: 20,
+    width: 64, height: 64, borderRadius: 20,
+    backgroundColor: 'rgba(240,185,11,0.1)', borderWidth: 1, borderColor: 'rgba(240,185,11,0.2)',
     alignItems: 'center', justifyContent: 'center',
   },
   title: { fontSize: 28, fontWeight: '900', color: Colors.textPrimary },
-  subtitle: { fontSize: FontSize.sm, color: Colors.textSecondary, textAlign: 'center' },
+  subtitle: { fontSize: 14, fontWeight: '600', color: Colors.textMuted, textAlign: 'center' },
+
+  // Step Indicator
+  stepRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 0 },
+  stepDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: Colors.border },
+  stepDotActive: { backgroundColor: Colors.primary, width: 24, borderRadius: 5 },
+  stepLine: { width: 40, height: 2, backgroundColor: Colors.border },
+
+  // PIN Dots
   dotsContainer: {
     flexDirection: 'row', gap: Spacing.lg, justifyContent: 'center',
   },
   dot: {
     width: 20, height: 20, borderRadius: 10,
-    backgroundColor: Colors.bgElevated,
-    borderWidth: 2, borderColor: Colors.border,
+    backgroundColor: Colors.bgCard, borderWidth: 2, borderColor: Colors.border,
     alignItems: 'center', justifyContent: 'center',
   },
-  dotFilled: {
-    borderColor: Colors.primary,
-  },
+  dotFilled: { borderColor: Colors.primary },
   dotInner: {
-    width: 10, height: 10, borderRadius: 5,
-    backgroundColor: Colors.primary,
+    width: 10, height: 10, borderRadius: 5, backgroundColor: Colors.primary,
   },
+
+  // Biometric Toggle
   biometricToggle: {
     flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
     paddingVertical: Spacing.md, paddingHorizontal: Spacing.lg,
@@ -179,28 +191,27 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: Colors.border,
   },
   checkbox: {
-    width: 22, height: 22, borderRadius: 6,
+    width: 22, height: 22, borderRadius: 7,
     borderWidth: 2, borderColor: Colors.border,
     alignItems: 'center', justifyContent: 'center',
   },
   checkboxChecked: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
+    backgroundColor: Colors.primary, borderColor: Colors.primary,
   },
-  biometricText: { fontSize: FontSize.md, color: Colors.textPrimary, fontWeight: '600' },
+  biometricText: { fontSize: 14, fontWeight: '700', color: Colors.textPrimary, flex: 1 },
+
+  // Keypad
   keypad: {
     flexDirection: 'row', flexWrap: 'wrap',
-    gap: Spacing.md, justifyContent: 'center',
+    gap: Spacing.sm, justifyContent: 'center',
   },
   key: {
     width: '28%', aspectRatio: 1.3,
-    backgroundColor: Colors.bgCard,
-    borderRadius: Radius.lg,
+    backgroundColor: Colors.bgCard, borderRadius: Radius.lg,
     alignItems: 'center', justifyContent: 'center',
     borderWidth: 1, borderColor: Colors.border,
   },
-  keyText: {
-    fontSize: 28, fontWeight: '700', color: Colors.textPrimary,
-  },
+  keyEmpty: { width: '28%', aspectRatio: 1.3 },
+  keyText: { fontSize: 26, fontWeight: '700', color: Colors.textPrimary },
   btn: { marginTop: Spacing.lg },
 });
