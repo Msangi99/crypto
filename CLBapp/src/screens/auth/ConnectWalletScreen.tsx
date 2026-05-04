@@ -32,8 +32,8 @@ export default function ConnectWalletScreen() {
       // TODO: Replace with proper wallet signing (SIWE/WalletConnect) for production
       const res = await authAPI.devLogin(addr);
       const { token, user } = res.data;
-      // Add pinSetup flag to user data for PIN flow
-      await setAuth(token, { ...user, pinSetup: false });
+      // Use pinSetup from backend if provided; new users default to false
+      await setAuth(token, { ...user, pinSetup: user.pinSetup ?? false });
     } catch (err: any) {
       const msg = err?.response?.data?.error || err?.response?.data?.message || err.message || 'Connection failed.';
       Alert.alert('Error', msg);
@@ -52,8 +52,11 @@ export default function ConnectWalletScreen() {
     try {
       const res = await authAPI.importAccount(key);
       const { token, user } = res.data;
-      await setAuth(token, { ...user, pinSetup: false });
-      Alert.alert('Account Restored', 'Your account has been imported. Please set up a PIN for this device.');
+      // Imported accounts may already have PIN set up on another device
+      await setAuth(token, { ...user, pinSetup: user.pinSetup ?? false });
+      if (!user.pinSetup) {
+        Alert.alert('Account Restored', 'Your account has been imported. Please set up a PIN for this device.');
+      }
     } catch (err: any) {
       const msg = err?.response?.data?.error || err?.response?.data?.message || err.message || 'Import failed.';
       Alert.alert('Import Failed', msg);

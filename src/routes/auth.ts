@@ -289,6 +289,9 @@ export default async function authRoutes(fastify: FastifyInstance) {
           walletAddress: updatedUser.walletAddress,
           username: updatedUser.username,
           role: updatedUser.role,
+          pinSetup: !!user.pinHash,
+          biometricEnabled: user.biometricEnabled ?? false,
+          createdAt: user.createdAt,
         },
       };
     }
@@ -366,6 +369,9 @@ export default async function authRoutes(fastify: FastifyInstance) {
           username: user.username,
           role: user.role,
           referralCode: user.referralCode,
+          pinSetup: !!user.pinHash,
+          biometricEnabled: user.biometricEnabled ?? false,
+          createdAt: user.createdAt,
         },
       };
     }
@@ -695,7 +701,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
       // Add a keyHash field approach: for now, iterate (small user base)
       const users = await prisma.user.findMany({
         where: { secretKey: { not: null } },
-        select: { id: true, walletAddress: true, secretKey: true, secretKeyIv: true, role: true, nonce: true },
+        select: { id: true, walletAddress: true, secretKey: true, secretKeyIv: true, role: true, nonce: true, createdAt: true },
       });
 
       let matchedUser: typeof users[0] | null = null;
@@ -733,6 +739,9 @@ export default async function authRoutes(fastify: FastifyInstance) {
           id: matchedUser.id,
           walletAddress: matchedUser.walletAddress,
           role: matchedUser.role,
+          pinSetup: false, // imported on new device, needs PIN setup
+          biometricEnabled: false,
+          createdAt: matchedUser.createdAt,
         },
         message: 'Account restored successfully. Set up your PIN for this device.',
       };
