@@ -44,6 +44,17 @@ export default function PinSetupScreen() {
     setStep('confirm');
   };
 
+  // Auto-advance to confirm step when 6 digits entered
+  React.useEffect(() => {
+    if (step === 'enter' && pin.length === 6) {
+      // Small delay so user sees the 6th dot fill
+      const timer = setTimeout(() => {
+        setStep('confirm');
+      }, 400);
+      return () => clearTimeout(timer);
+    }
+  }, [pin, step]);
+
   const handleConfirm = async () => {
     if (confirmPin.length !== 6) {
       Alert.alert('Error', 'Please confirm your 6-digit PIN');
@@ -164,10 +175,8 @@ export default function PinSetupScreen() {
             </TouchableOpacity>
           </View>
 
-          {step === 'confirm' ? (
+          {step === 'confirm' && (
             <Button label="Confirm PIN" onPress={handleConfirm} loading={loading} fullWidth style={styles.btn} />
-          ) : (
-            <Button label="Continue" onPress={handleNext} fullWidth style={styles.btn} />
           )}
         </ScrollView>
       </KeyboardAvoidingView>
