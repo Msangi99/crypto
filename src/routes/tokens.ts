@@ -1,6 +1,7 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import prisma from '../config/db';
 import { authMiddleware } from '../middleware/auth';
+import { tokenService } from '../services/tokenService';
 
 // CLB token prices (in USD) — in production, these would come from an oracle/market
 const TOKEN_PRICES: Record<string, number> = {
@@ -54,6 +55,29 @@ export default async function tokenRoutes(fastify: FastifyInstance) {
         priceUsd: price,
         change24h: Math.random() * 6 - 2, // Simulated for now
       })),
+    };
+  });
+
+  // ─── GET /tokens/contracts — Token contract addresses for Trust Wallet ─
+  fastify.get('/contracts', async () => {
+    const addresses = tokenService.getTokenAddresses();
+    return {
+      success: true,
+      network: 'BNB Smart Chain (BEP-20)',
+      chainId: 56,
+      contracts: [
+        { token: 'CLB', name: 'CryptoLoanBoost', address: addresses.CLB, decimals: 18 },
+        { token: 'CLBg', name: 'CryptoLoanBoost Gold', address: addresses.CLBg, decimals: 18 },
+        { token: 'CLBs', name: 'CryptoLoanBoost Silver', address: addresses.CLBs, decimals: 18 },
+      ],
+      instructions: [
+        'Open Trust Wallet',
+        'Tap "+" icon → Add Custom Token',
+        'Network: Smart Chain (BEP-20)',
+        'Paste the contract address',
+        'Symbol and decimals will auto-fill',
+        'Tap Save — token appears in your wallet!',
+      ],
     };
   });
 
@@ -156,7 +180,32 @@ export default async function tokenRoutes(fastify: FastifyInstance) {
           },
         });
       } else {
-        // External transfer (to Trust Wallet etc.)
+        // External transfer (to Trust Wallet etc.) — on-chain mint
+        let txHash: string | undefined;
+        let status: 'PENDING' | 'COMPLETED' | 'FAILED' = 'PENDING';
+
+        if (tokenService.isConfigured()) {
+          try {
+            const result = await tokenService.mint(token, toAddress, netAmount);
+            if (result) {
+              txHash = result.txHash;
+              status = 'COMPLETED';
+            }
+          } catch (err: any) {
+            console.error('[External Transfer] On-chain mint failed:', err.message);
+            status = 'FAILED';
+            // Refund balance
+            await prisma.tokenBalance.update({
+              where: { userId_token: { userId, token } },
+              data: { balance: { increment: amount } },
+            });
+            return reply.status(500).send({
+              success: false,
+              error: 'On-chain transfer failed. Balance refunded.',
+            });
+          }
+        }
+
         await prisma.$transaction([
           prisma.tokenBalance.update({
             where: { userId_token: { userId, token } },
@@ -170,7 +219,8 @@ export default async function tokenRoutes(fastify: FastifyInstance) {
               amount,
               fee,
               type: 'EXTERNAL',
-              status: 'PENDING', // Pending until on-chain confirmation
+              status,
+              txHash,
               note,
             },
           }),

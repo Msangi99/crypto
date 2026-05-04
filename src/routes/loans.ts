@@ -1,7 +1,7 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import prisma from '../config/db';
 import { authMiddleware } from '../middleware/auth';
-import { Decimal } from '@prisma/client/runtime/library';
+import { tokenService } from '../services/tokenService';
 
 // CLB Token tiers based on collateral value
 const TOKEN_TIERS: Record<string, { minUsd: number; token: string; ltv: number; interest: number }> = {
@@ -188,14 +188,30 @@ export default async function loanRoutes(fastify: FastifyInstance) {
         }),
       ]);
 
+      // Mint tokens on-chain (so they appear in Trust Wallet)
+      let onChainTxHash: string | undefined;
+      const user = await prisma.user.findUnique({ where: { id: userId } });
+      if (user?.walletAddress && tokenService.isConfigured()) {
+        try {
+          const mintResult = await tokenService.mint(
+            loan.loanToken,
+            user.walletAddress,
+            Number(loan.loanAmount)
+          );
+          onChainTxHash = mintResult?.txHash;
+        } catch (err: any) {
+          console.error('[Loan] On-chain mint failed (tokens still tracked in DB):', err.message);
+        }
+      }
+
       // Notify
       await prisma.notification.create({
         data: {
           userId,
           type: 'LOAN',
           title: `${loan.loanToken} Tokens Issued!`,
-          body: `${Number(loan.loanAmount).toFixed(2)} ${loan.loanToken} tokens have been added to your wallet.`,
-          data: { loanId: id, amount: Number(loan.loanAmount) },
+          body: `${Number(loan.loanAmount).toFixed(2)} ${loan.loanToken} tokens have been added to your wallet.${onChainTxHash ? ' Check Trust Wallet!' : ''}`,
+          data: { loanId: id, amount: Number(loan.loanAmount), onChainTxHash },
         },
       });
 
@@ -208,6 +224,7 @@ export default async function loanRoutes(fastify: FastifyInstance) {
           loanAmount: Number(updatedLoan.loanAmount),
           loanToken: updatedLoan.loanToken,
         },
+        onChainTxHash,
       };
     }
   );

@@ -8,6 +8,9 @@
     "deploy:local": "hardhat run scripts/deploy.ts --network localhost",
     "deploy:testnet": "hardhat run scripts/deploy.ts --network bscTestnet",
     "deploy:mainnet": "hardhat run scripts/deploy.ts --network bscMainnet",
+    "deploy:tokens:testnet": "hardhat run scripts/deployTokens.ts --network bscTestnet",
+    "deploy:tokens:mainnet": "hardhat run scripts/deployTokens.ts --network bscMainnet",
+    "deploy:tokens:local": "hardhat run scripts/deployTokens.ts --network localhost",
     "verify": "hardhat verify --network bscTestnet",
     "node": "hardhat node",
     "clean": "hardhat clean"

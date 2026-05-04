@@ -132,6 +132,7 @@ export const loansAPI = {
 export const tokensAPI = {
   balances: () => api.get('/api/tokens/balances'),
   prices: () => api.get('/api/tokens/prices'),
+  contracts: () => api.get('/api/tokens/contracts'),
   transfer: (data: {
     toAddress: string;
     token: string;
