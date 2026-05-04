@@ -17,6 +17,11 @@ import CalculatorScreen from '../screens/main/CalculatorScreen';
 import ReceiptsScreen from '../screens/main/ReceiptsScreen';
 import PoolDetailScreen from '../screens/main/PoolDetailScreen';
 import NotificationsScreen from '../screens/main/NotificationsScreen';
+import WalletTokensScreen from '../screens/main/WalletTokensScreen';
+import LoanRequestScreen from '../screens/main/LoanRequestScreen';
+import MyLoansScreen from '../screens/main/MyLoansScreen';
+import TransferTokensScreen from '../screens/main/TransferTokensScreen';
+import WithdrawScreen from '../screens/main/WithdrawScreen';
 import { Colors } from '../constants/theme';
 
 const Stack = createStackNavigator();
@@ -104,6 +109,21 @@ export default function RootNavigator() {
               options={{ headerShown: true, headerStyle: { backgroundColor: Colors.bgCard }, headerTintColor: Colors.textPrimary, headerTitle: 'Receipt Tokens' }}
             />
             <Stack.Screen name="Notifications" component={NotificationsScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen name="WalletTokens" component={WalletTokensScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen name="LoanRequest" component={LoanRequestScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen name="MyLoans" component={MyLoansScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen name="TransferTokens" component={TransferTokensScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen name="Withdraw" component={WithdrawScreen}
               options={{ headerShown: false }}
             />
           </>

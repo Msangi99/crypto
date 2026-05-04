@@ -127,10 +127,10 @@ export default function HomeScreen({ navigation }: any) {
           {/* Quick Actions */}
           <View style={styles.quickActions}>
             {[
+              { icon: 'wallet-outline', label: 'CLB Tokens', screen: 'WalletTokens' },
+              { icon: 'cash-outline', label: 'Get Loan', screen: 'LoanRequest' },
               { icon: 'add-circle-outline', label: 'Deposit', screen: 'Pools' },
-              { icon: 'swap-horizontal-outline', label: 'Portfolio', screen: 'Portfolio' },
               { icon: 'people-outline', label: 'Referrals', screen: 'Referrals' },
-              { icon: 'calculator-outline', label: 'Calculator', screen: 'Calculator' },
             ].map((a) => (
               <TouchableOpacity key={a.label} style={styles.qaItem} onPress={() => navigation.navigate(a.screen)}>
                 <View style={styles.qaIcon}>
