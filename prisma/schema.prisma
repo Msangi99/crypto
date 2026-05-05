@@ -234,6 +234,10 @@ model Loan {
   targetPriceUsd     Decimal    // Price at which loan auto-settles
   ltvPercent         Decimal    @default(50)  // Loan-to-value ratio
   interestRate       Decimal    @default(0)   // Annual interest rate
+  liquidationPriceUsd Decimal?  // Price below which collateral is liquidated (downside)
+  settlementPriceUsd Decimal?   // Actual price when loan was settled/liquidated
+  profitUsd          Decimal?   // User profit (collateralValue at settlement - loanAmount)
+  platformFeeUsd     Decimal?   // Platform fee from settlement
   status             LoanStatus @default(PENDING)
   createdAt          DateTime   @default(now())
   updatedAt          DateTime   @updatedAt

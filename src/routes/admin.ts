@@ -1,6 +1,7 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import prisma from '../config/db';
 import { authMiddleware } from '../middleware/auth';
+import { liquidationService } from '../services/liquidationService';
 
 // Admin-only middleware — reads role from JWT (no extra DB query)
 async function adminMiddleware(request: FastifyRequest, reply: FastifyReply): Promise<void> {
@@ -343,18 +344,64 @@ export default async function adminRoutes(fastify: FastifyInstance) {
     '/stats',
     { schema: adminSchemas.getStats, preHandler: [adminMiddleware] },
     async () => {
-      const [totalUsers, activeUsers, totalPools, totalTransactions, totalDeposits] = await Promise.all([
+      const [totalUsers, activeUsers, totalPools, totalTransactions, totalDeposits, activeLoans, settledLoans, liquidatedLoans] = await Promise.all([
         prisma.user.count(),
         prisma.user.count({ where: { isActive: true } }),
         prisma.pool.count(),
         prisma.transaction.count(),
         prisma.deposit.count(),
+        prisma.loan.count({ where: { status: 'ACTIVE' } }),
+        prisma.loan.count({ where: { status: 'SETTLED' } }),
+        prisma.loan.count({ where: { status: 'LIQUIDATED' } }),
       ]);
 
       return {
         success: true,
-        stats: { totalUsers, activeUsers, totalPools, totalTransactions, totalDeposits },
+        stats: { totalUsers, activeUsers, totalPools, totalTransactions, totalDeposits, activeLoans, settledLoans, liquidatedLoans },
       };
+    }
+  );
+
+  // ─── GET /admin/liquidation/monitor — active loans monitoring ─────
+  fastify.get(
+    '/liquidation/monitor',
+    { preHandler: [adminMiddleware] },
+    async () => {
+      const summary = await liquidationService.getMonitoringSummary();
+      return {
+        success: true,
+        activeLoans: summary.length,
+        loans: summary,
+      };
+    }
+  );
+
+  // ─── POST /admin/liquidation/check — force price check now ─────
+  fastify.post(
+    '/liquidation/check',
+    { preHandler: [adminMiddleware] },
+    async () => {
+      const result = await liquidationService.checkAllLoans();
+      return {
+        success: true,
+        result,
+      };
+    }
+  );
+
+  // ─── POST /admin/liquidation/settle/:loanId — manual settlement ─────
+  fastify.post<{ Params: { loanId: string } }>(
+    '/liquidation/settle/:loanId',
+    { preHandler: [adminMiddleware] },
+    async (request, reply) => {
+      const { loanId } = request.params;
+      const result = await liquidationService.manualSettle(loanId);
+
+      if (!result.success) {
+        return reply.status(400).send(result);
+      }
+
+      return result;
     }
   );
 }

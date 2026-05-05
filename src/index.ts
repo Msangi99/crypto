@@ -7,6 +7,7 @@ import { env } from './config/env';
 import prisma from './config/db';
 import { verifyConnection } from './config/blockchain';
 import { eventService } from './services/eventService';
+import { liquidationService } from './services/liquidationService';
 
 // Route imports
 import authRoutes from './routes/auth';
@@ -194,6 +195,9 @@ const start = async () => {
 
     // Start blockchain event listeners
     eventService.startListening();
+
+    // Start auto-liquidation price monitoring
+    liquidationService.startMonitoring();
 
     // Start server
     await app.listen({ port: env.PORT, host: env.HOST });

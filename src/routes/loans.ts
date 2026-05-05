@@ -52,6 +52,11 @@ export default async function loanRoutes(fastify: FastifyInstance) {
       const loanAmount = (collateralValueUsd * tier.ltv) / 100;
       const target = targetPriceUsd || collateralPriceUsd * 1.5; // Default: 50% price increase
 
+      // Liquidation price: price at which LTV hits 80% (margin call)
+      // loanAmount / (collateralAmount * liquidationPrice) = 0.80
+      // liquidationPrice = loanAmount / (collateralAmount * 0.80)
+      const liquidationPrice = loanAmount / (collateralAmount * 0.80);
+
       // Create loan
       const loan = await prisma.loan.create({
         data: {
@@ -65,6 +70,7 @@ export default async function loanRoutes(fastify: FastifyInstance) {
           targetPriceUsd: target,
           ltvPercent: tier.ltv,
           interestRate: tier.interest,
+          liquidationPriceUsd: liquidationPrice,
           status: 'PENDING',
         },
       });
@@ -255,9 +261,14 @@ export default async function loanRoutes(fastify: FastifyInstance) {
           targetPriceUsd: Number(l.targetPriceUsd),
           ltvPercent: Number(l.ltvPercent),
           interestRate: Number(l.interestRate),
+          liquidationPriceUsd: l.liquidationPriceUsd ? Number(l.liquidationPriceUsd) : null,
+          settlementPriceUsd: l.settlementPriceUsd ? Number(l.settlementPriceUsd) : null,
+          profitUsd: l.profitUsd ? Number(l.profitUsd) : null,
+          platformFeeUsd: l.platformFeeUsd ? Number(l.platformFeeUsd) : null,
           status: l.status,
           createdAt: l.createdAt,
           settledAt: l.settledAt,
+          liquidatedAt: l.liquidatedAt,
           deposits: l.deposits,
         })),
       };
@@ -294,6 +305,10 @@ export default async function loanRoutes(fastify: FastifyInstance) {
           targetPriceUsd: Number(loan.targetPriceUsd),
           ltvPercent: Number(loan.ltvPercent),
           interestRate: Number(loan.interestRate),
+          liquidationPriceUsd: loan.liquidationPriceUsd ? Number(loan.liquidationPriceUsd) : null,
+          settlementPriceUsd: loan.settlementPriceUsd ? Number(loan.settlementPriceUsd) : null,
+          profitUsd: loan.profitUsd ? Number(loan.profitUsd) : null,
+          platformFeeUsd: loan.platformFeeUsd ? Number(loan.platformFeeUsd) : null,
           status: loan.status,
           createdAt: loan.createdAt,
           settledAt: loan.settledAt,

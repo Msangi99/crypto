@@ -20,7 +20,8 @@ const TOKEN_ADDRESSES: Record<string, string> = {
 };
 
 // BSC provider
-const BSC_RPC = process.env.BSC_RPC_URL || 'https://bsc-dataseed1.binance.org';
+// Use testnet RPC while tokens are on testnet; switch to BSC_RPC_URL for mainnet
+const BSC_RPC = process.env.BSC_TESTNET_RPC_URL || process.env.BSC_RPC_URL || 'https://data-seed-prebsc-1-s1.binance.org:8545';
 const provider = new ethers.JsonRpcProvider(BSC_RPC);
 
 // Hot wallet (minter) — same key used to deploy tokens
