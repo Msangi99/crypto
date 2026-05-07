@@ -1,765 +1,645 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>CryptoLoanBoost dApp</title>
-    <meta
-      name="description"
-      content="CryptoLoanBoost decentralized finance gateway for wallet, lending, pools, and rewards."
-    />
-    <style>
-      :root {
-        --bg: #090c14;
-        --bg-soft: #0f1524;
-        --card: #101827;
-        --card-2: #121d30;
-        --line: #27344d;
-        --text: #f4f7ff;
-        --muted: #93a3bf;
-        --brand: #f0b90b;
-        --brand-2: #ffd54f;
-        --good: #2fd6a2;
-        --warn: #ff9f5a;
-      }
-
-      * {
-        box-sizing: border-box;
-      }
-
-      html,
-      body {
-        margin: 0;
-        padding: 0;
-        min-height: 100%;
-      }
-
-      body {
-        font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
-        color: var(--text);
-        background:
-          radial-gradient(1200px 520px at 10% -5%, #1a2640 0%, transparent 60%),
-          radial-gradient(1000px 500px at 100% 0%, #2a1d3a 0%, transparent 55%),
-          var(--bg);
-      }
-
-      .container {
-        max-width: 1160px;
-        margin: 0 auto;
-        padding: 28px 20px 48px;
-      }
-
-      .nav {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 12px;
-        padding: 10px 14px;
-        border: 1px solid var(--line);
-        border-radius: 16px;
-        background: color-mix(in srgb, var(--bg-soft) 80%, transparent);
-        backdrop-filter: blur(4px);
-      }
-
-      .brand {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-      }
-
-      .brand img {
-        width: 38px;
-        height: 38px;
-        border-radius: 10px;
-        border: 1px solid #334362;
-        object-fit: cover;
-        background: #0a1020;
-      }
-
-      .brand-name {
-        font-size: 16px;
-        font-weight: 700;
-        letter-spacing: 0.2px;
-      }
-
-      .brand-name span {
-        color: var(--brand);
-      }
-
-      .nav-actions {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-      }
-
-      .btn {
-        border: 1px solid transparent;
-        border-radius: 11px;
-        padding: 10px 14px;
-        font-size: 13px;
-        font-weight: 650;
-        text-decoration: none;
-        cursor: pointer;
-        transition: all 0.2s ease;
-      }
-
-      .btn-primary {
-        color: #1f1a00;
-        background: linear-gradient(135deg, var(--brand), var(--brand-2));
-      }
-
-      .btn-primary:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 8px 20px rgba(240, 185, 11, 0.25);
-      }
-
-      .btn-secondary {
-        color: #d9e3f7;
-        border-color: #374760;
-        background: #1a2333;
-      }
-
-      .btn-secondary:hover {
-        border-color: #50658a;
-      }
-
-      .hero {
-        margin-top: 20px;
-        border: 1px solid var(--line);
-        border-radius: 20px;
-        padding: 28px;
-        background: linear-gradient(130deg, #0f1a2c, #111a2a 55%, #14192f);
-      }
-
-      .hero h1 {
-        margin: 0;
-        font-size: clamp(30px, 5vw, 46px);
-        line-height: 1.05;
-      }
-
-      .hero p {
-        margin: 12px 0 0;
-        max-width: 760px;
-        color: var(--muted);
-        font-size: 16px;
-        line-height: 1.6;
-      }
-
-      .chips {
-        margin-top: 18px;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 10px;
-      }
-
-      .chip {
-        border: 1px solid #30415e;
-        border-radius: 999px;
-        padding: 7px 12px;
-        font-size: 12px;
-        color: #c7d4ee;
-        background: #121e32;
-      }
-
-      .dashboard {
-        margin-top: 18px;
-        display: grid;
-        gap: 14px;
-        grid-template-columns: repeat(12, 1fr);
-      }
-
-      .panel {
-        border: 1px solid var(--line);
-        border-radius: 16px;
-        background: linear-gradient(160deg, var(--card), var(--card-2));
-        padding: 16px;
-      }
-
-      .panel.wallet {
-        grid-column: span 7;
-      }
-
-      .panel.system {
-        grid-column: span 5;
-      }
-
-      .panel.stats {
-        grid-column: span 12;
-      }
-
-      .panel-title {
-        margin: 0;
-        color: var(--muted);
-        font-size: 12px;
-        text-transform: uppercase;
-        letter-spacing: 0.1em;
-      }
-
-      .wallet-address {
-        margin-top: 8px;
-        font-size: 20px;
-        font-weight: 700;
-        word-break: break-all;
-      }
-
-      .grid {
-        margin-top: 12px;
-        display: grid;
-        gap: 10px;
-        grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-      }
-
-      .metric {
-        border: 1px solid #2e3a52;
-        border-radius: 12px;
-        padding: 12px;
-        background: rgba(255, 255, 255, 0.02);
-      }
-
-      .metric .k {
-        color: var(--muted);
-        font-size: 12px;
-      }
-
-      .metric .v {
-        margin-top: 5px;
-        font-size: 18px;
-        font-weight: 650;
-      }
-
-      .status {
-        margin-top: 12px;
-        border: 1px solid #32415e;
-        background: #121d2f;
-        border-radius: 12px;
-        padding: 10px 12px;
-        font-size: 13px;
-      }
-
-      .status.ok {
-        color: var(--good);
-      }
-
-      .status.warn {
-        color: var(--warn);
-      }
-
-      .footer-note {
-        margin-top: 14px;
-        color: var(--muted);
-        font-size: 12px;
-      }
-
-      @media (max-width: 900px) {
-        .panel.wallet,
-        .panel.system,
-        .panel.stats {
-          grid-column: span 12;
-        }
-      }
-    </style>
-  </head>
-  <body>
-    <div class="container">
-      <header class="nav">
-        <div class="brand">
-          <img src="./logo.png" alt="CryptoLoanBoost logo" />
-          <div class="brand-name">Crypto<span>Loan</span>Boost dApp</div>
-        </div>
-
-        <div class="nav-actions">
-          <a id="apiDocsLink" class="btn btn-secondary" href="#" target="_blank" rel="noreferrer">API Docs</a>
-          <button id="refreshHealthBtn" class="btn btn-secondary">Refresh Status</button>
-          <button id="connectBtn" class="btn btn-primary">Connect Wallet</button>
-        </div>
-      </header>
-
-      <section class="hero">
-        <h1>Borrow smarter. Earn on-chain. Move faster.</h1>
-        <p>
-          Professional gateway for CryptoLoanBoost users to connect wallets, track protocol health, and access core
-          lending and rewards flows securely.
-        </p>
-        <div class="chips">
-          <span class="chip">BSC Ready</span>
-          <span class="chip">Secure Wallet Auth</span>
-          <span class="chip">API Health Monitoring</span>
-          <span class="chip">Production Host: app.cryptoloanboost.com</span>
-        </div>
-      </section>
-
-      <section class="dashboard">
-        <article class="panel wallet">
-          <p class="panel-title">Wallet Overview</p>
-          <div id="walletAddress" class="wallet-address">Not connected</div>
-          <div class="grid">
-            <div class="metric">
-              <div class="k">Chain ID</div>
-              <div id="network" class="v">Unknown</div>
-            </div>
-            <div class="metric">
-              <div class="k">Connection</div>
-              <div id="walletStatus" class="v">Disconnected</div>
-            </div>
-            <div class="metric">
-              <div class="k">Backend</div>
-              <div id="health" class="v">Checking...</div>
-            </div>
-          </div>
-        </article>
-
-        <article class="panel system">
-          <p class="panel-title">System Access</p>
-          <div class="grid">
-            <div class="metric">
-              <div class="k">API Base URL</div>
-              <div id="apiBaseValue" class="v" style="font-size: 14px; font-family: ui-monospace, monospace;"></div>
-            </div>
-            <div class="metric">
-              <div class="k">Environment</div>
-              <div id="envValue" class="v">Production</div>
-            </div>
-          </div>
-          <div id="statusBox" class="status">Platform ready.</div>
-        </article>
-
-        <article class="panel stats">
-          <p class="panel-title">Next Steps</p>
-          <div class="grid">
-            <div class="metric">
-              <div class="k">1. Connect wallet</div>
-              <div class="v" style="font-size: 14px;">Authorize MetaMask and verify chain.</div>
-            </div>
-            <div class="metric">
-              <div class="k">2. Open docs</div>
-              <div class="v" style="font-size: 14px;">Review endpoints for auth, pools, referrals, and loans.</div>
-            </div>
-            <div class="metric">
-              <div class="k">3. Integrate full frontend</div>
-              <div class="v" style="font-size: 14px;">Replace this shell with complete dApp pages.</div>
-            </div>
-          </div>
-          <div class="footer-note">
-            This page confirms your domain now serves UI instead of backend root JSON.
-          </div>
-        </article>
-      </section>
-    </div>
-
-    <script>
-      const connectBtn = document.getElementById("connectBtn");
-      const walletAddress = document.getElementById("walletAddress");
-      const network = document.getElementById("network");
-      const health = document.getElementById("health");
-      const walletStatus = document.getElementById("walletStatus");
-      const statusBox = document.getElementById("statusBox");
-      const refreshHealthBtn = document.getElementById("refreshHealthBtn");
-      const apiDocsLink = document.getElementById("apiDocsLink");
-      const apiBaseValue = document.getElementById("apiBaseValue");
-      const envValue = document.getElementById("envValue");
-
-      const hostname = window.location.hostname;
-      const isProdAppHost = hostname === "app.cryptoloanboost.com";
-      const apiBase = isProdAppHost ? "https://api.cryptoloanboost.com" : window.location.origin;
-
-      apiDocsLink.href = `${apiBase}/docs`;
-      apiBaseValue.textContent = apiBase;
-      envValue.textContent = isProdAppHost ? "Production" : "Development";
-
-      function setStatus(message, level = "ok") {
-        statusBox.textContent = message;
-        statusBox.classList.remove("ok", "warn");
-        statusBox.classList.add(level);
-      }
-
-      async function loadHealth() {
-        try {
-          const res = await fetch(`${apiBase}/health`, { method: "GET" });
-          if (!res.ok) throw new Error(`Health check failed (${res.status})`);
-          const data = await res.json();
-          health.textContent = data.status || "ok";
-          setStatus(`Backend online at ${apiBase}`, "ok");
-        } catch (err) {
-          health.textContent = "offline";
-          setStatus(`Could not reach backend: ${err.message}`, "warn");
-        }
-      }
-
-      async function connectWallet() {
-        if (!window.ethereum) {
-          walletStatus.textContent = "Wallet missing";
-          setStatus("No wallet detected. Install MetaMask first.", "warn");
-          return;
-        }
-
-        try {
-          const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
-          const chainId = await window.ethereum.request({ method: "eth_chainId" });
-
-          walletAddress.textContent = accounts[0] || "No account";
-          network.textContent = chainId;
-          walletStatus.textContent = "Connected";
-          setStatus("Wallet connected successfully.", "ok");
-        } catch (err) {
-          walletStatus.textContent = "Error";
-          setStatus(`Wallet connect failed: ${err.message}`, "warn");
-        }
-      }
-
-      connectBtn.addEventListener("click", connectWallet);
-      refreshHealthBtn.addEventListener("click", loadHealth);
-      loadHealth();
-    </script>
-  </body>
-</html>
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>CryptoLoanBoost dApp</title>
-    <style>
-      :root {
-        --bg: #0b0e11;
-        --card: #12161c;
-        --muted: #8b949e;
-        --text: #f5f7fa;
-        --brand: #f0b90b;
-        --brand-2: #ffd44d;
-        --ok: #31c48d;
-        --warn: #f97316;
-      }
-
-      * {
-        box-sizing: border-box;
-      }
-
-      body {
-        margin: 0;
-        font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-        background: radial-gradient(circle at top, #161b22 0%, var(--bg) 45%);
-        color: var(--text);
-        min-height: 100vh;
-      }
-
-      .wrap {
-        max-width: 980px;
-        margin: 0 auto;
-        padding: 24px;
-      }
-
-      .top {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 16px;
-        margin-bottom: 22px;
-      }
-
-      .brand {
-        font-weight: 700;
-        letter-spacing: 0.3px;
-        font-size: 22px;
-      }
-
-      .brand span {
-        color: var(--brand);
-      }
-
-      .row {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-        gap: 16px;
-      }
-
-      .card {
-        background: color-mix(in srgb, var(--card) 88%, black);
-        border: 1px solid #222933;
-        border-radius: 12px;
-        padding: 16px;
-      }
-
-      .title {
-        font-size: 14px;
-        color: var(--muted);
-        margin: 0 0 8px;
-      }
-
-      .value {
-        font-size: 20px;
-        font-weight: 600;
-      }
-
-      .actions {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 10px;
-        margin-top: 22px;
-      }
-
-      button,
-      .link-btn {
-        border: 0;
-        border-radius: 10px;
-        padding: 10px 14px;
-        font-size: 14px;
-        font-weight: 600;
-        cursor: pointer;
-        transition: 0.2s ease;
-        text-decoration: none;
-      }
-
-      .btn-primary {
-        background: var(--brand);
-        color: #1d1b00;
-      }
-
-      .btn-primary:hover {
-        background: var(--brand-2);
-      }
-
-      .btn-ghost {
-        background: #1f2630;
-        color: #d7dee7;
-        border: 1px solid #2d3642;
-      }
-
-      .status {
-        margin-top: 14px;
-        padding: 10px 12px;
-        border-radius: 10px;
-        font-size: 13px;
-        background: #141a21;
-        border: 1px solid #293240;
-      }
-
-      .ok {
-        color: var(--ok);
-      }
-
-      .warn {
-        color: var(--warn);
-      }
-
-      .foot {
-        margin-top: 28px;
-        color: var(--muted);
-        font-size: 12px;
-      }
-    </style>
-  </head>
-  <body>
-    <div class="wrap">
-      <header class="top">
-        <div class="brand">Crypto<span>Loan</span>Boost dApp</div>
-        <button id="connectBtn" class="btn-primary">Connect Wallet</button>
-      </header>
-
-      <section class="row">
-        <article class="card">
-          <p class="title">Wallet</p>
-          <div id="walletAddress" class="value">Not connected</div>
-        </article>
-        <article class="card">
-          <p class="title">Network</p>
-          <div id="network" class="value">Unknown</div>
-        </article>
-        <article class="card">
-          <p class="title">Backend Health</p>
-          <div id="health" class="value">Checking...</div>
-        </article>
-      </section>
-
-      <div class="actions">
-        <a id="apiDocsLink" class="link-btn btn-ghost" href="#" target="_blank" rel="noreferrer">Open API Docs</a>
-        <button id="refreshHealthBtn" class="btn-ghost">Refresh Health</button>
-      </div>
-
-      <div id="statusBox" class="status">Ready.</div>
-
-      <p class="foot">
-        If this page shows, your domain is now serving dApp UI correctly.
-      </p>
-    </div>
-
-    <script>
-      const connectBtn = document.getElementById("connectBtn");
-      const walletAddress = document.getElementById("walletAddress");
-      const network = document.getElementById("network");
-      const health = document.getElementById("health");
-      const statusBox = document.getElementById("statusBox");
-      const refreshHealthBtn = document.getElementById("refreshHealthBtn");
-      const apiDocsLink = document.getElementById("apiDocsLink");
-
-      const apiBase =
-        window.location.hostname === "app.cryptoloanboost.com"
-          ? "https://api.cryptoloanboost.com"
-          : window.location.origin;
-      apiDocsLink.href = `${apiBase}/docs`;
-
-      function setStatus(message, level = "ok") {
-        statusBox.textContent = message;
-        statusBox.classList.remove("ok", "warn");
-        statusBox.classList.add(level);
-      }
-
-      async function loadHealth() {
-        try {
-          const res = await fetch(`${apiBase}/health`, { method: "GET" });
-          if (!res.ok) throw new Error(`Health check failed (${res.status})`);
-          const data = await res.json();
-          health.textContent = data.status || "ok";
-          setStatus(`Backend online at ${apiBase}`, "ok");
-        } catch (err) {
-          health.textContent = "offline";
-          setStatus(`Could not reach backend: ${err.message}`, "warn");
-        }
-      }
-
-      async function connectWallet() {
-        if (!window.ethereum) {
-          setStatus("No wallet detected. Install MetaMask first.", "warn");
-          return;
-        }
-
-        try {
-          const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
-          const chainId = await window.ethereum.request({ method: "eth_chainId" });
-          walletAddress.textContent = accounts[0] || "No account";
-          network.textContent = chainId;
-          setStatus("Wallet connected.", "ok");
-        } catch (err) {
-          setStatus(`Wallet connect failed: ${err.message}`, "warn");
-        }
-      }
-
-      connectBtn.addEventListener("click", connectWallet);
-      refreshHealthBtn.addEventListener("click", loadHealth);
-      loadHealth();
-    </script>
-  </body>
-</html>
-<!doctype html>
-<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>CryptoLoanBoost App</title>
-  <meta
-    name="description"
-    content="CryptoLoanBoost dApp web entrypoint for wallet metadata and universal links."
-  />
+  <title>CryptoLoanBoost dApp — Analytics Dashboard</title>
+  <meta name="description" content="CryptoLoanBoost dApp analytics dashboard with live pools, prices, system health, and on-chain data." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <style>
     :root {
-      --bg: #0b0e1a;
-      --card: #12182a;
-      --text: #f6f8ff;
-      --muted: #9aa4bd;
-      --gold: #f0b90b;
-      --ok: #00d6a1;
-      --border: #222b42;
+      --void: #030307;
+      --deep: #08080F;
+      --layer: #0E0E1A;
+      --card: #141424;
+      --lift: #1C1C30;
+      --border: rgba(255,255,255,0.07);
+      --border2: rgba(255,255,255,0.12);
+      --gold: #F6B73B;
+      --gold-d: #D4952A;
+      --gold-bg: rgba(246,183,59,0.10);
+      --gold-bh: rgba(246,183,59,0.20);
+      --mint: #05D68F;
+      --mint-bg: rgba(5,214,143,0.09);
+      --violet: #7C5CFC;
+      --violet-bg: rgba(124,92,252,0.10);
+      --red: #FF4F4F;
+      --red-bg: rgba(255,79,79,0.10);
+      --ink: #EEF0FF;
+      --muted: rgba(238,240,255,0.40);
+      --faint: rgba(238,240,255,0.18);
     }
-    * { box-sizing: border-box; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 16px; }
     body {
-      margin: 0;
+      font-family: 'DM Sans', sans-serif;
+      background: var(--void);
+      color: var(--ink);
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
       min-height: 100vh;
-      display: grid;
-      place-items: center;
-      background: radial-gradient(circle at top, #16213d 0, var(--bg) 46%);
-      color: var(--text);
-      font-family: Inter, Segoe UI, Roboto, Arial, sans-serif;
-      padding: 24px;
     }
-    .card {
-      width: min(760px, 100%);
-      background: color-mix(in srgb, var(--card) 88%, transparent);
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 28px;
-      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+    .display { font-family: 'Bricolage Grotesque', sans-serif; }
+    .mono { font-family: 'DM Mono', monospace; }
+
+    /* Nav */
+    .nav {
+      position: sticky; top: 0; z-index: 50;
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      padding: 12px 20px;
+      border-bottom: 1px solid var(--border);
+      background: color-mix(in srgb, var(--deep) 92%, transparent);
+      backdrop-filter: blur(8px);
     }
-    h1 {
-      margin: 0 0 8px;
-      font-size: clamp(26px, 4vw, 36px);
-      line-height: 1.15;
-      letter-spacing: 0.2px;
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .brand img { width: 38px; height: 38px; border-radius: 10px; border: 1px solid #334362; object-fit: cover; background: #0a1020; }
+    .brand-name { font-family: 'Bricolage Grotesque', sans-serif; font-size: 18px; font-weight: 700; letter-spacing: 0.2px; }
+    .brand-name span { color: var(--gold); }
+    .nav-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .btn {
+      border: 1px solid transparent; border-radius: 11px; padding: 10px 14px;
+      font-size: 13px; font-weight: 650; text-decoration: none; cursor: pointer; transition: all .2s ease;
+      display: inline-flex; align-items: center; gap: 6px;
     }
-    p { margin: 0; line-height: 1.65; }
-    .muted { color: var(--muted); margin-top: 8px; }
-    .grid {
-      margin-top: 22px;
-      display: grid;
-      gap: 12px;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    .btn-primary { color: #1f1a00; background: linear-gradient(135deg, var(--gold), var(--gold-d)); }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(246,183,59,0.25); }
+    .btn-ghost { color: #d9e3f7; border-color: #374760; background: #1a2333; }
+    .btn-ghost:hover { border-color: #50658a; }
+    .btn-sm { padding: 7px 11px; font-size: 12px; }
+
+    /* Layout */
+    .container { max-width: 1200px; margin: 0 auto; padding: 24px 20px 48px; }
+    .section { margin-top: 24px; }
+
+    /* Hero */
+    .hero {
+      position: relative; padding: 56px 28px 64px; border-radius: 20px;
+      border: 1px solid var(--border); overflow: hidden;
+      background: linear-gradient(130deg, var(--deep), var(--layer) 55%, var(--card));
     }
-    .item {
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 12px 14px;
-      background: rgba(255, 255, 255, 0.02);
+    .hero-orb1 { position: absolute; border-radius: 50%; pointer-events: none; top: -140px; right: -80px; width: 520px; height: 520px; background: radial-gradient(circle, rgba(246,183,59,0.13) 0%, transparent 60%); }
+    .hero-orb2 { position: absolute; border-radius: 50%; pointer-events: none; bottom: -120px; left: 60px; width: 380px; height: 380px; background: radial-gradient(circle, rgba(5,214,143,0.07) 0%, transparent 65%); }
+    .hero-label { display: inline-flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 600; letter-spacing: 3px; text-transform: uppercase; color: var(--gold); margin-bottom: 20px; }
+    .hero-label::before { content: ''; width: 24px; height: 2px; background: var(--gold); border-radius: 2px; }
+    .hero h1 { font-family: 'Bricolage Grotesque', sans-serif; font-size: clamp(32px, 5vw, 56px); font-weight: 800; line-height: 1.05; margin-bottom: 16px; letter-spacing: -1.5px; }
+    .hero h1 em { font-style: normal; color: var(--gold); }
+    .hero p { font-size: 16px; color: var(--muted); line-height: 1.7; max-width: 640px; margin-bottom: 28px; }
+    .hero-chips { display: flex; flex-wrap: wrap; gap: 10px; }
+    .chip { display: inline-flex; align-items: center; gap: 6px; padding: 7px 16px; border-radius: 100px; font-size: 12px; font-weight: 600; border: 1px solid var(--border2); background: var(--layer); }
+    .chip.gold { border-color: rgba(246,183,59,0.4); background: var(--gold-bg); color: var(--gold); }
+    .chip.mint { border-color: rgba(5,214,143,0.3); background: var(--mint-bg); color: var(--mint); }
+    .chip.violet { border-color: rgba(124,92,252,0.35); background: var(--violet-bg); color: var(--violet); }
+
+    /* KPI strip */
+    .kpi-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 20px; }
+    .kpi {
+      border: 1px solid var(--border); border-radius: 16px; padding: 20px;
+      background: linear-gradient(160deg, var(--card), var(--lift));
+      position: relative; overflow: hidden;
     }
-    .k {
-      display: block;
-      color: var(--muted);
-      font-size: 12px;
-      margin-bottom: 6px;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
+    .kpi::before { content: ''; position: absolute; inset: 0; border-radius: 16px; background: linear-gradient(145deg, rgba(255,255,255,0.04), transparent); pointer-events: none; }
+    .kpi-n { font-family: 'Bricolage Grotesque', sans-serif; font-size: 28px; font-weight: 800; line-height: 1; color: var(--gold); }
+    .kpi-l { font-size: 12px; color: var(--muted); margin-top: 8px; text-transform: uppercase; letter-spacing: 1.2px; }
+    .kpi-delta { font-size: 12px; margin-top: 6px; font-weight: 600; }
+    .kpi-delta.up { color: var(--mint); }
+    .kpi-delta.down { color: var(--red); }
+
+    /* Section heads */
+    .sec-head { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
+    .sec-badge { padding: 6px 14px; border-radius: 100px; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; }
+    .sb-gold { background: var(--gold); color: #000; }
+    .sb-mint { background: var(--mint); color: #000; }
+    .sb-viol { background: var(--violet); color: #fff; }
+    .sec-title { font-family: 'Bricolage Grotesque', sans-serif; font-size: 28px; font-weight: 800; }
+
+    /* Cards / Panels */
+    .panel { border: 1px solid var(--border); border-radius: 16px; background: linear-gradient(160deg, var(--card), var(--lift)); padding: 20px; }
+    .panel-title { margin: 0 0 14px; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; }
+
+    /* Grid layouts */
+    .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+
+    /* Price cards */
+    .price-card { border: 1px solid var(--border); border-radius: 16px; padding: 18px; background: linear-gradient(160deg, var(--card), var(--lift)); position: relative; }
+    .price-card .top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .price-card .sym { display: flex; align-items: center; gap: 10px; }
+    .price-card .sym .icon { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 14px; }
+    .price-card .sym .name { font-weight: 700; font-size: 15px; }
+    .price-card .sym .sub { font-size: 11px; color: var(--muted); }
+    .price-card .amt { font-family: 'Bricolage Grotesque', sans-serif; font-size: 26px; font-weight: 800; }
+    .price-card .chg { font-size: 13px; font-weight: 600; margin-top: 6px; }
+    .price-card .chg.up { color: var(--mint); }
+    .price-card .chg.down { color: var(--red); }
+    .price-card canvas { margin-top: 10px; height: 60px !important; }
+
+    /* Tables */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { text-align: left; padding: 10px 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; font-size: 11px; border-bottom: 1px solid var(--border); }
+    td { padding: 12px; border-bottom: 1px solid var(--border); }
+    tr:hover td { background: rgba(255,255,255,0.02); }
+    .tag { font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 100px; background: rgba(255,255,255,0.06); border: 1px solid var(--border); }
+    .tag.active { background: var(--mint-bg); border-color: rgba(5,214,143,0.25); color: var(--mint); }
+    .tag.paused { background: rgba(255,159,90,0.10); border-color: rgba(255,159,90,0.25); color: #ff9f5a; }
+
+    /* How it works */
+    .step { border: 1px solid var(--border); border-radius: 16px; padding: 22px; background: linear-gradient(145deg, rgba(255,255,255,0.02), transparent); }
+    .step .num { width: 32px; height: 32px; border-radius: 50%; background: var(--gold-bg); color: var(--gold); display: grid; place-items: center; font-weight: 700; font-size: 13px; margin-bottom: 12px; border: 1px solid rgba(246,183,59,0.25); }
+    .step h4 { font-family: 'Bricolage Grotesque', sans-serif; font-size: 16px; margin-bottom: 6px; }
+    .step p { font-size: 13px; color: var(--muted); line-height: 1.7; }
+    .tier-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-top: 10px; }
+    .tier { border: 1px solid var(--border); border-radius: 12px; padding: 10px; text-align: center; background: rgba(255,255,255,0.02); }
+    .tier .fee { font-family: 'Bricolage Grotesque', sans-serif; font-size: 18px; font-weight: 700; color: var(--gold); }
+    .tier .lev { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+    /* Chart wrappers */
+    .chart-wrap { position: relative; height: 260px; }
+    .chart-wrap.sm { height: 180px; }
+
+    /* Status box */
+    .status { border: 1px solid #32415e; background: #121d2f; border-radius: 12px; padding: 10px 12px; font-size: 13px; }
+    .status.ok { color: var(--mint); }
+    .status.warn { color: var(--red); }
+
+    /* Footer */
+    .footer { margin-top: 40px; padding-top: 24px; border-top: 1px solid var(--border); color: var(--muted); font-size: 12px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+
+    /* Responsive */
+    @media (max-width: 960px) {
+      .grid-4 { grid-template-columns: repeat(2, 1fr); }
+      .kpi-strip { grid-template-columns: repeat(2, 1fr); }
     }
-    .v {
-      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-      font-size: 13px;
-      word-break: break-all;
+    @media (max-width: 720px) {
+      .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+      .kpi-strip { grid-template-columns: 1fr; }
     }
-    .row {
-      margin-top: 20px;
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-    .badge {
-      border-radius: 999px;
-      padding: 7px 11px;
-      border: 1px solid var(--border);
-      font-size: 12px;
-    }
-    .gold { color: var(--gold); border-color: color-mix(in srgb, var(--gold) 30%, var(--border)); }
-    .ok { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 30%, var(--border)); }
   </style>
 </head>
 <body>
-  <main class="card">
-    <h1>CryptoLoanBoost dApp Web Root</h1>
-    <p>
-      This host is reserved for wallet metadata, deep-link fallback, and future web dApp pages.
-    </p>
-    <p class="muted">
-      If you can see this page at <strong>app.cryptoloanboost.com</strong>, the domain is correctly routed.
-    </p>
+  <nav class="nav">
+    <div class="brand">
+      <img src="./logo.png" alt="CryptoLoanBoost logo" />
+      <div class="brand-name">Crypto<span>Loan</span>Boost</div>
+    </div>
+    <div class="nav-actions">
+      <a id="apiDocsLink" class="btn btn-ghost btn-sm" href="#" target="_blank" rel="noreferrer">API Docs</a>
+      <button id="refreshBtn" class="btn btn-ghost btn-sm">Refresh Data</button>
+      <button id="connectBtn" class="btn btn-primary">Connect Wallet</button>
+    </div>
+  </nav>
 
-    <section class="grid">
-      <article class="item">
-        <span class="k">Domain</span>
-        <span class="v">app.cryptoloanboost.com</span>
-      </article>
-      <article class="item">
-        <span class="k">Native Deep Link</span>
-        <span class="v">clb://</span>
-      </article>
-      <article class="item">
-        <span class="k">Android Link Verification</span>
-        <span class="v">/.well-known/assetlinks.json</span>
-      </article>
-      <article class="item">
-        <span class="k">iOS Link Verification</span>
-        <span class="v">/.well-known/apple-app-site-association</span>
-      </article>
+  <main class="container">
+    <!-- Hero -->
+    <section class="hero">
+      <div class="hero-orb1"></div>
+      <div class="hero-orb2"></div>
+      <div class="hero-label">CLB Protocol</div>
+      <h1>Borrow smarter. <em>Earn on-chain.</em> Move faster.</h1>
+      <p>Professional DeFi gateway connecting wallets to leveraged crypto pools, auto-liquidation mechanics, and a 5-level referral rewards system on BSC.</p>
+      <div class="hero-chips">
+        <span class="chip gold">BSC Ready</span>
+        <span class="chip mint">Wallet Auth</span>
+        <span class="chip violet">Live Analytics</span>
+        <span class="chip">APY Tracking</span>
+      </div>
     </section>
 
-    <div class="row">
-      <span class="badge gold">BSC-first</span>
-      <span class="badge ok">WalletConnect-ready host</span>
-    </div>
+    <!-- KPIs -->
+    <section class="section kpi-strip" id="kpiStrip">
+      <div class="kpi">
+        <div class="kpi-n" id="kpiPools">—</div>
+        <div class="kpi-l">Total Pools</div>
+        <div class="kpi-delta up" id="kpiPoolsDelta">+0 active</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-n" id="kpiTVL">—</div>
+        <div class="kpi-l">Total Value Locked</div>
+        <div class="kpi-delta up" id="kpiTVLDelta">BNB pooled</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-n" id="kpiMembers">—</div>
+        <div class="kpi-l">Pool Members</div>
+        <div class="kpi-delta up" id="kpiMembersDelta">unique stakers</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-n" id="kpiHealth">—</div>
+        <div class="kpi-l">System Health</div>
+        <div class="kpi-delta up" id="kpiHealthDelta">API status</div>
+      </div>
+    </section>
+
+    <!-- Live Prices -->
+    <section class="section">
+      <div class="sec-head">
+        <span class="sec-badge sb-gold">Live</span>
+        <h2 class="sec-title">Crypto Prices</h2>
+      </div>
+      <div class="grid-3" id="pricesGrid">
+        <!-- Injected by JS -->
+      </div>
+    </section>
+
+    <!-- Charts: TVL + Price Trends -->
+    <section class="section">
+      <div class="sec-head">
+        <span class="sec-badge sb-viol">Analytics</span>
+        <h2 class="sec-title">Protocol Analytics</h2>
+      </div>
+      <div class="grid-2">
+        <div class="panel">
+          <div class="panel-title">Pool TVL Distribution</div>
+          <div class="chart-wrap sm"><canvas id="tvlChart"></canvas></div>
+        </div>
+        <div class="panel">
+          <div class="panel-title">24h Price Change (%)</div>
+          <div class="chart-wrap sm"><canvas id="changeChart"></canvas></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Pools Table -->
+    <section class="section">
+      <div class="sec-head">
+        <span class="sec-badge sb-mint">Pools</span>
+        <h2 class="sec-title">Active Pools</h2>
+      </div>
+      <div class="panel table-wrap">
+        <table>
+          <thead>
+            <tr><th>Pool</th><th>Token</th><th>APY</th><th>Min Deposit</th><th>TVL</th><th>Members</th><th>Status</th></tr>
+          </thead>
+          <tbody id="poolsTableBody">
+            <tr><td colspan="7" style="text-align:center;color:var(--muted)">Loading pools…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- How It Works -->
+    <section class="section">
+      <div class="sec-head">
+        <span class="sec-badge sb-gold">Mechanics</span>
+        <h2 class="sec-title">How The System Works</h2>
+      </div>
+      <div class="grid-3">
+        <div class="step">
+          <div class="num">1</div>
+          <h4>Deposit & Lock</h4>
+          <p>Stake BNB into a pool. Your deposit is locked as collateral and mints a soulbound BEP-20 receipt token.</p>
+        </div>
+        <div class="step">
+          <div class="num">2</div>
+          <h4>Leveraged Loan</h4>
+          <p>The protocol issues a leveraged loan in CLB tokens based on your tier. Higher deposits unlock higher leverage.</p>
+          <div class="tier-grid" id="tierGrid"></div>
+        </div>
+        <div class="step">
+          <div class="num">3</div>
+          <h4>Auto-Liquidation</h4>
+          <p>When BTC/ETH hits target prices, positions auto-liquidate in two phases: 40% at soft target, 60% at main target. You keep 85% of profits.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Wallet + System -->
+    <section class="section">
+      <div class="sec-head">
+        <span class="sec-badge sb-viol">System</span>
+        <h2 class="sec-title">Connection & Status</h2>
+      </div>
+      <div class="grid-2">
+        <div class="panel">
+          <div class="panel-title">Wallet Overview</div>
+          <div style="font-size:18px;font-weight:700;word-break:break-all;margin-bottom:10px;" id="walletAddress">Not connected</div>
+          <div class="grid-3" style="gap:10px;">
+            <div class="metric" style="border:1px solid var(--border);border-radius:12px;padding:10px;background:rgba(255,255,255,0.02);">
+              <div style="color:var(--muted);font-size:12px;">Chain ID</div>
+              <div style="font-weight:700;margin-top:4px;" id="network">Unknown</div>
+            </div>
+            <div class="metric" style="border:1px solid var(--border);border-radius:12px;padding:10px;background:rgba(255,255,255,0.02);">
+              <div style="color:var(--muted);font-size:12px;">Connection</div>
+              <div style="font-weight:700;margin-top:4px;" id="walletStatus">Disconnected</div>
+            </div>
+            <div class="metric" style="border:1px solid var(--border);border-radius:12px;padding:10px;background:rgba(255,255,255,0.02);">
+              <div style="color:var(--muted);font-size:12px;">Backend</div>
+              <div style="font-weight:700;margin-top:4px;" id="healthText">Checking…</div>
+            </div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-title">System Access</div>
+          <div class="grid-2" style="gap:10px;">
+            <div class="metric" style="border:1px solid var(--border);border-radius:12px;padding:10px;background:rgba(255,255,255,0.02);">
+              <div style="color:var(--muted);font-size:12px;">API Base URL</div>
+              <div style="font-size:13px;font-family:'DM Mono',monospace;word-break:break-all;margin-top:4px;" id="apiBaseValue">—</div>
+            </div>
+            <div class="metric" style="border:1px solid var(--border);border-radius:12px;padding:10px;background:rgba(255,255,255,0.02);">
+              <div style="color:var(--muted);font-size:12px;">Environment</div>
+              <div style="font-weight:700;margin-top:4px;" id="envValue">Production</div>
+            </div>
+          </div>
+          <div id="statusBox" class="status" style="margin-top:12px;">Platform ready.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Price History Chart -->
+    <section class="section">
+      <div class="sec-head">
+        <span class="sec-badge sb-mint">Trends</span>
+        <h2 class="sec-title">Price History (Simulated Trend)</h2>
+      </div>
+      <div class="panel">
+        <div class="chart-wrap"><canvas id="historyChart"></canvas></div>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <span>CryptoLoanBoost dApp — <span class="mono" id="footerApi">—</span></span>
+      <span>Data refreshes every 60s. Prices from CoinGecko.</span>
+    </footer>
   </main>
+
+  <script>
+    (function() {
+      const hostname = window.location.hostname;
+      const isProd = hostname === "app.cryptoloanboost.com";
+      const apiBase = isProd ? "https://api.cryptoloanboost.com" : window.location.origin;
+
+      document.getElementById("apiDocsLink").href = `${apiBase}/docs`;
+      document.getElementById("apiBaseValue").textContent = apiBase;
+      document.getElementById("envValue").textContent = isProd ? "Production" : "Development";
+      document.getElementById("footerApi").textContent = apiBase;
+
+      // Demo data fallback
+      const demoPools = [
+        { id: 'p1', name: 'Alpha Boost Pool', tokenSymbol: 'BNB', apy: 12.5, minDeposit: 0.1, totalStaked: 245.8, status: 'ACTIVE', memberCount: 142 },
+        { id: 'p2', name: 'Beta Yield Vault', tokenSymbol: 'BNB', apy: 8.2, minDeposit: 0.05, totalStaked: 89.4, status: 'ACTIVE', memberCount: 78 },
+        { id: 'p3', name: 'Gamma Leverage', tokenSymbol: 'BTCB', apy: 18.0, minDeposit: 0.2, totalStaked: 56.2, status: 'PAUSED', memberCount: 34 },
+        { id: 'p4', name: 'Delta Stable', tokenSymbol: 'ETH', apy: 6.5, minDeposit: 0.05, totalStaked: 120.5, status: 'ACTIVE', memberCount: 95 },
+      ];
+      const demoPrices = {
+        BTC: { usd: 64230.15, usd_24h_change: 2.34 },
+        ETH: { usd: 3450.80, usd_24h_change: -0.85 },
+        BNB: { usd: 590.45, usd_24h_change: 1.12 },
+      };
+
+      let charts = {};
+
+      function fmt(n, digits = 2) {
+        if (n === undefined || n === null) return '—';
+        return Number(n).toLocaleString('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits });
+      }
+      function pct(n) {
+        if (n === undefined || n === null) return '—%';
+        const s = (n > 0 ? '+' : '') + Number(n).toFixed(2) + '%';
+        return s;
+      }
+      function setStatus(msg, level = 'ok') {
+        const box = document.getElementById('statusBox');
+        box.textContent = msg;
+        box.classList.remove('ok', 'warn');
+        box.classList.add(level);
+      }
+
+      // Chart.js defaults
+      Chart.defaults.color = 'rgba(238,240,255,0.6)';
+      Chart.defaults.borderColor = 'rgba(255,255,255,0.06)';
+      Chart.defaults.font.family = "'DM Sans', sans-serif";
+
+      function sparklineCanvas(id, data, color) {
+        const ctx = document.getElementById(id).getContext('2d');
+        const gradient = ctx.createLinearGradient(0, 0, 0, 60);
+        gradient.addColorStop(0, color + '33');
+        gradient.addColorStop(1, color + '00');
+        return new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: data.map((_, i) => i),
+            datasets: [{
+              data, borderColor: color, backgroundColor: gradient, borderWidth: 2,
+              pointRadius: 0, pointHoverRadius: 3, fill: true, tension: 0.4
+            }]
+          },
+          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { enabled: false } },
+            scales: { x: { display: false }, y: { display: false } }, animation: { duration: 0 } }
+        });
+      }
+
+      function generateTrend(base, changePct, points = 20) {
+        const arr = [];
+        let v = base * (1 - changePct / 100);
+        for (let i = 0; i < points; i++) {
+          v += (base - v) * (0.15 + Math.random() * 0.1);
+          v += (Math.random() - 0.5) * base * 0.008;
+          arr.push(v);
+        }
+        arr[arr.length - 1] = base;
+        return arr;
+      }
+
+      async function fetchJSON(path) {
+        try {
+          const res = await fetch(`${apiBase}${path}`, { method: 'GET', headers: { Accept: 'application/json' } });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return await res.json();
+        } catch (e) {
+          return null;
+        }
+      }
+
+      async function loadAll() {
+        const [health, poolStats, pools, prices] = await Promise.all([
+          fetchJSON('/health'),
+          fetchJSON('/api/pools/stats'),
+          fetchJSON('/api/pools'),
+          fetchJSON('/api/prices'),
+        ]);
+
+        // Health
+        const isOnline = health && health.status === 'ok';
+        document.getElementById('healthText').textContent = isOnline ? 'Online' : 'Offline';
+        document.getElementById('kpiHealth').textContent = isOnline ? 'Online' : 'Offline';
+        document.getElementById('kpiHealth').style.color = isOnline ? 'var(--mint)' : 'var(--red)';
+        document.getElementById('kpiHealthDelta').textContent = isOnline ? `DB: ${health.database || '?'}` : 'API unreachable';
+        document.getElementById('kpiHealthDelta').className = 'kpi-delta ' + (isOnline ? 'up' : 'down');
+        setStatus(isOnline ? `Backend online — ${apiBase}` : `Backend offline — ${apiBase}`, isOnline ? 'ok' : 'warn');
+
+        // Pool stats
+        const ps = poolStats && poolStats.success ? poolStats.stats : null;
+        const poolList = pools && pools.success ? pools.data : demoPools;
+        const totalPools = ps ? ps.totalPools : poolList.length;
+        const activePools = ps ? ps.activePools : poolList.filter(p => p.status === 'ACTIVE').length;
+        const tvl = ps ? ps.totalValueLocked : poolList.reduce((s, p) => s + Number(p.totalStaked || 0), 0);
+        const members = ps ? ps.totalMembers : poolList.reduce((s, p) => s + Number(p.memberCount || 0), 0);
+
+        document.getElementById('kpiPools').textContent = totalPools;
+        document.getElementById('kpiPoolsDelta').textContent = `${activePools} active / ${totalPools} total`;
+        document.getElementById('kpiTVL').textContent = fmt(tvl, 2) + ' BNB';
+        document.getElementById('kpiTVLDelta').textContent = 'Total Value Locked';
+        document.getElementById('kpiMembers').textContent = members;
+        document.getElementById('kpiMembersDelta').textContent = 'unique stakers';
+
+        // Pools table
+        const tbody = document.getElementById('poolsTableBody');
+        tbody.innerHTML = poolList.map(p => `
+          <tr>
+            <td><strong>${p.name}</strong></td>
+            <td>${p.tokenSymbol}</td>
+            <td>${p.apy}%</td>
+            <td>${p.minDeposit} ${p.tokenSymbol}</td>
+            <td class="mono">${fmt(p.totalStaked, 2)}</td>
+            <td>${p.memberCount}</td>
+            <td><span class="tag ${p.status.toLowerCase()}">${p.status}</span></td>
+          </tr>
+        `).join('');
+
+        // Prices
+        const pr = prices && prices.success ? prices.prices : demoPrices;
+        renderPrices(pr);
+        renderCharts(poolList, pr);
+      }
+
+      function renderPrices(pr) {
+        const coins = [
+          { s: 'BTC', n: 'Bitcoin', i: '₿', c: '#F7931A' },
+          { s: 'ETH', n: 'Ethereum', i: 'Ξ', c: '#627EEA' },
+          { s: 'BNB', n: 'BNB', i: 'B', c: '#F3BA2F' },
+        ];
+        const grid = document.getElementById('pricesGrid');
+        grid.innerHTML = coins.map(coin => {
+          const data = pr[coin.s] || { usd: 0, usd_24h_change: 0 };
+          const up = data.usd_24h_change >= 0;
+          const trend = generateTrend(data.usd, data.usd_24h_change);
+          const cid = 'spark-' + coin.s;
+          return `
+            <div class="price-card">
+              <div class="top">
+                <div class="sym">
+                  <div class="icon" style="background:${coin.c}22;color:${coin.c};border:1px solid ${coin.c}44;">${coin.i}</div>
+                  <div><div class="name">${coin.n}</div><div class="sub">${coin.s}/USD</div></div>
+                </div>
+              </div>
+              <div class="amt">$${fmt(data.usd, 2)}</div>
+              <div class="chg ${up ? 'up' : 'down'}">${up ? '▲' : '▼'} ${pct(data.usd_24h_change)} (24h)</div>
+              <canvas id="${cid}" height="60"></canvas>
+            </div>
+          `;
+        }).join('');
+
+        // Render sparklines after DOM update
+        requestAnimationFrame(() => {
+          coins.forEach(coin => {
+            const data = pr[coin.s] || { usd: 0, usd_24h_change: 0 };
+            const trend = generateTrend(data.usd, data.usd_24h_change);
+            sparklineCanvas('spark-' + coin.s, trend, coin.c);
+          });
+        });
+      }
+
+      function renderCharts(poolList, pr) {
+        // TVL pie
+        const tvlCtx = document.getElementById('tvlChart').getContext('2d');
+        if (charts.tvl) charts.tvl.destroy();
+        const labels = poolList.map(p => p.name);
+        const data = poolList.map(p => Number(p.totalStaked || 0));
+        const colors = ['#F6B73B', '#05D68F', '#7C5CFC', '#FF4F4F', '#3B82F6', '#EC4899'];
+        charts.tvl = new Chart(tvlCtx, {
+          type: 'doughnut',
+          data: { labels, datasets: [{ data, backgroundColor: colors.slice(0, labels.length), borderWidth: 0 }] },
+          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { boxWidth: 10, font: { size: 11 } } } }, cutout: '65%' }
+        });
+
+        // 24h change bar
+        const chgCtx = document.getElementById('changeChart').getContext('2d');
+        if (charts.change) charts.change.destroy();
+        const coinKeys = ['BTC', 'ETH', 'BNB'];
+        const chgData = coinKeys.map(k => (pr[k]?.usd_24h_change || 0));
+        const chgColors = coinKeys.map((_, i) => chgData[i] >= 0 ? '#05D68F' : '#FF4F4F');
+        charts.change = new Chart(chgCtx, {
+          type: 'bar',
+          data: {
+            labels: coinKeys,
+            datasets: [{
+              data: chgData,
+              backgroundColor: chgColors,
+              borderRadius: 6,
+              barThickness: 28,
+            }]
+          },
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { y: { grid: { color: 'rgba(255,255,255,0.04)' } }, x: { grid: { display: false } } }
+          }
+        });
+
+        // Simulated history line chart
+        const histCtx = document.getElementById('historyChart').getContext('2d');
+        if (charts.history) charts.history.destroy();
+        const histLabels = Array.from({ length: 24 }, (_, i) => `${i}:00`);
+        const baseBTC = pr.BTC?.usd || 64000;
+        const baseETH = pr.ETH?.usd || 3400;
+        const baseBNB = pr.BNB?.usd || 590;
+        charts.history = new Chart(histCtx, {
+          type: 'line',
+          data: {
+            labels: histLabels,
+            datasets: [
+              { label: 'BTC', data: generateTrend(baseBTC, 2.5, 24), borderColor: '#F7931A', backgroundColor: 'transparent', borderWidth: 2, pointRadius: 0, tension: 0.4 },
+              { label: 'ETH', data: generateTrend(baseETH, -1.2, 24), borderColor: '#627EEA', backgroundColor: 'transparent', borderWidth: 2, pointRadius: 0, tension: 0.4 },
+              { label: 'BNB', data: generateTrend(baseBNB, 0.8, 24), borderColor: '#F3BA2F', backgroundColor: 'transparent', borderWidth: 2, pointRadius: 0, tension: 0.4 },
+            ]
+          },
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { position: 'top', labels: { boxWidth: 10, font: { size: 12 } } } },
+            scales: {
+              y: { grid: { color: 'rgba(255,255,255,0.04)' } },
+              x: { grid: { display: false } }
+            },
+            interaction: { mode: 'index', intersect: false }
+          }
+        });
+      }
+
+      // Tier grid
+      const tiers = [
+        { fee: 100, lev: 10 }, { fee: 200, lev: 15 }, { fee: 300, lev: 20 },
+        { fee: 400, lev: 25 }, { fee: 500, lev: 30 }, { fee: 600, lev: 35 },
+        { fee: 700, lev: 40 }, { fee: 800, lev: 45 }, { fee: 900, lev: 50 }, { fee: 1000, lev: 60 },
+      ];
+      document.getElementById('tierGrid').innerHTML = tiers.map(t => `
+        <div class="tier">
+          <div class="fee">$${t.fee}</div>
+          <div class="lev">${t.lev}x leverage</div>
+        </div>
+      `).join('');
+
+      // Wallet connect
+      async function connectWallet() {
+        if (!window.ethereum) { setStatus('No wallet detected. Install MetaMask first.', 'warn'); return; }
+        try {
+          const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+          const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+          document.getElementById('walletAddress').textContent = accounts[0] || 'No account';
+          document.getElementById('network').textContent = chainId;
+          document.getElementById('walletStatus').textContent = 'Connected';
+          setStatus('Wallet connected successfully.', 'ok');
+        } catch (err) { setStatus('Wallet connect failed: ' + err.message, 'warn'); }
+      }
+      document.getElementById('connectBtn').addEventListener('click', connectWallet);
+      document.getElementById('refreshBtn').addEventListener('click', loadAll);
+
+      // Initial load + interval
+      loadAll();
+      setInterval(loadAll, 60000);
+    })();
+  </script>
 </body>
 </html>
