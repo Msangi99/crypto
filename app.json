@@ -4,12 +4,6 @@
       "eas": {
         "projectId": "05375698-3d33-4ce1-aba4-548a27b5d9f3"
       }
-    },
-    "android": {
-      "package": "com.ssdevelopers.clbbackend"
-    },
-    "ios": {
-      "bundleIdentifier": "com.ssdevelopers.clbbackend"
     }
   }
 }

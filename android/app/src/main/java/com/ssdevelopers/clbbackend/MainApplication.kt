@@ -1,4 +1,4 @@
-package com.clbbackend
+package com.ssdevelopers.clbbackend
 
 import android.app.Application
 import android.content.res.Configuration

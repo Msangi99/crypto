@@ -2,6 +2,7 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import prisma from '../config/db';
 import { authMiddleware } from '../middleware/auth';
 import { tokenService } from '../services/tokenService';
+import { creditLineService } from '../services/creditLineService';
 
 // CLB Token tiers based on collateral value
 const TOKEN_TIERS: Record<string, { minUsd: number; token: string; ltv: number; interest: number }> = {
@@ -339,4 +340,309 @@ export default async function loanRoutes(fastify: FastifyInstance) {
       })),
     };
   });
+
+  // ═══════════════════════════════════════════════════════════════
+  // ═══ DYNAMIC CREDIT LINE ROUTES ═════════════════════════════════
+  // ═══════════════════════════════════════════════════════════════
+
+  // ─── POST /loans/credit-line/request — Request a dynamic credit line ─
+  fastify.post<{
+    Body: {
+      collateralChain: string;
+      collateralAmount: number;
+      collateralPriceUsd: number;
+    };
+  }>(
+    '/credit-line/request',
+    { preHandler: [authMiddleware] },
+    async (request: FastifyRequest<{
+      Body: {
+        collateralChain: string;
+        collateralAmount: number;
+        collateralPriceUsd: number;
+      };
+    }>, reply: FastifyReply) => {
+      const userId = request.userId!;
+      const { collateralChain, collateralAmount, collateralPriceUsd } = request.body;
+
+      if (!collateralChain || !collateralAmount || !collateralPriceUsd) {
+        return reply.status(400).send({ success: false, error: 'Missing required fields' });
+      }
+      if (collateralAmount <= 0) {
+        return reply.status(400).send({ success: false, error: 'Amount must be positive' });
+      }
+
+      const collateralValueUsd = collateralAmount * collateralPriceUsd;
+      const tier = getTier(collateralValueUsd);
+
+      // For credit lines: max credit = 60% LTV (higher than fixed loans)
+      const maxCreditLimit = (collateralValueUsd * 60) / 100;
+
+      // Calculate margin call price (75% LTV) and liquidation price (85% LTV)
+      const marginCallPrice = maxCreditLimit / (collateralAmount * 0.75);
+      const liquidationPrice = maxCreditLimit / (collateralAmount * 0.85);
+
+      // Create credit line
+      const loan = await prisma.loan.create({
+        data: {
+          userId,
+          loanType: 'DYNAMIC_CREDIT',
+          collateralChain: collateralChain.toUpperCase(),
+          collateralAmount,
+          collateralPriceUsd,
+          collateralValueUsd,
+          loanAmount: maxCreditLimit, // This is the max credit limit
+          drawnAmount: 0,
+          availableCredit: maxCreditLimit,
+          loanToken: tier.token,
+          ltvPercent: 60, // Credit line LTV
+          interestRate: tier.interest,
+          marginCallPriceUsd: marginCallPrice,
+          liquidationPriceUsd: liquidationPrice,
+          status: 'PENDING',
+        },
+      });
+
+      // Create deposit record
+      await prisma.deposit.create({
+        data: {
+          userId,
+          amount: collateralAmount,
+          amountUsd: collateralValueUsd,
+          chain: collateralChain.toUpperCase(),
+          status: 'PENDING',
+          loanId: loan.id,
+        },
+      });
+
+      // Notify user
+      await prisma.notification.create({
+        data: {
+          userId,
+          type: 'LOAN',
+          title: 'Credit Line Requested',
+          body: `Your ${tier.token} credit line with $${maxCreditLimit.toFixed(2)} limit is pending. Send ${collateralAmount} ${collateralChain.toUpperCase()} to activate.`,
+          data: { loanId: loan.id, token: tier.token, maxCreditLimit },
+        },
+      });
+
+      return {
+        success: true,
+        message: 'Credit line requested. Deposit collateral to activate.',
+        creditLine: {
+          id: loan.id,
+          collateralChain: loan.collateralChain,
+          collateralAmount: Number(loan.collateralAmount),
+          collateralValueUsd: Number(loan.collateralValueUsd),
+          maxCreditLimit: Number(loan.loanAmount),
+          availableCredit: Number(loan.availableCredit),
+          loanToken: loan.loanToken,
+          marginCallPrice: Number(loan.marginCallPriceUsd),
+          liquidationPrice: Number(loan.liquidationPriceUsd),
+          status: loan.status,
+        },
+      };
+    }
+  );
+
+  // ─── POST /loans/credit-line/:id/activate — Activate credit line after deposit ─
+  fastify.post<{ Params: { id: string }; Body: { txHash: string } }>(
+    '/credit-line/:id/activate',
+    { preHandler: [authMiddleware] },
+    async (request: FastifyRequest<{ Params: { id: string }; Body: { txHash: string } }>, reply: FastifyReply) => {
+      const userId = request.userId!;
+      const { id } = request.params;
+      const { txHash } = request.body;
+
+      if (!txHash) {
+        return reply.status(400).send({ success: false, error: 'txHash is required' });
+      }
+
+      const loan = await prisma.loan.findFirst({
+        where: { id, userId, loanType: 'DYNAMIC_CREDIT', status: 'PENDING' },
+        include: { deposits: true },
+      });
+
+      if (!loan) {
+        return reply.status(404).send({ success: false, error: 'Credit line not found or not pending' });
+      }
+
+      // Update deposit
+      const deposit = loan.deposits[0];
+      if (deposit) {
+        await prisma.deposit.update({
+          where: { id: deposit.id },
+          data: { txHash, status: 'CONFIRMED', confirmedAt: new Date() },
+        });
+      }
+
+      // Activate credit line (no tokens issued yet - user draws later)
+      const updatedLoan = await prisma.loan.update({
+        where: { id },
+        data: {
+          status: 'ACTIVE',
+          lastCreditUpdateAt: new Date(),
+        },
+      });
+
+      // Notify user
+      await prisma.notification.create({
+        data: {
+          userId,
+          type: 'LOAN',
+          title: '✅ Credit Line Activated',
+          body: `Your ${loan.loanToken} credit line is now active! Available: $${Number(loan.availableCredit).toFixed(2)}. Draw as needed.`,
+          data: { loanId: id, availableCredit: Number(loan.availableCredit) },
+        },
+      });
+
+      return {
+        success: true,
+        message: 'Credit line activated',
+        creditLine: {
+          id: updatedLoan.id,
+          status: updatedLoan.status,
+          maxCreditLimit: Number(updatedLoan.loanAmount),
+          availableCredit: Number(updatedLoan.availableCredit),
+          drawnAmount: Number(updatedLoan.drawnAmount),
+          loanToken: updatedLoan.loanToken,
+        },
+      };
+    }
+  );
+
+  // ─── POST /loans/credit-line/:id/draw — Draw from credit line ─
+  fastify.post<{ Params: { id: string }; Body: { amount: number } }>(
+    '/credit-line/:id/draw',
+    { preHandler: [authMiddleware] },
+    async (request: FastifyRequest<{ Params: { id: string }; Body: { amount: number } }>, reply: FastifyReply) => {
+      const userId = request.userId!;
+      const { id } = request.params;
+      const { amount } = request.body;
+
+      if (!amount || amount <= 0) {
+        return reply.status(400).send({ success: false, error: 'Amount must be positive' });
+      }
+
+      const result = await creditLineService.drawCredit(id, userId, amount);
+
+      if (!result.success) {
+        return reply.status(400).send(result);
+      }
+
+      return {
+        success: true,
+        message: `Successfully drew $${result.drawAmount?.toFixed(2)}`,
+        newAvailableCredit: result.newAvailableCredit,
+      };
+    }
+  );
+
+  // ─── POST /loans/credit-line/:id/repay — Repay to credit line ─
+  fastify.post<{ Params: { id: string }; Body: { amount: number } }>(
+    '/credit-line/:id/repay',
+    { preHandler: [authMiddleware] },
+    async (request: FastifyRequest<{ Params: { id: string }; Body: { amount: number } }>, reply: FastifyReply) => {
+      const userId = request.userId!;
+      const { id } = request.params;
+      const { amount } = request.body;
+
+      if (!amount || amount <= 0) {
+        return reply.status(400).send({ success: false, error: 'Amount must be positive' });
+      }
+
+      const result = await creditLineService.repayCredit(id, userId, amount);
+
+      if (!result.success) {
+        return reply.status(400).send(result);
+      }
+
+      return {
+        success: true,
+        message: `Successfully repaid $${result.repayAmount?.toFixed(2)}`,
+        newAvailableCredit: result.newAvailableCredit,
+        newDrawnAmount: result.newDrawnAmount,
+      };
+    }
+  );
+
+  // ─── GET /loans/credit-line/:id/status — Get credit line current status ─
+  fastify.get<{ Params: { id: string } }>(
+    '/credit-line/:id/status',
+    { preHandler: [authMiddleware] },
+    async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+      const userId = request.userId!;
+      const { id } = request.params;
+
+      const loan = await prisma.loan.findFirst({
+        where: { id, userId, loanType: 'DYNAMIC_CREDIT' },
+      });
+
+      if (!loan) {
+        return reply.status(404).send({ success: false, error: 'Credit line not found' });
+      }
+
+      // Calculate current status
+      const status = await creditLineService.calculateCreditLine(id);
+
+      if (!status) {
+        return reply.status(500).send({ success: false, error: 'Failed to calculate credit line status' });
+      }
+
+      return {
+        success: true,
+        creditLine: status,
+      };
+    }
+  );
+
+  // ─── GET /loans/credit-line/:id/history — Get credit line draw/repay history ─
+  fastify.get<{ Params: { id: string } }>(
+    '/credit-line/:id/history',
+    { preHandler: [authMiddleware] },
+    async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+      const userId = request.userId!;
+      const { id } = request.params;
+
+      const loan = await prisma.loan.findFirst({
+        where: { id, userId, loanType: 'DYNAMIC_CREDIT' },
+      });
+
+      if (!loan) {
+        return reply.status(404).send({ success: false, error: 'Credit line not found' });
+      }
+
+      const history = await creditLineService.getCreditLineHistory(id, userId);
+
+      return {
+        success: true,
+        history: history.map((h) => ({
+          id: h.id,
+          type: h.type,
+          amount: Number(h.amount),
+          collateralPriceUsd: Number(h.collateralPriceUsd),
+          availableCreditAfter: Number(h.availableCreditAfter),
+          drawnAmountAfter: Number(h.drawnAmountAfter),
+          note: h.note,
+          createdAt: h.createdAt,
+        })),
+      };
+    }
+  );
+
+  // ─── GET /loans/credit-line/list — Get all user's credit lines ─
+  fastify.get(
+    '/credit-line/list',
+    { preHandler: [authMiddleware] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const userId = request.userId!;
+
+      const creditLines = await creditLineService.getUserCreditLines(userId);
+
+      return {
+        success: true,
+        creditLines,
+      };
+    }
+  );
 }

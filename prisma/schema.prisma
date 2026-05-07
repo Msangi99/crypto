@@ -44,6 +44,7 @@ model User {
   transfersOut  TokenTransfer[] @relation("TransferFrom")
   transfersIn   TokenTransfer[] @relation("TransferTo")
   withdrawals   Withdrawal[]
+  creditDraws   CreditDraw[]
 
   @@map("users")
 }
@@ -225,20 +226,29 @@ enum NotificationType {
 model Loan {
   id                 String     @id @default(uuid())
   userId             String
+  loanType           LoanType   @default(FIXED_LOAN) // FIXED_LOAN or DYNAMIC_CREDIT
   collateralChain    String     // BTC, ETH, BNB — what user deposited
   collateralAmount   Decimal    // Amount of crypto deposited
   collateralPriceUsd Decimal    // USD price at time of loan
   collateralValueUsd Decimal    // Total USD value of collateral
-  loanAmount         Decimal    // Amount of CLB tokens issued
+
+  // For FIXED_LOAN: loanAmount is fixed at creation
+  // For DYNAMIC_CREDIT: loanAmount = max credit limit at creation, drawnAmount = actually borrowed
+  loanAmount         Decimal    // Max loan/credit amount (at current prices at creation time)
+  drawnAmount        Decimal    @default(0) // For credit lines: amount actually drawn/borrowed
+  availableCredit    Decimal    @default(0) // For credit lines: current available to borrow
+
   loanToken          String     @default("CLB") // CLB, CLBg, CLBs
-  targetPriceUsd     Decimal    // Price at which loan auto-settles
+  targetPriceUsd     Decimal?   // Price at which loan auto-settles (optional for credit lines)
   ltvPercent         Decimal    @default(50)  // Loan-to-value ratio
   interestRate       Decimal    @default(0)   // Annual interest rate
   liquidationPriceUsd Decimal?  // Price below which collateral is liquidated (downside)
-  settlementPriceUsd Decimal?   // Actual price when loan was settled/liquidated
+  marginCallPriceUsd  Decimal?  // Price at which credit line enters margin call
+  settlementPriceUsd Decimal?  // Actual price when loan was settled/liquidated
   profitUsd          Decimal?   // User profit (collateralValue at settlement - loanAmount)
   platformFeeUsd     Decimal?   // Platform fee from settlement
   status             LoanStatus @default(PENDING)
+  lastCreditUpdateAt DateTime?  // Last time credit line was recalculated
   createdAt          DateTime   @default(now())
   updatedAt          DateTime   @updatedAt
   settledAt          DateTime?
@@ -247,9 +257,41 @@ model Loan {
   // Relations
   user               User       @relation(fields: [userId], references: [id])
   deposits           Deposit[]
+  creditDraws        CreditDraw[] // History of credit draws and repayments
 
   @@index([userId, status])
+  @@index([status, loanType])
   @@map("loans")
+}
+
+// ─── Credit Draw History (for DYNAMIC_CREDIT loans) ──────────────────
+model CreditDraw {
+  id              String   @id @default(uuid())
+  loanId          String
+  userId          String
+  type            CreditDrawType
+  amount          Decimal  // Amount drawn or repaid
+  collateralPriceUsd Decimal // Price of collateral at time of transaction
+  availableCreditAfter Decimal // Available credit after this transaction
+  drawnAmountAfter Decimal     // Total drawn after this transaction
+  txHash          String?  // Blockchain tx hash if applicable
+  note            String?
+  createdAt       DateTime @default(now())
+
+  loan            Loan     @relation(fields: [loanId], references: [id])
+  user            User     @relation(fields: [userId], references: [id])
+
+  @@index([loanId])
+  @@index([userId])
+  @@map("credit_draws")
+}
+
+enum CreditDrawType {
+  DRAW    // User drew/borrowed from credit line
+  REPAY   // User repaid to credit line
+  MARGIN_AUTO_REPAY // Automatic repayment due to margin call
+  CREDIT_INCREASE // Credit increased due to collateral price rise
+  CREDIT_DECREASE // Credit decreased due to collateral price fall
 }
 
 enum LoanStatus {
@@ -259,6 +301,12 @@ enum LoanStatus {
   LIQUIDATED   // Collateral value dropped too low
   CANCELLED    // User cancelled before deposit
   REPAID       // User manually repaid
+  MARGIN_CALL  // Credit line in margin call - needs attention
+}
+
+enum LoanType {
+  FIXED_LOAN        // Traditional fixed loan amount
+  DYNAMIC_CREDIT    // Dynamic credit line that adjusts with collateral value
 }
 
 // ─── CLB Token Balances ────────────────────────────

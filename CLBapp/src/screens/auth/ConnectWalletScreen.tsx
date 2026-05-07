@@ -1,13 +1,15 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity,
   ScrollView, KeyboardAvoidingView, Platform, Alert, Image, Clipboard,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { useAppKit } from '@reown/appkit-react-native';
+import { useAccount } from 'wagmi';
 import { Colors, FontSize, Spacing, Radius } from '../../constants/theme';
 import Button from '../../components/ui/Button';
-import { authAPI } from '../../services/api';
+import { authAPI, referralsAPI } from '../../services/api';
 import { useAuthStore } from '../../store/authStore';
 
 const LOGO = require('../../../assets/logo.png');
@@ -17,8 +19,23 @@ export default function ConnectWalletScreen() {
   const [loading, setLoading] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [secretKeyInput, setSecretKeyInput] = useState('');
+  const [referralCodeInput, setReferralCodeInput] = useState('');
   const [importLoading, setImportLoading] = useState(false);
   const { setAuth } = useAuthStore();
+
+  const { open: openAppKit } = useAppKit();
+  const { address: connectedAddress, isConnected } = useAccount();
+  const lastFilledAddress = useRef<string | null>(null);
+
+  // When the user connects a wallet through AppKit / WalletConnect, push that
+  // address into the input so the existing "Connect & Get Started" flow can
+  // sign the user in.
+  useEffect(() => {
+    if (isConnected && connectedAddress && lastFilledAddress.current !== connectedAddress) {
+      lastFilledAddress.current = connectedAddress;
+      setWalletAddress(connectedAddress);
+    }
+  }, [isConnected, connectedAddress]);
 
   const handleConnect = async () => {
     const addr = walletAddress.trim().toLowerCase();
@@ -34,6 +51,21 @@ export default function ConnectWalletScreen() {
       const { token, user } = res.data;
       // Use pinSetup from backend if provided; new users default to false
       await setAuth(token, { ...user, pinSetup: user.pinSetup ?? false });
+
+      const referralCode = referralCodeInput.trim().toUpperCase();
+      if (referralCode) {
+        try {
+          await referralsAPI.apply(referralCode);
+          Alert.alert('Referral Applied', 'Your referral code has been linked to this account.');
+          setReferralCodeInput('');
+        } catch (applyErr: any) {
+          const applyMsg =
+            applyErr?.response?.data?.error ||
+            applyErr?.response?.data?.message ||
+            'Could not apply referral code.';
+          Alert.alert('Referral Not Applied', applyMsg);
+        }
+      }
     } catch (err: any) {
       const msg = err?.response?.data?.error || err?.response?.data?.message || err.message || 'Connection failed.';
       Alert.alert('Error', msg);
@@ -96,6 +128,32 @@ export default function ConnectWalletScreen() {
               </Text>
             </View>
 
+            {/* WalletConnect / AppKit */}
+            <TouchableOpacity
+              style={[styles.walletConnectBtn, isConnected && styles.walletConnectBtnConnected]}
+              onPress={() => openAppKit()}
+              activeOpacity={0.85}
+            >
+              <View style={styles.walletConnectIconBg}>
+                <Ionicons
+                  name={isConnected ? 'checkmark-circle' : 'wallet'}
+                  size={20}
+                  color={isConnected ? '#00D6A1' : Colors.primary}
+                />
+              </View>
+              <View style={styles.walletConnectTextWrap}>
+                <Text style={styles.walletConnectTitle}>
+                  {isConnected ? 'Wallet Connected' : 'Connect Wallet'}
+                </Text>
+                <Text style={styles.walletConnectSubtitle} numberOfLines={1}>
+                  {isConnected && connectedAddress
+                    ? `${connectedAddress.slice(0, 6)}…${connectedAddress.slice(-4)}`
+                    : 'WalletConnect, MetaMask, Trust Wallet & 600+'}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
+            </TouchableOpacity>
+
             {/* Wallet Input */}
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Wallet Address (BEP-20)</Text>
@@ -113,6 +171,24 @@ export default function ConnectWalletScreen() {
                   autoCorrect={false}
                   returnKeyType="go"
                   onSubmitEditing={handleConnect}
+                />
+              </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Referral Code (Optional)</Text>
+              <View style={styles.inputRow}>
+                <View style={styles.inputIconBg}>
+                  <Ionicons name="gift-outline" size={18} color={Colors.primary} />
+                </View>
+                <TextInput
+                  value={referralCodeInput}
+                  onChangeText={setReferralCodeInput}
+                  placeholder="Enter code from inviter"
+                  placeholderTextColor={Colors.textMuted}
+                  style={styles.input}
+                  autoCapitalize="characters"
+                  autoCorrect={false}
                 />
               </View>
             </View>
@@ -289,4 +365,24 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.bgCard, borderWidth: 1, borderColor: Colors.border,
     borderRadius: Radius.lg, padding: Spacing.md,
   },
+
+  // WalletConnect button
+  walletConnectBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: Spacing.md,
+    backgroundColor: Colors.bgCard,
+    borderWidth: 1, borderColor: 'rgba(240,185,11,0.35)',
+    borderRadius: Radius.lg, padding: Spacing.md,
+  },
+  walletConnectBtnConnected: {
+    borderColor: 'rgba(0,214,161,0.45)',
+    backgroundColor: 'rgba(0,214,161,0.06)',
+  },
+  walletConnectIconBg: {
+    width: 40, height: 40, borderRadius: 12,
+    backgroundColor: 'rgba(240,185,11,0.12)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  walletConnectTextWrap: { flex: 1, gap: 2 },
+  walletConnectTitle: { fontSize: 14, fontWeight: '800', color: Colors.textPrimary },
+  walletConnectSubtitle: { fontSize: 11, fontWeight: '600', color: Colors.textMuted },
 });

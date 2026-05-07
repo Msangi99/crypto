@@ -1,6 +1,7 @@
 import prisma from '../config/db';
 import { priceService } from './priceService';
 import { tokenService } from './tokenService';
+import { creditLineService } from './creditLineService';
 
 // Liquidation thresholds — if collateral drops below this % of loan value, liquidate
 const LIQUIDATION_LTV_THRESHOLD = 80; // 80% LTV = liquidation zone
@@ -55,8 +56,12 @@ export const liquidationService = {
 
   /**
    * Check all ACTIVE loans against current prices.
-   * - If price >= targetPriceUsd → SETTLE (user wins)
-   * - If collateral value / loan value >= LIQUIDATION_LTV_THRESHOLD → LIQUIDATE (margin call)
+   * FIXED_LOAN:
+   *   - If price >= targetPriceUsd → SETTLE (user wins)
+   *   - If collateral value / loan value >= LIQUIDATION_LTV_THRESHOLD → LIQUIDATE
+   * DYNAMIC_CREDIT:
+   *   - Monitor credit line LTV, handle margin calls and liquidations
+   *   - Update available credit as collateral price changes
    */
   async checkAllLoans(): Promise<LiquidationResult> {
     if (isProcessing) {
@@ -74,59 +79,62 @@ export const liquidationService = {
         return result;
       }
 
-      // Fetch all ACTIVE loans
-      const activeLoans = await prisma.loan.findMany({
-        where: { status: 'ACTIVE' },
+      // ═══ CHECK 1: FIXED LOANS (target price settlement) ═══
+      const fixedLoans = await prisma.loan.findMany({
+        where: { status: 'ACTIVE', loanType: 'FIXED_LOAN' },
         include: { user: { select: { id: true, walletAddress: true } } },
       });
 
-      if (activeLoans.length === 0) {
-        return result;
-      }
+      if (fixedLoans.length > 0) {
+        console.log(`[Liquidation] Checking ${fixedLoans.length} fixed loans...`);
 
-      console.log(`[Liquidation] Checking ${activeLoans.length} active loans...`);
+        for (const loan of fixedLoans) {
+          try {
+            const chain = loan.collateralChain.toUpperCase();
+            const currentPrice = prices[chain]?.usd;
 
-      for (const loan of activeLoans) {
-        try {
-          const chain = loan.collateralChain.toUpperCase();
-          const currentPrice = prices[chain]?.usd;
+            if (!currentPrice || currentPrice === 0) {
+              result.errors.push(`No price for ${chain} (loan ${loan.id.slice(0, 8)})`);
+              continue;
+            }
 
-          if (!currentPrice || currentPrice === 0) {
-            result.errors.push(`No price for ${chain} (loan ${loan.id.slice(0, 8)})`);
-            continue;
+            const targetPrice = Number(loan.targetPriceUsd);
+            const collateralAmount = Number(loan.collateralAmount);
+            const loanAmount = Number(loan.loanAmount);
+
+            // Current collateral value
+            const currentCollateralValue = collateralAmount * currentPrice;
+
+            // ═══ CHECK 1A: TARGET PRICE HIT → SETTLE (user wins!) ═══
+            if (currentPrice >= targetPrice) {
+              await this.settleLoan(loan, currentPrice, currentCollateralValue);
+              result.settled.push(loan.id);
+              continue;
+            }
+
+            // ═══ CHECK 1B: COLLATERAL VALUE TOO LOW → LIQUIDATE ═══
+            const currentLTV = (loanAmount / currentCollateralValue) * 100;
+            if (currentLTV >= LIQUIDATION_LTV_THRESHOLD) {
+              await this.liquidateLoan(loan, currentPrice, currentCollateralValue);
+              result.liquidated.push(loan.id);
+              continue;
+            }
+          } catch (err: any) {
+            result.errors.push(`Loan ${loan.id.slice(0, 8)}: ${err.message}`);
           }
-
-          const targetPrice = Number(loan.targetPriceUsd);
-          const collateralAmount = Number(loan.collateralAmount);
-          const loanAmount = Number(loan.loanAmount);
-          const originalPrice = Number(loan.collateralPriceUsd);
-
-          // Current collateral value
-          const currentCollateralValue = collateralAmount * currentPrice;
-
-          // ═══ CHECK 1: TARGET PRICE HIT → SETTLE (user wins!) ═══
-          if (currentPrice >= targetPrice) {
-            await this.settleLoan(loan, currentPrice, currentCollateralValue);
-            result.settled.push(loan.id);
-            continue;
-          }
-
-          // ═══ CHECK 2: COLLATERAL VALUE TOO LOW → LIQUIDATE ═══
-          // Calculate current LTV: (loanAmount / currentCollateralValue) * 100
-          const currentLTV = (loanAmount / currentCollateralValue) * 100;
-          if (currentLTV >= LIQUIDATION_LTV_THRESHOLD) {
-            await this.liquidateLoan(loan, currentPrice, currentCollateralValue);
-            result.liquidated.push(loan.id);
-            continue;
-          }
-        } catch (err: any) {
-          result.errors.push(`Loan ${loan.id.slice(0, 8)}: ${err.message}`);
         }
       }
 
-      if (result.settled.length > 0 || result.liquidated.length > 0) {
+      // ═══ CHECK 2: DYNAMIC CREDIT LINES (margin calls, liquidations, credit updates) ═══
+      const creditLineResult = await creditLineService.monitorAllCreditLines();
+      result.liquidated.push(...creditLineResult.liquidated);
+      result.errors.push(...creditLineResult.errors);
+
+      if (result.settled.length > 0 || result.liquidated.length > 0 || creditLineResult.marginCalls > 0) {
         console.log(
-          `[Liquidation] Processed: ${result.settled.length} settled, ${result.liquidated.length} liquidated`
+          `[Liquidation] Fixed loans: ${result.settled.length} settled, ${result.liquidated.filter(id =>
+            fixedLoans.some(loan => loan.id === id)
+          ).length} liquidated | Credit lines: ${creditLineResult.updated} updated, ${creditLineResult.marginCalls} margin calls, ${creditLineResult.liquidated.length} liquidated`
         );
       }
 

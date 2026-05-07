@@ -84,6 +84,12 @@ export const userAPI = {
   market: () => api.get('/api/user/market'),
 };
 
+// ─── Referrals ───────────────────────────────────────────────
+export const referralsAPI = {
+  apply: (code: string) =>
+    api.post('/api/referrals/apply', { code }),
+};
+
 // ─── Pools ────────────────────────────────────────────────
 export const poolsAPI = {
   list: (page = 1, limit = 10) =>
