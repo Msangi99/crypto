@@ -11,26 +11,26 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <style>
     :root {
-      --void: #0b0d17;
-      --deep: #11132a;
-      --layer: #181b3a;
-      --card: #1e2248;
-      --lift: #262a55;
-      --border: rgba(255,255,255,0.10);
-      --border2: rgba(255,255,255,0.18);
+      --void: #12142b;
+      --deep: #1a1d3d;
+      --layer: #22264f;
+      --card: #2a2e5c;
+      --lift: #32376b;
+      --border: rgba(255,255,255,0.14);
+      --border2: rgba(255,255,255,0.24);
       --gold: #F6B73B;
       --gold-d: #D4952A;
-      --gold-bg: rgba(246,183,59,0.12);
-      --gold-bh: rgba(246,183,59,0.25);
+      --gold-bg: rgba(246,183,59,0.16);
+      --gold-bh: rgba(246,183,59,0.30);
       --mint: #05D68F;
-      --mint-bg: rgba(5,214,143,0.12);
-      --violet: #9b7fff;
-      --violet-bg: rgba(155,127,255,0.12);
+      --mint-bg: rgba(5,214,143,0.16);
+      --violet: #a78bfa;
+      --violet-bg: rgba(167,139,250,0.16);
       --red: #FF4F4F;
-      --red-bg: rgba(255,79,79,0.12);
-      --ink: #F0F2FF;
-      --muted: rgba(240,242,255,0.50);
-      --faint: rgba(240,242,255,0.22);
+      --red-bg: rgba(255,79,79,0.16);
+      --ink: #F3F5FF;
+      --muted: rgba(243,245,255,0.55);
+      --faint: rgba(243,245,255,0.28);
     }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html { font-size: 16px; }
@@ -71,16 +71,44 @@
       position: absolute; border-radius: 50%; pointer-events: none; filter: blur(40px); opacity: 0.45;
       animation: orbFloat 12s ease-in-out infinite;
     }
-    .orb-1 { width: 350px; height: 350px; background: radial-gradient(circle, rgba(246,183,59,0.35) 0%, transparent 70%); top: 5%; left: -5%; animation-delay: 0s; }
-    .orb-2 { width: 280px; height: 280px; background: radial-gradient(circle, rgba(5,214,143,0.30) 0%, transparent 70%); top: 40%; right: -8%; animation-delay: -4s; animation-duration: 15s; }
-    .orb-3 { width: 320px; height: 320px; background: radial-gradient(circle, rgba(124,92,252,0.30) 0%, transparent 70%); bottom: 10%; left: 30%; animation-delay: -8s; animation-duration: 18s; }
-    .orb-4 { width: 200px; height: 200px; background: radial-gradient(circle, rgba(59,130,246,0.25) 0%, transparent 70%); top: 70%; right: 20%; animation-delay: -2s; animation-duration: 14s; }
+    .orb-1 { width: 350px; height: 350px; background: radial-gradient(circle, rgba(246,183,59,0.55) 0%, transparent 70%); top: 5%; left: -5%; animation-delay: 0s; }
+    .orb-2 { width: 280px; height: 280px; background: radial-gradient(circle, rgba(5,214,143,0.50) 0%, transparent 70%); top: 40%; right: -8%; animation-delay: -4s; animation-duration: 15s; }
+    .orb-3 { width: 320px; height: 320px; background: radial-gradient(circle, rgba(124,92,252,0.50) 0%, transparent 70%); bottom: 10%; left: 30%; animation-delay: -8s; animation-duration: 18s; }
+    .orb-4 { width: 200px; height: 200px; background: radial-gradient(circle, rgba(59,130,246,0.45) 0%, transparent 70%); top: 70%; right: 20%; animation-delay: -2s; animation-duration: 14s; }
     @keyframes orbFloat {
       0%, 100% { transform: translate(0,0); }
       25% { transform: translate(30px,-20px); }
       50% { transform: translate(-20px,30px); }
       75% { transform: translate(20px,20px); }
     }
+
+    /* ─── Image styling ───────────────────────────────────── */
+    .img-glow { box-shadow: 0 0 60px rgba(246,183,59,0.35), 0 0 120px rgba(246,183,59,0.15); }
+    .img-glow-mint { box-shadow: 0 0 60px rgba(5,214,143,0.30), 0 0 120px rgba(5,214,143,0.12); }
+    .float-slow { animation: floatSlow 6s ease-in-out infinite; }
+    .float-slower { animation: floatSlower 8s ease-in-out infinite; }
+    @keyframes floatSlow {
+      0%, 100% { transform: translateY(0) rotate(0deg); }
+      50% { transform: translateY(-14px) rotate(2deg); }
+    }
+    @keyframes floatSlower {
+      0%, 100% { transform: translateY(0) rotate(0deg); }
+      50% { transform: translateY(-10px) rotate(-1deg); }
+    }
+    .coin-ring {
+      border: 2px solid rgba(246,183,59,0.40);
+      border-radius: 50%;
+      padding: 8px;
+      background: linear-gradient(145deg, rgba(246,183,59,0.12), transparent);
+    }
+    .hero-inner { display: flex; align-items: center; justify-content: space-between; gap: 32px; flex-wrap: wrap; }
+    .hero-text { flex: 1 1 480px; }
+    .hero-visual { flex: 0 0 280px; display: grid; place-items: center; }
+    .hero-visual img { width: 260px; height: 260px; object-fit: cover; border-radius: 50%; }
+    .token-showcase { display: flex; align-items: center; gap: 32px; flex-wrap: wrap; }
+    .token-visual { flex: 0 0 320px; }
+    .token-visual img { width: 100%; border-radius: 20px; object-fit: cover; }
+    .token-info { flex: 1 1 400px; }
 
     /* Particle stars */
     .stars {
@@ -307,14 +335,23 @@
     <section class="hero">
       <div class="hero-orb1"></div>
       <div class="hero-orb2"></div>
-      <div class="hero-label">CLB Protocol</div>
-      <h1>Borrow smarter. <em>Earn on-chain.</em> Move faster.</h1>
-      <p>Professional DeFi gateway connecting wallets to leveraged crypto pools, auto-liquidation mechanics, and a 5-level referral rewards system on BSC.</p>
-      <div class="hero-chips">
-        <span class="chip gold">BSC Ready</span>
-        <span class="chip mint">Wallet Auth</span>
-        <span class="chip violet">Live Analytics</span>
-        <span class="chip">APY Tracking</span>
+      <div class="hero-inner">
+        <div class="hero-text">
+          <div class="hero-label">CLB Protocol</div>
+          <h1>Borrow smarter. <em>Earn on-chain.</em> Move faster.</h1>
+          <p>Professional DeFi gateway connecting wallets to leveraged crypto pools, auto-liquidation mechanics, and a 5-level referral rewards system on BSC.</p>
+          <div class="hero-chips">
+            <span class="chip gold">BSC Ready</span>
+            <span class="chip mint">Wallet Auth</span>
+            <span class="chip violet">Live Analytics</span>
+            <span class="chip">APY Tracking</span>
+          </div>
+        </div>
+        <div class="hero-visual">
+          <div class="coin-ring float-slow">
+            <img src="./images/Gemini_Generated_Image_v9xjjjv9xjjjv9xj.png" alt="CLB Gold Coin" class="img-glow" />
+          </div>
+        </div>
       </div>
     </section>
 
@@ -436,6 +473,30 @@
           </p>
           <p style="line-height:1.8;color:var(--muted);font-size:14px;">
             Security and transparency are at the core of everything we build. All transactions are recorded on the BSC blockchain and verifiable through BscScan. The protocol's auto-liquidation engine runs continuously, monitoring BTC and ETH prices in real-time to ensure positions are settled fairly when targets are hit. With wallet-based authentication, PIN protection, and biometric unlock options in our mobile app, your assets and data remain under your control at all times.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- CLB Token Showcase -->
+    <section class="section">
+      <div class="sec-head">
+        <span class="sec-badge sb-gold">Token</span>
+        <h2 class="sec-title">The CLB Coin</h2>
+      </div>
+      <div class="panel token-showcase">
+        <div class="token-visual">
+          <img src="./images/Gemini_Generated_Image_ghl656ghl656ghl6 (1).png" alt="CLB Coin Stack" class="img-glow-mint float-slower" />
+        </div>
+        <div class="token-info">
+          <p style="line-height:1.8;color:var(--muted);font-size:14px;margin-bottom:14px;">
+            The CryptoLoanBoost Coin (CLB) is the native utility token powering the entire CLB ecosystem. Designed as a BEP-20 asset on the Binance Smart Chain, CLB is used to issue leveraged loans, distribute referral rewards, pay protocol fees, and govern future upgrades. Every deposit into a CLB pool automatically mints receipt tokens that represent your share of the pool and unlock proportional leverage.
+          </p>
+          <p style="line-height:1.8;color:var(--muted);font-size:14px;margin-bottom:14px;">
+            CLB holders benefit from multiple revenue streams: staking rewards from pool APYs, commissions from the 5-level referral tree, and profit shares from auto-liquidated positions. The token's deflationary mechanics ensure that a portion of every fee is burned, creating long-term scarcity while rewarding active participants.
+          </p>
+          <p style="line-height:1.8;color:var(--muted);font-size:14px;">
+            With a fixed total supply and transparent on-chain economics, CLB represents more than just a utility token — it is your key to accessing institutional-grade leveraged crypto products, backed by the speed and low costs of the BSC network. Trade it, stake it, or simply hold it to grow your share of the protocol's success.
           </p>
         </div>
       </div>
