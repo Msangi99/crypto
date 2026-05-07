@@ -181,6 +181,13 @@
     .brand-name { font-family: 'Bricolage Grotesque', sans-serif; font-size: 18px; font-weight: 700; letter-spacing: 0.2px; }
     .brand-name span { color: var(--gold); }
     .nav-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .hamburger { display: none; flex-direction: column; gap: 4px; background: none; border: none; cursor: pointer; padding: 6px; }
+    .hamburger span { display: block; width: 22px; height: 2px; background: var(--ink); border-radius: 2px; transition: all .25s ease; }
+    .hamburger.active span:nth-child(1) { transform: translateY(6px) rotate(45deg); }
+    .hamburger.active span:nth-child(2) { opacity: 0; }
+    .hamburger.active span:nth-child(3) { transform: translateY(-6px) rotate(-45deg); }
+    .mobile-menu { display: none; position: fixed; top: 62px; left: 0; right: 0; z-index: 49; background: color-mix(in srgb, var(--deep) 96%, transparent); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); padding: 16px 20px; gap: 10px; flex-direction: column; }
+    .mobile-menu.open { display: flex; }
     .btn {
       border: 1px solid transparent; border-radius: 11px; padding: 10px 14px;
       font-size: 13px; font-weight: 650; text-decoration: none; cursor: pointer; transition: all .2s ease;
@@ -299,6 +306,13 @@
     @media (max-width: 720px) {
       .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
       .kpi-strip { grid-template-columns: 1fr; }
+      #desktopNav { display: none; }
+      .hamburger { display: flex; }
+      .hero-inner { flex-direction: column; }
+      .hero-visual { order: -1; }
+      .hero-visual img { width: 180px; height: 180px; }
+      .token-showcase { flex-direction: column; }
+      .token-visual { order: -1; }
     }
   </style>
 </head>
@@ -323,12 +337,20 @@
       <img src="./logo.png" alt="CryptoLoanBoost logo" />
       <div class="brand-name">Crypto<span>Loan</span>Boost</div>
     </div>
-    <div class="nav-actions">
+    <div class="nav-actions" id="desktopNav">
       <a id="apiDocsLink" class="btn btn-ghost btn-sm" href="#" target="_blank" rel="noreferrer">API Docs</a>
       <button id="refreshBtn" class="btn btn-ghost btn-sm">Refresh Data</button>
       <button id="connectBtn" class="btn btn-primary">Connect Wallet</button>
     </div>
+    <button class="hamburger" id="hamburger" aria-label="Menu">
+      <span></span><span></span><span></span>
+    </button>
   </nav>
+  <div class="mobile-menu" id="mobileMenu">
+    <a id="mobileApiDocsLink" class="btn btn-ghost" href="#" target="_blank" rel="noreferrer">API Docs</a>
+    <button id="mobileRefreshBtn" class="btn btn-ghost">Refresh Data</button>
+    <button id="mobileConnectBtn" class="btn btn-primary">Connect Wallet</button>
+  </div>
 
   <main class="container">
     <!-- Hero -->
@@ -831,6 +853,25 @@
       }
       document.getElementById('connectBtn').addEventListener('click', connectWallet);
       document.getElementById('refreshBtn').addEventListener('click', loadAll);
+
+      // Mobile nav toggle
+      const hamburger = document.getElementById('hamburger');
+      const mobileMenu = document.getElementById('mobileMenu');
+      hamburger.addEventListener('click', () => {
+        hamburger.classList.toggle('active');
+        mobileMenu.classList.toggle('open');
+      });
+      document.getElementById('mobileConnectBtn').addEventListener('click', () => {
+        connectWallet();
+        hamburger.classList.remove('active');
+        mobileMenu.classList.remove('open');
+      });
+      document.getElementById('mobileRefreshBtn').addEventListener('click', () => {
+        loadAll();
+        hamburger.classList.remove('active');
+        mobileMenu.classList.remove('open');
+      });
+      document.getElementById('mobileApiDocsLink').href = `${apiBase}/docs`;
 
       // Initial load + interval
       loadAll();
