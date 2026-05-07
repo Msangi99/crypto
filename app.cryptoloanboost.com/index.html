@@ -4,6 +4,420 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>CryptoLoanBoost dApp</title>
+    <meta
+      name="description"
+      content="CryptoLoanBoost decentralized finance gateway for wallet, lending, pools, and rewards."
+    />
+    <style>
+      :root {
+        --bg: #090c14;
+        --bg-soft: #0f1524;
+        --card: #101827;
+        --card-2: #121d30;
+        --line: #27344d;
+        --text: #f4f7ff;
+        --muted: #93a3bf;
+        --brand: #f0b90b;
+        --brand-2: #ffd54f;
+        --good: #2fd6a2;
+        --warn: #ff9f5a;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        min-height: 100%;
+      }
+
+      body {
+        font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
+        color: var(--text);
+        background:
+          radial-gradient(1200px 520px at 10% -5%, #1a2640 0%, transparent 60%),
+          radial-gradient(1000px 500px at 100% 0%, #2a1d3a 0%, transparent 55%),
+          var(--bg);
+      }
+
+      .container {
+        max-width: 1160px;
+        margin: 0 auto;
+        padding: 28px 20px 48px;
+      }
+
+      .nav {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 14px;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: color-mix(in srgb, var(--bg-soft) 80%, transparent);
+        backdrop-filter: blur(4px);
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .brand img {
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+        border: 1px solid #334362;
+        object-fit: cover;
+        background: #0a1020;
+      }
+
+      .brand-name {
+        font-size: 16px;
+        font-weight: 700;
+        letter-spacing: 0.2px;
+      }
+
+      .brand-name span {
+        color: var(--brand);
+      }
+
+      .nav-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .btn {
+        border: 1px solid transparent;
+        border-radius: 11px;
+        padding: 10px 14px;
+        font-size: 13px;
+        font-weight: 650;
+        text-decoration: none;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      .btn-primary {
+        color: #1f1a00;
+        background: linear-gradient(135deg, var(--brand), var(--brand-2));
+      }
+
+      .btn-primary:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 8px 20px rgba(240, 185, 11, 0.25);
+      }
+
+      .btn-secondary {
+        color: #d9e3f7;
+        border-color: #374760;
+        background: #1a2333;
+      }
+
+      .btn-secondary:hover {
+        border-color: #50658a;
+      }
+
+      .hero {
+        margin-top: 20px;
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        padding: 28px;
+        background: linear-gradient(130deg, #0f1a2c, #111a2a 55%, #14192f);
+      }
+
+      .hero h1 {
+        margin: 0;
+        font-size: clamp(30px, 5vw, 46px);
+        line-height: 1.05;
+      }
+
+      .hero p {
+        margin: 12px 0 0;
+        max-width: 760px;
+        color: var(--muted);
+        font-size: 16px;
+        line-height: 1.6;
+      }
+
+      .chips {
+        margin-top: 18px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      .chip {
+        border: 1px solid #30415e;
+        border-radius: 999px;
+        padding: 7px 12px;
+        font-size: 12px;
+        color: #c7d4ee;
+        background: #121e32;
+      }
+
+      .dashboard {
+        margin-top: 18px;
+        display: grid;
+        gap: 14px;
+        grid-template-columns: repeat(12, 1fr);
+      }
+
+      .panel {
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: linear-gradient(160deg, var(--card), var(--card-2));
+        padding: 16px;
+      }
+
+      .panel.wallet {
+        grid-column: span 7;
+      }
+
+      .panel.system {
+        grid-column: span 5;
+      }
+
+      .panel.stats {
+        grid-column: span 12;
+      }
+
+      .panel-title {
+        margin: 0;
+        color: var(--muted);
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+      }
+
+      .wallet-address {
+        margin-top: 8px;
+        font-size: 20px;
+        font-weight: 700;
+        word-break: break-all;
+      }
+
+      .grid {
+        margin-top: 12px;
+        display: grid;
+        gap: 10px;
+        grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      }
+
+      .metric {
+        border: 1px solid #2e3a52;
+        border-radius: 12px;
+        padding: 12px;
+        background: rgba(255, 255, 255, 0.02);
+      }
+
+      .metric .k {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .metric .v {
+        margin-top: 5px;
+        font-size: 18px;
+        font-weight: 650;
+      }
+
+      .status {
+        margin-top: 12px;
+        border: 1px solid #32415e;
+        background: #121d2f;
+        border-radius: 12px;
+        padding: 10px 12px;
+        font-size: 13px;
+      }
+
+      .status.ok {
+        color: var(--good);
+      }
+
+      .status.warn {
+        color: var(--warn);
+      }
+
+      .footer-note {
+        margin-top: 14px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      @media (max-width: 900px) {
+        .panel.wallet,
+        .panel.system,
+        .panel.stats {
+          grid-column: span 12;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header class="nav">
+        <div class="brand">
+          <img src="./logo.png" alt="CryptoLoanBoost logo" />
+          <div class="brand-name">Crypto<span>Loan</span>Boost dApp</div>
+        </div>
+
+        <div class="nav-actions">
+          <a id="apiDocsLink" class="btn btn-secondary" href="#" target="_blank" rel="noreferrer">API Docs</a>
+          <button id="refreshHealthBtn" class="btn btn-secondary">Refresh Status</button>
+          <button id="connectBtn" class="btn btn-primary">Connect Wallet</button>
+        </div>
+      </header>
+
+      <section class="hero">
+        <h1>Borrow smarter. Earn on-chain. Move faster.</h1>
+        <p>
+          Professional gateway for CryptoLoanBoost users to connect wallets, track protocol health, and access core
+          lending and rewards flows securely.
+        </p>
+        <div class="chips">
+          <span class="chip">BSC Ready</span>
+          <span class="chip">Secure Wallet Auth</span>
+          <span class="chip">API Health Monitoring</span>
+          <span class="chip">Production Host: app.cryptoloanboost.com</span>
+        </div>
+      </section>
+
+      <section class="dashboard">
+        <article class="panel wallet">
+          <p class="panel-title">Wallet Overview</p>
+          <div id="walletAddress" class="wallet-address">Not connected</div>
+          <div class="grid">
+            <div class="metric">
+              <div class="k">Chain ID</div>
+              <div id="network" class="v">Unknown</div>
+            </div>
+            <div class="metric">
+              <div class="k">Connection</div>
+              <div id="walletStatus" class="v">Disconnected</div>
+            </div>
+            <div class="metric">
+              <div class="k">Backend</div>
+              <div id="health" class="v">Checking...</div>
+            </div>
+          </div>
+        </article>
+
+        <article class="panel system">
+          <p class="panel-title">System Access</p>
+          <div class="grid">
+            <div class="metric">
+              <div class="k">API Base URL</div>
+              <div id="apiBaseValue" class="v" style="font-size: 14px; font-family: ui-monospace, monospace;"></div>
+            </div>
+            <div class="metric">
+              <div class="k">Environment</div>
+              <div id="envValue" class="v">Production</div>
+            </div>
+          </div>
+          <div id="statusBox" class="status">Platform ready.</div>
+        </article>
+
+        <article class="panel stats">
+          <p class="panel-title">Next Steps</p>
+          <div class="grid">
+            <div class="metric">
+              <div class="k">1. Connect wallet</div>
+              <div class="v" style="font-size: 14px;">Authorize MetaMask and verify chain.</div>
+            </div>
+            <div class="metric">
+              <div class="k">2. Open docs</div>
+              <div class="v" style="font-size: 14px;">Review endpoints for auth, pools, referrals, and loans.</div>
+            </div>
+            <div class="metric">
+              <div class="k">3. Integrate full frontend</div>
+              <div class="v" style="font-size: 14px;">Replace this shell with complete dApp pages.</div>
+            </div>
+          </div>
+          <div class="footer-note">
+            This page confirms your domain now serves UI instead of backend root JSON.
+          </div>
+        </article>
+      </section>
+    </div>
+
+    <script>
+      const connectBtn = document.getElementById("connectBtn");
+      const walletAddress = document.getElementById("walletAddress");
+      const network = document.getElementById("network");
+      const health = document.getElementById("health");
+      const walletStatus = document.getElementById("walletStatus");
+      const statusBox = document.getElementById("statusBox");
+      const refreshHealthBtn = document.getElementById("refreshHealthBtn");
+      const apiDocsLink = document.getElementById("apiDocsLink");
+      const apiBaseValue = document.getElementById("apiBaseValue");
+      const envValue = document.getElementById("envValue");
+
+      const hostname = window.location.hostname;
+      const isProdAppHost = hostname === "app.cryptoloanboost.com";
+      const apiBase = isProdAppHost ? "https://api.cryptoloanboost.com" : window.location.origin;
+
+      apiDocsLink.href = `${apiBase}/docs`;
+      apiBaseValue.textContent = apiBase;
+      envValue.textContent = isProdAppHost ? "Production" : "Development";
+
+      function setStatus(message, level = "ok") {
+        statusBox.textContent = message;
+        statusBox.classList.remove("ok", "warn");
+        statusBox.classList.add(level);
+      }
+
+      async function loadHealth() {
+        try {
+          const res = await fetch(`${apiBase}/health`, { method: "GET" });
+          if (!res.ok) throw new Error(`Health check failed (${res.status})`);
+          const data = await res.json();
+          health.textContent = data.status || "ok";
+          setStatus(`Backend online at ${apiBase}`, "ok");
+        } catch (err) {
+          health.textContent = "offline";
+          setStatus(`Could not reach backend: ${err.message}`, "warn");
+        }
+      }
+
+      async function connectWallet() {
+        if (!window.ethereum) {
+          walletStatus.textContent = "Wallet missing";
+          setStatus("No wallet detected. Install MetaMask first.", "warn");
+          return;
+        }
+
+        try {
+          const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+          const chainId = await window.ethereum.request({ method: "eth_chainId" });
+
+          walletAddress.textContent = accounts[0] || "No account";
+          network.textContent = chainId;
+          walletStatus.textContent = "Connected";
+          setStatus("Wallet connected successfully.", "ok");
+        } catch (err) {
+          walletStatus.textContent = "Error";
+          setStatus(`Wallet connect failed: ${err.message}`, "warn");
+        }
+      }
+
+      connectBtn.addEventListener("click", connectWallet);
+      refreshHealthBtn.addEventListener("click", loadHealth);
+      loadHealth();
+    </script>
+  </body>
+</html>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CryptoLoanBoost dApp</title>
     <style>
       :root {
         --bg: #0b0e11;
