@@ -11,26 +11,26 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <style>
     :root {
-      --void: #030307;
-      --deep: #08080F;
-      --layer: #0E0E1A;
-      --card: #141424;
-      --lift: #1C1C30;
-      --border: rgba(255,255,255,0.07);
-      --border2: rgba(255,255,255,0.12);
+      --void: #0b0d17;
+      --deep: #11132a;
+      --layer: #181b3a;
+      --card: #1e2248;
+      --lift: #262a55;
+      --border: rgba(255,255,255,0.10);
+      --border2: rgba(255,255,255,0.18);
       --gold: #F6B73B;
       --gold-d: #D4952A;
-      --gold-bg: rgba(246,183,59,0.10);
-      --gold-bh: rgba(246,183,59,0.20);
+      --gold-bg: rgba(246,183,59,0.12);
+      --gold-bh: rgba(246,183,59,0.25);
       --mint: #05D68F;
-      --mint-bg: rgba(5,214,143,0.09);
-      --violet: #7C5CFC;
-      --violet-bg: rgba(124,92,252,0.10);
+      --mint-bg: rgba(5,214,143,0.12);
+      --violet: #9b7fff;
+      --violet-bg: rgba(155,127,255,0.12);
       --red: #FF4F4F;
-      --red-bg: rgba(255,79,79,0.10);
-      --ink: #EEF0FF;
-      --muted: rgba(238,240,255,0.40);
-      --faint: rgba(238,240,255,0.18);
+      --red-bg: rgba(255,79,79,0.12);
+      --ink: #F0F2FF;
+      --muted: rgba(240,242,255,0.50);
+      --faint: rgba(240,242,255,0.22);
     }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html { font-size: 16px; }
@@ -41,6 +41,100 @@
       -webkit-font-smoothing: antialiased;
       overflow-x: hidden;
       min-height: 100vh;
+      position: relative;
+    }
+
+    /* ─── Animated Background Layer ───────────────────────── */
+    .bg-layer {
+      position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden;
+    }
+    /* Animated gradient mesh */
+    .bg-mesh {
+      position: absolute; inset: -20%;
+      background:
+        radial-gradient(ellipse 80% 50% at 20% 40%, rgba(124,92,252,0.18) 0%, transparent 55%),
+        radial-gradient(ellipse 60% 40% at 80% 20%, rgba(246,183,59,0.14) 0%, transparent 50%),
+        radial-gradient(ellipse 70% 60% at 50% 90%, rgba(5,214,143,0.10) 0%, transparent 45%),
+        radial-gradient(ellipse 50% 30% at 70% 70%, rgba(59,130,246,0.10) 0%, transparent 40%);
+      animation: meshMove 20s ease-in-out infinite alternate;
+      filter: blur(60px);
+    }
+    @keyframes meshMove {
+      0% { transform: translate(0,0) scale(1); }
+      33% { transform: translate(3%,-2%) scale(1.05); }
+      66% { transform: translate(-2%,3%) scale(0.97); }
+      100% { transform: translate(1%,1%) scale(1.02); }
+    }
+
+    /* Floating orbs */
+    .orb {
+      position: absolute; border-radius: 50%; pointer-events: none; filter: blur(40px); opacity: 0.45;
+      animation: orbFloat 12s ease-in-out infinite;
+    }
+    .orb-1 { width: 350px; height: 350px; background: radial-gradient(circle, rgba(246,183,59,0.35) 0%, transparent 70%); top: 5%; left: -5%; animation-delay: 0s; }
+    .orb-2 { width: 280px; height: 280px; background: radial-gradient(circle, rgba(5,214,143,0.30) 0%, transparent 70%); top: 40%; right: -8%; animation-delay: -4s; animation-duration: 15s; }
+    .orb-3 { width: 320px; height: 320px; background: radial-gradient(circle, rgba(124,92,252,0.30) 0%, transparent 70%); bottom: 10%; left: 30%; animation-delay: -8s; animation-duration: 18s; }
+    .orb-4 { width: 200px; height: 200px; background: radial-gradient(circle, rgba(59,130,246,0.25) 0%, transparent 70%); top: 70%; right: 20%; animation-delay: -2s; animation-duration: 14s; }
+    @keyframes orbFloat {
+      0%, 100% { transform: translate(0,0); }
+      25% { transform: translate(30px,-20px); }
+      50% { transform: translate(-20px,30px); }
+      75% { transform: translate(20px,20px); }
+    }
+
+    /* Particle stars */
+    .stars {
+      position: absolute; inset: 0;
+      background-image:
+        radial-gradient(2px 2px at 20px 30px, rgba(255,255,255,0.35), transparent),
+        radial-gradient(2px 2px at 40px 70px, rgba(246,183,59,0.30), transparent),
+        radial-gradient(1.5px 1.5px at 90px 40px, rgba(5,214,143,0.25), transparent),
+        radial-gradient(2px 2px at 160px 120px, rgba(124,92,252,0.25), transparent),
+        radial-gradient(1.5px 1.5px at 250px 80px, rgba(255,255,255,0.20), transparent),
+        radial-gradient(2px 2px at 300px 200px, rgba(246,183,59,0.20), transparent),
+        radial-gradient(1.5px 1.5px at 450px 50px, rgba(5,214,143,0.20), transparent),
+        radial-gradient(2px 2px at 500px 300px, rgba(124,92,252,0.20), transparent),
+        radial-gradient(1.5px 1.5px at 600px 150px, rgba(255,255,255,0.15), transparent),
+        radial-gradient(2px 2px at 700px 250px, rgba(246,183,59,0.15), transparent),
+        radial-gradient(1.5px 1.5px at 800px 100px, rgba(5,214,143,0.15), transparent),
+        radial-gradient(2px 2px at 900px 350px, rgba(124,92,252,0.15), transparent),
+        radial-gradient(1.5px 1.5px at 100px 400px, rgba(255,255,255,0.20), transparent),
+        radial-gradient(2px 2px at 350px 450px, rgba(246,183,59,0.20), transparent),
+        radial-gradient(1.5px 1.5px at 550px 500px, rgba(5,214,143,0.20), transparent),
+        radial-gradient(2px 2px at 750px 480px, rgba(124,92,252,0.20), transparent);
+      background-repeat: repeat;
+      background-size: 1000px 600px;
+      animation: twinkle 8s ease-in-out infinite alternate;
+    }
+    @keyframes twinkle {
+      0% { opacity: 0.6; }
+      100% { opacity: 1; }
+    }
+
+    /* Subtle grid overlay */
+    .grid-overlay {
+      position: absolute; inset: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+      background-size: 60px 60px;
+      mask-image: radial-gradient(ellipse 80% 60% at 50% 40%, black 30%, transparent 80%);
+      -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 40%, black 30%, transparent 80%);
+    }
+
+    /* Light beams */
+    .beam {
+      position: absolute; width: 2px; height: 200px; pointer-events: none;
+      background: linear-gradient(to bottom, transparent, rgba(246,183,59,0.25), transparent);
+      filter: blur(1px);
+      animation: beamFloat 10s ease-in-out infinite;
+    }
+    .beam-1 { top: -50px; left: 15%; transform: rotate(25deg); animation-delay: 0s; }
+    .beam-2 { top: -30px; left: 55%; transform: rotate(-15deg); animation-delay: -3s; height: 250px; background: linear-gradient(to bottom, transparent, rgba(5,214,143,0.20), transparent); }
+    .beam-3 { top: -40px; left: 80%; transform: rotate(35deg); animation-delay: -6s; height: 180px; background: linear-gradient(to bottom, transparent, rgba(124,92,252,0.20), transparent); }
+    @keyframes beamFloat {
+      0%, 100% { opacity: 0.3; transform: translateY(0) rotate(var(--r, 0deg)); }
+      50% { opacity: 0.8; transform: translateY(30px) rotate(var(--r, 0deg)); }
     }
     .display { font-family: 'Bricolage Grotesque', sans-serif; }
     .mono { font-family: 'DM Mono', monospace; }
@@ -181,6 +275,21 @@
   </style>
 </head>
 <body>
+  <!-- Animated background -->
+  <div class="bg-layer">
+    <div class="bg-mesh"></div>
+    <div class="stars"></div>
+    <div class="grid-overlay"></div>
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+    <div class="orb orb-4"></div>
+    <div class="beam beam-1" style="--r:25deg"></div>
+    <div class="beam beam-2" style="--r:-15deg"></div>
+    <div class="beam beam-3" style="--r:35deg"></div>
+  </div>
+
+  <div style="position:relative;z-index:1;">
   <nav class="nav">
     <div class="brand">
       <img src="./logo.png" alt="CryptoLoanBoost logo" />
@@ -302,6 +411,32 @@
           <div class="num">3</div>
           <h4>Auto-Liquidation</h4>
           <p>When BTC/ETH hits target prices, positions auto-liquidate in two phases: 40% at soft target, 60% at main target. You keep 85% of profits.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- About / Description -->
+    <section class="section">
+      <div class="sec-head">
+        <span class="sec-badge sb-viol">About</span>
+        <h2 class="sec-title">Why CryptoLoanBoost</h2>
+      </div>
+      <div class="grid-2">
+        <div class="panel">
+          <p style="line-height:1.8;color:var(--muted);font-size:14px;margin-bottom:14px;">
+            CryptoLoanBoost (CLB) is a decentralized finance protocol built on the Binance Smart Chain that bridges the gap between traditional lending and leveraged crypto investing. By depositing BNB into one of our staking pools, you gain access to instant leveraged loans denominated in CLB tokens, allowing you to amplify your exposure to Bitcoin and Ethereum price movements without selling your underlying collateral.
+          </p>
+          <p style="line-height:1.8;color:var(--muted);font-size:14px;">
+            The protocol operates through a series of smart contracts that automatically manage collateral, issue loans, and execute liquidations when target prices are reached. Every deposit is secured on-chain and backed by a soulbound BEP-20 receipt token that represents your position. Whether the market moves up or down, your original deposit remains protected, and profits are distributed transparently between you and the protocol.
+          </p>
+        </div>
+        <div class="panel">
+          <p style="line-height:1.8;color:var(--muted);font-size:14px;margin-bottom:14px;">
+            Our tiered leverage system is designed to reward commitment. Starting from just $100, you can unlock 10x leverage, scaling all the way up to 60x leverage at the $1,000 tier. This structure ensures that both small and large investors can participate proportionally. The CLB token serves as the native currency of the ecosystem, used for loan issuance, fee payments, and reward distribution across our 5-level referral program.
+          </p>
+          <p style="line-height:1.8;color:var(--muted);font-size:14px;">
+            Security and transparency are at the core of everything we build. All transactions are recorded on the BSC blockchain and verifiable through BscScan. The protocol's auto-liquidation engine runs continuously, monitoring BTC and ETH prices in real-time to ensure positions are settled fairly when targets are hit. With wallet-based authentication, PIN protection, and biometric unlock options in our mobile app, your assets and data remain under your control at all times.
+          </p>
         </div>
       </div>
     </section>
@@ -641,5 +776,6 @@
       setInterval(loadAll, 60000);
     })();
   </script>
+  </div>
 </body>
 </html>
