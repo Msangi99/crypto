@@ -95,9 +95,10 @@ export const poolsAPI = {
   list: (page = 1, limit = 10) =>
     api.get(`/api/pools?page=${page}&limit=${limit}`),
   stats: () => api.get('/api/pools/stats'),
+  settings: () => api.get('/api/pools/settings'),
   detail: (id: string) => api.get(`/api/pools/${id}`),
-  deposit: (poolId: string, amount: number, txHash: string) =>
-    api.post(`/api/pools/${poolId}/deposit`, { amount, txHash }),
+  deposit: (poolId: string, amount: number, txHash?: string) =>
+    api.post(`/api/pools/${poolId}/deposit`, { amount, ...(txHash ? { txHash } : {}) }),
 };
 
 // ─── Price ────────────────────────────────────────────────

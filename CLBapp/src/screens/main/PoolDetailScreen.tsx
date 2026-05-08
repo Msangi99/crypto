@@ -68,6 +68,7 @@ export default function PoolDetailScreen({ route, navigation }: any) {
   const [depositStep, setDepositStep] = useState(1); // 1=amount, 2=transfer, 3=confirm
   const [txHash, setTxHash] = useState('');
   const [loading, setLoading] = useState(false);
+  const [freePoolsEnabled, setFreePoolsEnabled] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -78,6 +79,12 @@ export default function PoolDetailScreen({ route, navigation }: any) {
       setPool(poolRes.data?.pool);
       const bnb = marketRes.data?.market?.coins?.find((c: any) => c.symbol === 'BNB');
       setBnbPrice(bnb?.price || 0);
+      try {
+        const settingsRes = await poolsAPI.settings();
+        setFreePoolsEnabled(Boolean(settingsRes?.data?.settings?.freePoolsEnabled));
+      } catch {
+        setFreePoolsEnabled(false);
+      }
     } catch (e) {
       console.error('Failed to load pool:', e);
       Alert.alert('Error', 'Failed to load pool details');
@@ -89,6 +96,10 @@ export default function PoolDetailScreen({ route, navigation }: any) {
   }, [load]);
 
   const handleDeposit = () => {
+    if (freePoolsEnabled) {
+      setDepositStep(3);
+      return;
+    }
     const amount = parseFloat(depositAmount);
     if (!amount || amount < (pool?.minDeposit || 0)) {
       Alert.alert('Invalid Amount', `Minimum deposit is $${pool?.minDeposit}`);
@@ -118,16 +129,21 @@ export default function PoolDetailScreen({ route, navigation }: any) {
   };
 
   const confirmDeposit = async () => {
-    if (!txHash || !txHash.startsWith('0x') || txHash.length < 10) {
+    if (!freePoolsEnabled && (!txHash || !txHash.startsWith('0x') || txHash.length < 10)) {
       Alert.alert('Invalid Tx Hash', 'Please paste the transaction hash from your Trust Wallet after sending BNB');
       return;
     }
 
     setLoading(true);
     try {
-      const amount = parseFloat(depositAmount);
-      const res = await poolsAPI.deposit(poolId, amount, txHash);
-      Alert.alert('Success', 'Deposit recorded! Your loan will be calculated automatically based on your leverage tier.');
+      const amount = freePoolsEnabled ? Number(pool?.minDeposit || 100) : parseFloat(depositAmount);
+      await poolsAPI.deposit(poolId, amount, freePoolsEnabled ? undefined : txHash);
+      Alert.alert(
+        'Success',
+        freePoolsEnabled
+          ? `Free pool join completed. Deposit recorded at $${amount}.`
+          : 'Deposit recorded! Your loan will be calculated automatically based on your leverage tier.'
+      );
       setShowDepositModal(false);
       setDepositAmount('');
       setTxHash('');
@@ -359,7 +375,10 @@ export default function PoolDetailScreen({ route, navigation }: any) {
         <View style={styles.actionBarInner}>
           <Button
             label="Deposit"
-            onPress={() => setShowDepositModal(true)}
+            onPress={() => {
+              setDepositStep(freePoolsEnabled ? 3 : 1);
+              setShowDepositModal(true);
+            }}
             style={{ flex: 1, marginRight: Spacing.sm }}
           />
           <Button
@@ -382,7 +401,7 @@ export default function PoolDetailScreen({ route, navigation }: any) {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>
-                Deposit · Step {depositStep}/3
+                {freePoolsEnabled ? 'Deposit · Free Mode' : `Deposit · Step ${depositStep}/3`}
               </Text>
               <TouchableOpacity onPress={() => { setShowDepositModal(false); setDepositStep(1); setTxHash(''); }}>
                 <Ionicons name="close" size={24} color={Colors.textPrimary} />
@@ -390,7 +409,7 @@ export default function PoolDetailScreen({ route, navigation }: any) {
             </View>
 
             {/* Step 1: Enter amount */}
-            {depositStep === 1 && (
+            {depositStep === 1 && !freePoolsEnabled && (
               <View style={styles.modalBody}>
                 <View style={styles.stepBadge}>
                   <Ionicons name="wallet-outline" size={20} color={Colors.primary} />
@@ -432,7 +451,7 @@ export default function PoolDetailScreen({ route, navigation }: any) {
             )}
 
             {/* Step 2: Transfer BNB from Trust Wallet */}
-            {depositStep === 2 && (
+            {depositStep === 2 && !freePoolsEnabled && (
               <View style={styles.modalBody}>
                 <View style={styles.stepBadge}>
                   <Ionicons name="send-outline" size={20} color={Colors.primary} />
@@ -494,46 +513,58 @@ export default function PoolDetailScreen({ route, navigation }: any) {
               </View>
             )}
 
-            {/* Step 3: Paste tx hash to confirm */}
+            {/* Step 3: Confirm deposit / free mode confirmation */}
             {depositStep === 3 && (
               <View style={styles.modalBody}>
                 <View style={styles.stepBadge}>
                   <Ionicons name="checkmark-circle-outline" size={20} color={Colors.success} />
-                  <Text style={styles.stepBadgeText}>Confirm Your Deposit</Text>
+                  <Text style={styles.stepBadgeText}>{freePoolsEnabled ? 'Confirm Free Pool Join' : 'Confirm Your Deposit'}</Text>
                 </View>
 
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Transaction Hash</Text>
-                  <TextInput
-                    style={[styles.input, styles.txInput]}
-                    value={txHash}
-                    onChangeText={setTxHash}
-                    placeholder="0x... paste your tx hash here"
-                    placeholderTextColor={Colors.textMuted}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                  />
-                </View>
+                {!freePoolsEnabled ? (
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.inputLabel}>Transaction Hash</Text>
+                    <TextInput
+                      style={[styles.input, styles.txInput]}
+                      value={txHash}
+                      onChangeText={setTxHash}
+                      placeholder="0x... paste your tx hash here"
+                      placeholderTextColor={Colors.textMuted}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                    />
+                  </View>
+                ) : (
+                  <View style={styles.transferCard}>
+                    <Text style={styles.transferLabel}>Free mode is enabled</Text>
+                    <Text style={styles.transferAmount}>No payment needed</Text>
+                    <Text style={styles.transferUsd}>Deposit amount will use pool minimum: ${Number(pool?.minDeposit || 100)}</Text>
+                  </View>
+                )}
 
                 <View style={styles.infoRow}>
                   <Ionicons name="alert-circle-outline" size={16} color={Colors.primary} />
                   <Text style={styles.infoText}>
-                    Paste the transaction hash from Trust Wallet after sending BNB. Your deposit will be verified on-chain.
+                    {freePoolsEnabled
+                      ? 'You can join directly without entering amount or transaction hash while free mode is active.'
+                      : 'Paste the transaction hash from Trust Wallet after sending BNB. Your deposit will be verified on-chain.'}
                   </Text>
                 </View>
 
                 <View style={styles.modalActions}>
+                  {!freePoolsEnabled && (
+                    <Button
+                      label="Back"
+                      onPress={() => setDepositStep(2)}
+                      variant="outline"
+                      style={{ flex: 1, marginRight: Spacing.sm }}
+                    />
+                  )}
                   <Button
-                    label="Back"
-                    onPress={() => setDepositStep(2)}
-                    variant="outline"
-                    style={{ flex: 1, marginRight: Spacing.sm }}
-                  />
-                  <Button
-                    label="Confirm Deposit"
+                    label={freePoolsEnabled ? "Join Pool Free" : "Confirm Deposit"}
                     onPress={confirmDeposit}
                     loading={loading}
-                    style={{ flex: 1, marginLeft: Spacing.sm }}
+                    style={freePoolsEnabled ? { flex: 1 } : { flex: 1, marginLeft: Spacing.sm }}
                   />
                 </View>
               </View>

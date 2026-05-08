@@ -155,6 +155,11 @@ const schemas = {
       },
     },
   },
+  poolSettings: {
+    tags: ['Pools'],
+    summary: 'Get pool access settings',
+    description: 'Returns global pool access mode flags used by clients',
+  },
 };
 
 export default async function poolRoutes(fastify: FastifyInstance) {
@@ -221,6 +226,29 @@ export default async function poolRoutes(fastify: FastifyInstance) {
           activePools,
           totalValueLocked: Number(tvlResult._sum.totalStaked || 0),
           totalMembers,
+        },
+      };
+    }
+  );
+
+  // GET /pools/settings — global pool access settings
+  fastify.get(
+    '/settings',
+    { schema: schemas.poolSettings },
+    async () => {
+      const settings = await prisma.platformSettings.upsert({
+        where: { id: 'default' },
+        update: {},
+        create: {
+          id: 'default',
+          freePoolsEnabled: false,
+        },
+      });
+
+      return {
+        success: true,
+        settings: {
+          freePoolsEnabled: settings.freePoolsEnabled,
         },
       };
     }
