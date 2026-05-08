@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, FontSize, Spacing, Radius } from '../../constants/theme';
 import Badge from '../../components/ui/Badge';
 import { userAPI } from '../../services/api';
+import { useLivePrices } from '../../hooks/useLivePrices';
 
 const COIN_ICONS: Record<string, string> = {
   BTC: 'logo-bitcoin',
@@ -58,9 +59,29 @@ export default function PortfolioScreen({ navigation }: any) {
 
   const positions = data?.positions ?? [];
   const summary = data?.summary ?? {};
+  const liveSymbols = Array.from(
+    new Set(
+      positions
+        .map((p: any) => p.asset)
+        .filter((s: any) => typeof s === 'string' && s.length > 0)
+    )
+  );
+  const livePrices = useLivePrices(liveSymbols);
+  const livePositions = positions.map((pos: any) => {
+    const symbol = pos.asset ?? 'BNB';
+    const amount = Number(pos.cryptoAllocation?.amount ?? 0);
+    const livePrice = livePrices[symbol]?.price;
+    const liveCurrentValueUsd = livePrice && amount > 0
+      ? amount * livePrice
+      : Number(pos.currentValueUsd ?? 0);
+    return { ...pos, liveCurrentValueUsd };
+  });
   const totalInvestedUsd = summary.totalInvestedUsd ?? 0;
-  const totalCurrentValueUsd = summary.totalCurrentValueUsd ?? 0;
-  const totalUnrealizedPnlUsd = summary.totalUnrealizedPnlUsd ?? 0;
+  const totalCurrentValueUsd = livePositions.reduce(
+    (sum: number, pos: any) => sum + (pos.liveCurrentValueUsd ?? 0),
+    0
+  );
+  const totalUnrealizedPnlUsd = totalCurrentValueUsd - totalInvestedUsd;
   const totalProjectedProfitUsd = summary.totalProjectedProfitUsd ?? 0;
 
   const pnlPercent = totalInvestedUsd > 0
@@ -109,7 +130,7 @@ export default function PortfolioScreen({ navigation }: any) {
           </View>
           <View style={styles.quickStatDivider} />
           <View style={styles.quickStatItem}>
-            <Text style={styles.quickStatValue}>{positions.length}</Text>
+            <Text style={styles.quickStatValue}>{livePositions.length}</Text>
             <Text style={styles.quickStatLabel}>Positions</Text>
           </View>
         </View>
@@ -152,19 +173,19 @@ export default function PortfolioScreen({ navigation }: any) {
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>My Positions</Text>
           <View style={styles.sectionBadge}>
-            <Text style={styles.sectionCount}>{positions.length}</Text>
+            <Text style={styles.sectionCount}>{livePositions.length}</Text>
           </View>
         </View>
 
         {/* Positions list */}
-        {positions.length === 0 ? (
+        {livePositions.length === 0 ? (
           <View style={styles.empty}>
             <Ionicons name="briefcase-outline" size={48} color={Colors.textMuted} />
             <Text style={styles.emptyTitle}>No Positions Yet</Text>
             <Text style={styles.emptyText}>Join a pool to start earning leveraged returns</Text>
           </View>
         ) : (
-          positions.map((pos: any) => (
+          livePositions.map((pos: any) => (
             <TouchableOpacity key={pos.poolId} onPress={() => navigation.navigate('PositionDetail', { poolId: pos.poolId })} activeOpacity={0.8}>
               <View style={styles.posCard}>
                 <View style={styles.posHeader}>
@@ -181,7 +202,7 @@ export default function PortfolioScreen({ navigation }: any) {
                     </View>
                   </View>
                   <View style={styles.posValueBox}>
-                    <Text style={styles.posValueAmount}>${(pos.currentValueUsd ?? 0).toLocaleString()}</Text>
+                    <Text style={styles.posValueAmount}>${(pos.liveCurrentValueUsd ?? 0).toLocaleString()}</Text>
                     <Text style={[styles.posValuePnl, (pos.unrealizedPnlUsd ?? 0) >= 0 ? styles.posValueProfit : styles.posValueLoss]}>
                       {(pos.unrealizedPnlUsd ?? 0) >= 0 ? '+' : ''}${(pos.unrealizedPnlUsd ?? 0).toFixed(2)}
                     </Text>

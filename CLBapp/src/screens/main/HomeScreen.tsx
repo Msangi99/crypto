@@ -18,19 +18,22 @@ export default function HomeScreen({ navigation }: any) {
   const { user } = useAuthStore();
   const [dashboard, setDashboard] = useState<any>(null);
   const [market, setMarket] = useState<any>(null);
+  const [portfolio, setPortfolio] = useState<any>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [balanceVisible, setBalanceVisible] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
 
   const load = useCallback(async () => {
     try {
-      const [d, m, n] = await Promise.all([
+      const [d, m, p, n] = await Promise.all([
         userAPI.dashboard(),
         userAPI.market(),
+        userAPI.portfolio(),
         notificationsAPI.unreadCount().catch(() => ({ data: { unreadCount: 0 } })),
       ]);
       setDashboard(d.data);
       setMarket(m.data);
+      setPortfolio(p.data);
       setUnreadCount(n.data.unreadCount ?? 0);
     } catch (e) {
       console.error(e);
@@ -41,7 +44,11 @@ export default function HomeScreen({ navigation }: any) {
 
   // ── Live prices via Binance WebSocket ────────────────────────────────
   const baseCoins: any[] = market?.market?.coins ?? [];
-  const liveSymbols = baseCoins.slice(0, 8).map((c: any) => c.symbol);
+  const positions: any[] = portfolio?.positions ?? [];
+  const positionAssets = positions
+    .map((p: any) => p.asset?.toUpperCase?.() ?? p.asset)
+    .filter((s: any) => typeof s === 'string' && s.length > 0);
+  const liveSymbols = Array.from(new Set([...baseCoins.slice(0, 8).map((c: any) => c.symbol), ...positionAssets]));
   const livePrices = useLivePrices(liveSymbols);
 
   const liveCoins = baseCoins.map((c: any) => {
@@ -62,9 +69,19 @@ export default function HomeScreen({ navigation }: any) {
     : '';
 
   const stats = dashboard?.dashboard?.stats ?? {};
-  const totalValue = stats.portfolioValueUsd ?? 0;
+  const livePositions = positions.map((pos: any) => {
+    const symbol = (pos.asset ?? 'BNB').toUpperCase();
+    const amountBought = Number(pos.cryptoAllocation?.amount ?? 0);
+    const livePrice = livePrices[symbol]?.price;
+    const currentValue = livePrice && amountBought > 0
+      ? amountBought * livePrice
+      : Number(pos.currentValueUsd ?? 0);
+    return { ...pos, symbol, amountBought, currentValue };
+  });
+  const liveTotalValue = livePositions.reduce((sum: number, pos: any) => sum + (pos.currentValue || 0), 0);
+  const totalValue = livePositions.length > 0 ? liveTotalValue : Number(stats.portfolioValueUsd ?? 0);
   const totalInvested = stats.totalDepositedUsd ?? 0;
-  const pnl = stats.unrealizedPnlUsd ?? 0;
+  const pnl = totalValue - totalInvested;
   const pnlPct = totalInvested > 0 ? ((pnl / totalInvested) * 100).toFixed(2) : '0.00';
 
   return (
@@ -175,20 +192,20 @@ export default function HomeScreen({ navigation }: any) {
           </ScrollView>
         </View>
 
-        {/* Recent Activity */}
+        {/* My Pool Holdings */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Recent Activity</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Activity')}>
+            <Text style={styles.sectionTitle}>My Pools</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Portfolio')}>
               <Text style={styles.seeAll}>See All</Text>
             </TouchableOpacity>
           </View>
-          {dashboard?.dashboard?.recentActivity?.slice(0, 4).map((act: any, i: number) => (
-            <ActivityRow key={i} item={act} />
-          )) ?? (
+          {livePositions.length > 0 ? livePositions.slice(0, 4).map((pos: any, i: number) => (
+            <PoolHoldingRow key={pos.poolId ?? i} item={pos} />
+          )) : (
             <View style={styles.emptyState}>
-              <Ionicons name="time-outline" size={32} color={Colors.textMuted} />
-              <Text style={styles.emptyText}>No activity yet</Text>
+              <Ionicons name="briefcase-outline" size={32} color={Colors.textMuted} />
+              <Text style={styles.emptyText}>No pools joined yet</Text>
             </View>
           )}
         </View>
@@ -307,31 +324,20 @@ function MarketChipSkeleton({ label }: { label: string }) {
   );
 }
 
-function ActivityRow({ item }: { item: any }) {
-  const iconMap: Record<string, any> = {
-    deposit: 'arrow-down-circle-outline',
-    withdrawal: 'arrow-up-circle-outline',
-    referral: 'gift-outline',
-    reward: 'star-outline',
-  };
-  const colorMap: Record<string, string> = {
-    deposit: Colors.success,
-    withdrawal: Colors.error,
-    referral: Colors.gold,
-    reward: Colors.primary,
-  };
-  const type = item.type?.toLowerCase() ?? 'deposit';
+function PoolHoldingRow({ item }: { item: any }) {
   return (
     <View style={styles.actRow}>
-      <View style={[styles.actIconBg, { backgroundColor: colorMap[type] + '18' }]}>
-        <Ionicons name={iconMap[type] ?? 'swap-horizontal-outline'} size={20} color={colorMap[type] ?? Colors.primary} />
+      <View style={[styles.actIconBg, { backgroundColor: 'rgba(240,185,11,0.12)' }]}>
+        <Ionicons name="pie-chart-outline" size={20} color={Colors.primary} />
       </View>
       <View style={{ flex: 1 }}>
-        <Text style={styles.actType}>{item.type ?? 'Transaction'}</Text>
-        <Text style={styles.actTime}>{item.time ?? item.createdAt ?? ''}</Text>
+        <Text style={styles.actType}>{item.symbol ?? 'COIN'}</Text>
+        <Text style={styles.actTime}>
+          Bought: {(item.amountBought ?? 0).toFixed(6)} {item.symbol ?? ''}
+        </Text>
       </View>
-      <Text style={[styles.actAmount, { color: colorMap[type] ?? Colors.textPrimary }]}>
-        {item.amount > 0 ? '+' : ''}{item.amount?.toFixed(4)} {item.token ?? 'BNB'}
+      <Text style={[styles.actAmount, { color: Colors.textPrimary }]}>
+        ${(item.currentValue ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
       </Text>
     </View>
   );

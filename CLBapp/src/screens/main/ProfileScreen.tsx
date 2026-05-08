@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Switch, TextInput,
   Modal, KeyboardAvoidingView, Platform,
@@ -9,7 +9,7 @@ import * as Clipboard from 'expo-clipboard';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { Colors, FontSize, Spacing, Radius } from '../../constants/theme';
 import { useAuthStore } from '../../store/authStore';
-import { authAPI } from '../../services/api';
+import { authAPI, userAPI } from '../../services/api';
 
 export default function ProfileScreen({ navigation }: any) {
   const { user, logout, setAuth } = useAuthStore();
@@ -23,6 +23,20 @@ export default function ProfileScreen({ navigation }: any) {
   const [pinInput, setPinInput] = useState('');
   const [secretKey, setSecretKey] = useState('');
   const [secretKeyLoading, setSecretKeyLoading] = useState(false);
+  const [recentActivity, setRecentActivity] = useState<any[]>([]);
+
+  const loadRecentActivity = useCallback(async () => {
+    try {
+      const dashboardRes = await userAPI.dashboard();
+      setRecentActivity(dashboardRes.data?.dashboard?.recentActivity ?? []);
+    } catch (error) {
+      console.error(error);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadRecentActivity();
+  }, [loadRecentActivity]);
 
   const handleLogout = () => {
     Alert.alert('Disconnect Wallet', 'Are you sure you want to disconnect?', [
@@ -273,6 +287,29 @@ export default function ProfileScreen({ navigation }: any) {
           </View>
         </View>
 
+        {/* Recent Activity */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Recent Activity</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Activity')}>
+              <Text style={styles.seeAll}>See All</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.settingsList}>
+            {recentActivity.length > 0 ? recentActivity.slice(0, 4).map((item, idx) => (
+              <View key={idx}>
+                <ActivityRow item={item} />
+                {idx < Math.min(recentActivity.length, 4) - 1 && <View style={styles.settingDivider} />}
+              </View>
+            )) : (
+              <View style={styles.emptyState}>
+                <Ionicons name="time-outline" size={28} color={Colors.textMuted} />
+                <Text style={styles.emptyText}>No activity yet</Text>
+              </View>
+            )}
+          </View>
+        </View>
+
         {/* About */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>About</Text>
@@ -431,6 +468,36 @@ function SettingRow({ icon, iconColor, label, right }: { icon: string; iconColor
   );
 }
 
+function ActivityRow({ item }: { item: any }) {
+  const iconMap: Record<string, any> = {
+    deposit: 'arrow-down-circle-outline',
+    withdrawal: 'arrow-up-circle-outline',
+    referral: 'gift-outline',
+    reward: 'star-outline',
+  };
+  const colorMap: Record<string, string> = {
+    deposit: Colors.success,
+    withdrawal: Colors.error,
+    referral: Colors.gold,
+    reward: Colors.primary,
+  };
+  const type = item.type?.toLowerCase() ?? 'deposit';
+  return (
+    <View style={styles.activityRow}>
+      <View style={[styles.settingIconBg, { backgroundColor: (colorMap[type] ?? Colors.primary) + '18' }]}>
+        <Ionicons name={iconMap[type] ?? 'swap-horizontal-outline'} size={18} color={colorMap[type] ?? Colors.primary} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.settingLabel}>{item.type ?? 'Transaction'}</Text>
+        <Text style={styles.activityTime}>{item.time ?? item.createdAt ?? ''}</Text>
+      </View>
+      <Text style={[styles.activityAmount, { color: colorMap[type] ?? Colors.textPrimary }]}>
+        {item.amount > 0 ? '+' : ''}{item.amount?.toFixed(4)} {item.token ?? 'BNB'}
+      </Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bg },
 
@@ -505,7 +572,9 @@ const styles = StyleSheet.create({
 
   // Section
   section: { gap: Spacing.sm },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 4 },
   sectionTitle: { fontSize: 18, fontWeight: '800', color: Colors.textPrimary, paddingHorizontal: 4 },
+  seeAll: { fontSize: 13, fontWeight: '700', color: Colors.primary },
 
   // Settings List
   settingsList: {
@@ -522,6 +591,11 @@ const styles = StyleSheet.create({
   settingDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.04)', marginHorizontal: Spacing.md },
   settingLabel: { fontSize: 15, fontWeight: '700', color: Colors.textPrimary, flex: 1 },
   settingValue: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary },
+  activityRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.md },
+  activityTime: { fontSize: 12, color: Colors.textMuted },
+  activityAmount: { fontSize: 13, fontWeight: '700' },
+  emptyState: { alignItems: 'center', gap: 8, padding: Spacing.lg },
+  emptyText: { fontSize: 13, color: Colors.textMuted },
 
   // Logout
   logoutBtn: {
