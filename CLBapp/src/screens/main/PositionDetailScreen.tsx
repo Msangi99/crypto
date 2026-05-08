@@ -26,7 +26,11 @@ export default function PositionDetailScreen({ route, navigation }: any) {
     );
   }
 
-  const pnl = data.unrealizedPnl ?? 0;
+  const position = data?.position ?? {};
+  const pool = position.pool ?? {};
+  const pnl = position.unrealizedPnlUsd ?? 0;
+  const pnlBase = position.loanUsd ?? 0;
+  const pnlPercent = pnlBase > 0 ? ((pnl / pnlBase) * 100).toFixed(2) : '0.00';
   const isUp = pnl >= 0;
 
   return (
@@ -36,8 +40,8 @@ export default function PositionDetailScreen({ route, navigation }: any) {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={22} color={Colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.title}>{data.poolName ?? `Pool ${poolId}`}</Text>
-        <Badge label={data.status ?? 'ACTIVE'} variant={data.status === 'ACTIVE' ? 'success' : 'warning'} />
+        <Text style={styles.title}>{pool.name ?? `Pool ${poolId}`}</Text>
+        <Badge label={pool.status ?? 'ACTIVE'} variant={pool.status === 'ACTIVE' ? 'success' : 'warning'} />
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: Spacing.lg, gap: Spacing.lg }}>
@@ -51,7 +55,7 @@ export default function PositionDetailScreen({ route, navigation }: any) {
           <View style={styles.pnlRow}>
             <Ionicons name={isUp ? 'trending-up' : 'trending-down'} size={16} color={isUp ? Colors.success : Colors.error} />
             <Text style={[styles.pnlPct, { color: isUp ? Colors.success : Colors.error }]}>
-              {data.pnlPercent ?? '0.00'}%
+              {pnlPercent}%
             </Text>
             <Text style={styles.pnlSub}>vs. entry price</Text>
           </View>
@@ -62,14 +66,14 @@ export default function PositionDetailScreen({ route, navigation }: any) {
           <Text style={styles.sectionTitle}>Position Details</Text>
           <LinearGradient colors={Colors.gradientCard} style={styles.detailsGrid}>
             {[
-              { label: 'Asset', value: data.asset ?? 'BNB' },
-              { label: 'Deposit (USD)', value: `$${(data.depositUsd ?? 0).toLocaleString()}` },
-              { label: 'Leverage', value: `${data.leverage ?? 1}x` },
-              { label: 'Loan Value', value: `$${(data.loanUsd ?? 0).toLocaleString()}`, accent: true },
-              { label: 'Crypto Amount', value: `${(data.cryptoAmount ?? 0).toFixed(6)} ${data.asset ?? ''}` },
-              { label: 'Entry Price', value: `$${(data.entryPrice ?? 0).toLocaleString()}` },
-              { label: 'Current Price', value: `$${(data.currentPrice ?? 0).toLocaleString()}` },
-              { label: 'Current Value', value: `$${(data.currentValue ?? 0).toLocaleString()}` },
+              { label: 'Asset', value: position.asset ?? 'BNB' },
+              { label: 'Deposit (USD)', value: `$${(position.depositUsd ?? 0).toLocaleString()}` },
+              { label: 'Leverage', value: `${position.leverage ?? 1}x` },
+              { label: 'Loan Value', value: `$${(position.loanUsd ?? 0).toLocaleString()}`, accent: true },
+              { label: 'Crypto Amount', value: `${(position.cryptoAllocation?.amount ?? 0).toFixed(6)} ${position.asset ?? ''}` },
+              { label: 'Current Price', value: `$${(position.cryptoAllocation?.currentPrice ?? 0).toLocaleString()}` },
+              { label: '24h Change', value: `${(position.cryptoAllocation?.change24h ?? 0).toFixed(2)}%` },
+              { label: 'Current Value', value: `$${(position.currentValueUsd ?? 0).toLocaleString()}` },
             ].map((item, i) => (
               <View key={i} style={[styles.detailItem, i % 2 === 0 && styles.detailItemLeft]}>
                 <Text style={styles.detailLabel}>{item.label}</Text>
@@ -83,18 +87,18 @@ export default function PositionDetailScreen({ route, navigation }: any) {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Profit Targets</Text>
           {[
-            { phase: 'Phase 1', data: data.liquidationTargets?.phase1, color: Colors.success },
-            { phase: 'Phase 2', data: data.liquidationTargets?.phase2, color: Colors.gold },
+            { phase: 'Phase 1', data: position.liquidation?.phase1, color: Colors.success },
+            { phase: 'Phase 2', data: position.liquidation?.phase2, color: Colors.gold },
           ].map((p) => (
             <LinearGradient key={p.phase} colors={Colors.gradientCard} style={styles.phaseCard}>
               <View style={[styles.phaseIndicator, { backgroundColor: p.color }]} />
               <View style={{ flex: 1, gap: 10 }}>
                 <View style={styles.phaseHeader}>
                   <Text style={[styles.phaseName, { color: p.color }]}>{p.phase}</Text>
-                  <Text style={styles.phaseTarget}>Target: ${(p.data?.price ?? 0).toLocaleString()}</Text>
+                  <Text style={styles.phaseTarget}>Target: ${(p.data?.target ?? 0).toLocaleString()}</Text>
                 </View>
                 <View style={styles.phaseMetrics}>
-                  <PhaseMetric label="Gross Profit" value={`$${(p.data?.grossProfit ?? 0).toFixed(2)}`} color={p.color} />
+                  <PhaseMetric label="Gross Value" value={`$${(p.data?.grossValue ?? 0).toFixed(2)}`} color={p.color} />
                   <PhaseMetric label="Platform Fee (15%)" value={`-$${(p.data?.platformFee ?? 0).toFixed(2)}`} color={Colors.error} />
                   <PhaseMetric label="Your Profit (85%)" value={`$${(p.data?.userProfit ?? 0).toFixed(2)}`} color={Colors.success} />
                 </View>
@@ -104,18 +108,18 @@ export default function PositionDetailScreen({ route, navigation }: any) {
         </View>
 
         {/* Receipt Token */}
-        {data.receiptToken && (
+        {position.deposits?.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Receipt Token</Text>
+            <Text style={styles.sectionTitle}>Latest Deposit</Text>
             <LinearGradient colors={Colors.gradientCard} style={styles.receiptCard}>
               <Ionicons name="ribbon-outline" size={28} color={Colors.gold} />
               <View style={{ flex: 1 }}>
-                <Text style={styles.receiptTokenId}>#{data.receiptToken.tokenId}</Text>
+                <Text style={styles.receiptTokenId}>#{position.deposits[0]?.id?.slice(0, 8)?.toUpperCase() ?? 'N/A'}</Text>
                 <Text style={styles.receiptMinted}>
-                  Minted {data.receiptToken.mintedAt ? new Date(data.receiptToken.mintedAt).toLocaleDateString() : ''}
+                  {position.deposits[0]?.createdAt ? new Date(position.deposits[0].createdAt).toLocaleDateString() : ''}
                 </Text>
               </View>
-              <Badge label="Soulbound" variant="gold" />
+              <Badge label={position.deposits[0]?.status ?? 'PENDING'} variant="gold" />
             </LinearGradient>
           </View>
         )}

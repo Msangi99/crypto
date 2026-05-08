@@ -43,6 +43,15 @@ function calcLiquidationProfit(cryptoAmount: number, targetPrice: number, loanUs
   return { grossValue, costBasis, grossProfit, platformFee, userProfit };
 }
 
+// Estimate an entry price from 24h move so position value can
+// react to current market price instead of mathematically canceling out.
+function getEstimatedEntryPrice(currentPrice: number, change24hPct: number): number {
+  if (currentPrice <= 0) return 0;
+  const factor = 1 + (change24hPct / 100);
+  if (factor <= 0) return currentPrice;
+  return currentPrice / factor;
+}
+
 // ─── Swagger Schemas ──────────────────────────────────────
 const schemas = {
   dashboard: {
@@ -170,11 +179,13 @@ export default async function userDashboardRoutes(fastify: FastifyInstance) {
         const leverage = getLeverage(shareUsd);
         const asset = m.pool.tokenSymbol === 'BTC' || m.pool.tokenSymbol === 'BTCB' ? 'BTC' : 'ETH';
         const assetPrice = prices[asset]?.usd || 0;
+        const assetChange24h = prices[asset]?.usd_24h_change || 0;
+        const entryPrice = getEstimatedEntryPrice(assetPrice, assetChange24h);
 
-        if (assetPrice > 0) {
+        if (assetPrice > 0 && entryPrice > 0) {
           const loanUsd = shareUsd * leverage;
           totalLoanUsd += loanUsd;
-          const cryptoAmount = loanUsd / assetPrice;
+          const cryptoAmount = loanUsd / entryPrice;
           // Current value of leveraged position = crypto held × current price
           portfolioValueUsd += cryptoAmount * assetPrice;
         }
@@ -253,8 +264,9 @@ export default async function userDashboardRoutes(fastify: FastifyInstance) {
         const asset = isBTC ? 'BTC' : 'ETH';
         const assetPrice = prices[asset]?.usd || 0;
         const change24h = prices[asset]?.usd_24h_change || 0;
+        const entryPrice = getEstimatedEntryPrice(assetPrice, change24h);
 
-        const cryptoAmount = assetPrice > 0 ? loanUsd / assetPrice : 0;
+        const cryptoAmount = entryPrice > 0 ? loanUsd / entryPrice : 0;
         const currentValueUsd = cryptoAmount * assetPrice;
         const unrealizedPnl = currentValueUsd - loanUsd;
         const targets = LIQUIDATION_TARGETS[asset];
@@ -347,8 +359,9 @@ export default async function userDashboardRoutes(fastify: FastifyInstance) {
       const asset = isBTC ? 'BTC' : 'ETH';
       const assetPrice = prices[asset]?.usd || 0;
       const change24h = prices[asset]?.usd_24h_change || 0;
+      const entryPrice = getEstimatedEntryPrice(assetPrice, change24h);
 
-      const cryptoAmount = assetPrice > 0 ? loanUsd / assetPrice : 0;
+      const cryptoAmount = entryPrice > 0 ? loanUsd / entryPrice : 0;
       const currentValueUsd = cryptoAmount * assetPrice;
       const unrealizedPnl = currentValueUsd - loanUsd;
       const targets = LIQUIDATION_TARGETS[asset];

@@ -6,7 +6,8 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radius, Shadow } from '../../constants/theme';
-import { tokensAPI } from '../../services/api';
+import { tokensAPI, userAPI } from '../../services/api';
+import { useAuthStore } from '../../store/authStore';
 
 const CLB_LOGO = require('../../../assets/clb-token.png');
 
@@ -19,27 +20,31 @@ const TOKEN_META: Record<string, { name: string; color: string; icon: string; ti
 };
 
 export default function WalletTokensScreen({ navigation }: any) {
+  const { isAuthenticated } = useAuthStore();
   const [balances, setBalances] = useState<any[]>([]);
   const [totalValue, setTotalValue] = useState(0);
+  const [portfolioValue, setPortfolioValue] = useState(0);
   const [history, setHistory] = useState<any[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const fetchData = useCallback(async () => {
     try {
-      const [balRes, histRes] = await Promise.all([
+      const [balRes, histRes, dashboardRes] = await Promise.all([
         tokensAPI.balances(),
         tokensAPI.history(1, 10),
+        isAuthenticated ? userAPI.dashboard() : Promise.resolve(null),
       ]);
       setBalances(balRes.data.balances || []);
       setTotalValue(balRes.data.totalValueUsd || 0);
       setHistory(histRes.data.transfers || []);
+      setPortfolioValue(dashboardRes?.data?.dashboard?.stats?.portfolioValueUsd || 0);
     } catch (err) {
       console.log('Token fetch error:', err);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isAuthenticated]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -128,6 +133,13 @@ export default function WalletTokensScreen({ navigation }: any) {
             <View style={styles.totalCard}>
               <Text style={styles.totalLabel}>Total CLB Value</Text>
               <Text style={styles.totalValue}>${totalValue.toFixed(2)}</Text>
+              {isAuthenticated ? (
+                <View style={styles.portfolioRow}>
+                  <Ionicons name="wallet-outline" size={14} color={Colors.primary} />
+                  <Text style={styles.portfolioLabel}>Connected Portfolio</Text>
+                  <Text style={styles.portfolioValue}>${portfolioValue.toFixed(2)}</Text>
+                </View>
+              ) : null}
             </View>
 
             {/* Action Buttons */}
@@ -206,6 +218,14 @@ const styles = StyleSheet.create({
   },
   totalLabel: { fontSize: 13, fontWeight: '600', color: Colors.textMuted },
   totalValue: { fontSize: 36, fontWeight: '900', color: Colors.primary, marginTop: 4 },
+  portfolioRow: {
+    marginTop: Spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  portfolioLabel: { fontSize: 12, fontWeight: '600', color: Colors.textSecondary },
+  portfolioValue: { fontSize: 13, fontWeight: '800', color: Colors.textPrimary },
 
   actions: {
     flexDirection: 'row', gap: 10, paddingHorizontal: Spacing.lg, marginBottom: Spacing.lg,
