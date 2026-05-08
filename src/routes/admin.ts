@@ -98,6 +98,23 @@ const adminSchemas = {
     summary: 'Dashboard stats',
     description: 'Aggregated platform statistics (users, pools, transactions, deposits)',
   },
+  getSettings: {
+    tags: ['Admin'],
+    summary: 'Get platform settings',
+    description: 'Returns global platform configuration flags',
+  },
+  updateSettings: {
+    tags: ['Admin'],
+    summary: 'Update platform settings',
+    description: 'Updates global platform configuration flags',
+    body: {
+      type: 'object',
+      properties: {
+        freePoolsEnabled: { type: 'boolean' },
+      },
+      required: ['freePoolsEnabled'],
+    },
+  },
 };
 
 export default async function adminRoutes(fastify: FastifyInstance) {
@@ -358,6 +375,54 @@ export default async function adminRoutes(fastify: FastifyInstance) {
       return {
         success: true,
         stats: { totalUsers, activeUsers, totalPools, totalTransactions, totalDeposits, activeLoans, settledLoans, liquidatedLoans },
+      };
+    }
+  );
+
+  // ─── GET /admin/settings — platform settings ─────
+  fastify.get(
+    '/settings',
+    { schema: adminSchemas.getSettings, preHandler: [adminMiddleware] },
+    async () => {
+      const settings = await prisma.platformSettings.upsert({
+        where: { id: 'default' },
+        update: {},
+        create: {
+          id: 'default',
+          freePoolsEnabled: false,
+        },
+      });
+
+      return {
+        success: true,
+        settings: {
+          freePoolsEnabled: settings.freePoolsEnabled,
+        },
+      };
+    }
+  );
+
+  // ─── PUT /admin/settings — update platform settings ─────
+  fastify.put<{
+    Body: { freePoolsEnabled: boolean };
+  }>(
+    '/settings',
+    { schema: adminSchemas.updateSettings, preHandler: [adminMiddleware] },
+    async (request) => {
+      const settings = await prisma.platformSettings.upsert({
+        where: { id: 'default' },
+        update: { freePoolsEnabled: request.body.freePoolsEnabled },
+        create: {
+          id: 'default',
+          freePoolsEnabled: request.body.freePoolsEnabled,
+        },
+      });
+
+      return {
+        success: true,
+        settings: {
+          freePoolsEnabled: settings.freePoolsEnabled,
+        },
       };
     }
   );

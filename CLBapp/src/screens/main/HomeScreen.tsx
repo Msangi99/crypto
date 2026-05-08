@@ -1,7 +1,7 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, RefreshControl,
-  TouchableOpacity, Dimensions, Image,
+  TouchableOpacity, Dimensions, Image, Animated,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,6 +9,7 @@ import { Colors, FontSize, Spacing, Radius } from '../../constants/theme';
 import Badge from '../../components/ui/Badge';
 import { userAPI, notificationsAPI } from '../../services/api';
 import { useAuthStore } from '../../store/authStore';
+import { useLivePrices } from '../../hooks/useLivePrices';
 
 const { width } = Dimensions.get('window');
 const LOGO = require('../../../assets/logo.png');
@@ -37,6 +38,18 @@ export default function HomeScreen({ navigation }: any) {
   }, []);
 
   useEffect(() => { load(); }, []);
+
+  // ── Live prices via Binance WebSocket ────────────────────────────────
+  const baseCoins: any[] = market?.market?.coins ?? [];
+  const liveSymbols = baseCoins.slice(0, 8).map((c: any) => c.symbol);
+  const livePrices = useLivePrices(liveSymbols);
+
+  const liveCoins = baseCoins.map((c: any) => {
+    const live = livePrices[c.symbol];
+    return live
+      ? { ...c, price: live.price, change24h: live.change24h, _live: true }
+      : c;
+  });
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -145,14 +158,17 @@ export default function HomeScreen({ navigation }: any) {
         {/* Live Market */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Live Market</Text>
+            <View style={styles.liveTitleWrap}>
+              <Text style={styles.sectionTitle}>Live Market</Text>
+              <LiveDot />
+            </View>
             <TouchableOpacity onPress={() => navigation.navigate('Market')}>
               <Text style={styles.seeAll}>See All</Text>
             </TouchableOpacity>
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.marketScroll}>
-            {market?.market?.coins?.length
-              ? market.market.coins.slice(0, 8).map((coin: any) => (
+            {liveCoins.length
+              ? liveCoins.slice(0, 8).map((coin: any) => (
                   <MarketChip key={coin.symbol} coin={coin} />
                 ))
               : ['BTC', 'ETH', 'BNB'].map((c) => <MarketChipSkeleton key={c} label={c} />)}
@@ -203,6 +219,36 @@ export default function HomeScreen({ navigation }: any) {
 function MarketChip({ coin }: { coin: any }) {
   const change = coin.change24h ?? 0;
   const isUp = change >= 0;
+  const price = coin.price ?? 0;
+
+  // Flash price color when it changes
+  const prevPriceRef = useRef<number>(price);
+  const flash = useRef(new Animated.Value(0)).current;
+  const [flashDir, setFlashDir] = useState<'up' | 'down' | null>(null);
+
+  useEffect(() => {
+    const prev = prevPriceRef.current;
+    if (prev !== 0 && price !== prev) {
+      setFlashDir(price > prev ? 'up' : 'down');
+      flash.setValue(1);
+      Animated.timing(flash, {
+        toValue: 0,
+        duration: 900,
+        useNativeDriver: false,
+      }).start(() => setFlashDir(null));
+    }
+    prevPriceRef.current = price;
+  }, [price]);
+
+  const flashColor = flash.interpolate({
+    inputRange: [0, 1],
+    outputRange: [Colors.textPrimary, flashDir === 'up' ? '#00D6A1' : '#FF4757'],
+  });
+
+  const formattedPrice = price >= 1000
+    ? `$${price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    : price >= 1 ? `$${price.toFixed(2)}` : `$${price.toFixed(4)}`;
+
   return (
     <View style={styles.marketChip}>
       <View style={styles.mcTopRow}>
@@ -216,17 +262,37 @@ function MarketChip({ coin }: { coin: any }) {
           <Text style={styles.mcName}>{coin.name}</Text>
         </View>
       </View>
-      <Text style={styles.mcPrice}>
-        {coin.price >= 1000
-          ? `$${coin.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-          : coin.price >= 1 ? `$${coin.price.toFixed(2)}` : `$${coin.price.toFixed(4)}`}
-      </Text>
+      <Animated.Text style={[styles.mcPrice, { color: flashColor }]}>
+        {formattedPrice}
+      </Animated.Text>
       <View style={[styles.mcChangeBadge, { backgroundColor: isUp ? 'rgba(0,214,161,0.12)' : 'rgba(255,71,87,0.12)' }]}>
         <Ionicons name={isUp ? 'caret-up' : 'caret-down'} size={10} color={isUp ? '#00D6A1' : '#FF4757'} />
         <Text style={[styles.mcChange, { color: isUp ? '#00D6A1' : '#FF4757' }]}>
           {Math.abs(change).toFixed(2)}%
         </Text>
       </View>
+    </View>
+  );
+}
+
+function LiveDot() {
+  const pulse = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 1, duration: 900, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0, duration: 900, useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [pulse]);
+  const opacity = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.35, 1] });
+  const scale = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.85, 1.15] });
+  return (
+    <View style={styles.liveBadge}>
+      <Animated.View style={[styles.liveDot, { opacity, transform: [{ scale }] }]} />
+      <Text style={styles.liveText}>LIVE</Text>
     </View>
   );
 }
@@ -354,6 +420,14 @@ const styles = StyleSheet.create({
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.md },
   sectionTitle: { fontSize: 18, fontWeight: '800', color: Colors.textPrimary },
   seeAll: { fontSize: 13, fontWeight: '700', color: Colors.primary },
+  liveTitleWrap: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  liveBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 99,
+    backgroundColor: 'rgba(255,71,87,0.12)',
+  },
+  liveDot: { width: 7, height: 7, borderRadius: 99, backgroundColor: '#FF4757' },
+  liveText: { fontSize: 10, fontWeight: '900', color: '#FF4757', letterSpacing: 0.5 },
 
   // Market chips
   marketScroll: { marginHorizontal: -Spacing.lg, paddingHorizontal: Spacing.lg },

@@ -1,13 +1,14 @@
 "use client";
 
-import { useState } from "react";
-import { Settings, User, Shield, Globe, Loader2, Save } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Settings, User, Shield, Globe, Loader2, Save, FlaskConical } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/lib/auth-context";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
@@ -17,6 +18,24 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [username, setUsername] = useState(user?.username || "");
   const [email, setEmail] = useState(user?.email || "");
+  const [freePoolsEnabled, setFreePoolsEnabled] = useState(false);
+  const [loadingSettings, setLoadingSettings] = useState(true);
+  const [savingSettings, setSavingSettings] = useState(false);
+
+  useEffect(() => {
+    const loadSettings = async () => {
+      setLoadingSettings(true);
+      try {
+        const res = await api.getAdminSettings();
+        setFreePoolsEnabled(Boolean(res.settings.freePoolsEnabled));
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to load system settings");
+      } finally {
+        setLoadingSettings(false);
+      }
+    };
+    loadSettings();
+  }, []);
 
   const handleSave = async () => {
     setSaving(true);
@@ -31,6 +50,18 @@ export default function SettingsPage() {
       toast.error(err instanceof Error ? err.message : "Failed to update profile");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSaveSystemSettings = async () => {
+    setSavingSettings(true);
+    try {
+      await api.updateAdminSettings({ freePoolsEnabled });
+      toast.success("System settings updated!");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update system settings");
+    } finally {
+      setSavingSettings(false);
     }
   };
 
@@ -114,6 +145,46 @@ export default function SettingsPage() {
               <p className="text-[#F0B90B]">L1: 20% · L2: 8% · L3: 5% · L4: 3% · L5: 1%</p>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card className="bg-[#1A1A1A] border-[#2A2A2A]">
+        <CardHeader>
+          <CardTitle className="text-white flex items-center gap-2">
+            <FlaskConical className="w-5 h-5 text-[#F0B90B]" />
+            Pool Access Mode
+          </CardTitle>
+          <CardDescription className="text-[#999]">
+            Control whether pool joins require real on-chain payment
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {loadingSettings ? (
+            <div className="flex items-center gap-2 text-[#999] text-sm">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Loading pool access settings...
+            </div>
+          ) : (
+            <fieldset className="space-y-3 border border-[#2A2A2A] rounded-lg p-4 bg-[#0D0D0D]">
+              <legend className="px-2 text-xs uppercase tracking-wide text-[#999]">Free Pools Mode</legend>
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm text-white font-medium">Allow Free Pool Join</p>
+                  <p className="text-xs text-[#999] mt-1">
+                    When enabled, users can join pools without real payment and deposits are marked as FREE_MODE.
+                  </p>
+                </div>
+                <Switch checked={freePoolsEnabled} onCheckedChange={setFreePoolsEnabled} aria-label="Allow free pool join mode" />
+              </div>
+            </fieldset>
+          )}
+          <div className="rounded-md border border-[#F0B90B]/30 bg-[#F0B90B]/10 p-3 text-xs text-[#F0B90B]">
+            Warning: Enabling free pools bypasses real payment checks for all clients.
+          </div>
+          <Button onClick={handleSaveSystemSettings} disabled={loadingSettings || savingSettings} className="bg-[#F0B90B] text-[#0D0D0D] hover:bg-[#FCD535] font-semibold">
+            {savingSettings ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+            Save Pool Access Mode
+          </Button>
         </CardContent>
       </Card>
 

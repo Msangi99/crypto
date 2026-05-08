@@ -140,6 +140,13 @@ export const api = {
   },
   getAdminStats: () =>
     request<{ success: boolean; stats: { totalUsers: number; activeUsers: number; totalPools: number; totalTransactions: number; totalDeposits: number } }>("/api/admin/stats"),
+  getAdminSettings: () =>
+    request<{ success: boolean; settings: { freePoolsEnabled: boolean } }>("/api/admin/settings"),
+  updateAdminSettings: (data: { freePoolsEnabled: boolean }) =>
+    request<{ success: boolean; settings: { freePoolsEnabled: boolean } }>("/api/admin/settings", {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
   getAdminReceipts: (page = 1, limit = 20) =>
     request<{ receipts: Array<{ id: string; tokenId: string; holder: string; holderName: string | null; poolName: string; poolSymbol: string; amount: number; txHash: string | null; status: string; mintedAt: string }>; total: number }>(`/api/admin/receipts?page=${page}&limit=${limit}`),
 

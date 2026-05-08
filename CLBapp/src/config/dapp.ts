@@ -32,7 +32,7 @@ export const DAPP_UNIVERSAL_URL = DAPP_URL;
  * Get one for free at https://cloud.reown.com and place it here
  * (and mirror it in `expo.extra.walletConnectProjectId` in app.json).
  */
-export const WALLETCONNECT_PROJECT_ID = '';
+export const WALLETCONNECT_PROJECT_ID = 'b9d252ad0927504b56f9e3b4ce9f6e1f';
 
 /** Public URLs of icons shown by wallets while the user is approving the connection. */
 export const DAPP_ICONS: string[] = [

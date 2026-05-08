@@ -112,9 +112,9 @@ const schemas = {
       type: 'object',
       properties: {
         amount: { type: 'number' },
-        txHash: { type: 'string' },
+        txHash: { type: 'string', description: 'Required unless free pool mode is enabled' },
       },
-      required: ['amount', 'txHash'],
+      required: ['amount'],
     },
     params: {
       type: 'object',
@@ -375,10 +375,10 @@ export default async function poolRoutes(fastify: FastifyInstance) {
   );
 
   // POST /pools/:id/deposit — record deposit
-  fastify.post<{ Params: { id: string }; Body: { amount: number; txHash: string } }>(
+  fastify.post<{ Params: { id: string }; Body: { amount: number; txHash?: string } }>(
     '/:id/deposit',
     { schema: schemas.deposit, preHandler: [authMiddleware] },
-    async (request: FastifyRequest<{ Params: { id: string }; Body: { amount: number; txHash: string } }>, reply: FastifyReply) => {
+    async (request: FastifyRequest<{ Params: { id: string }; Body: { amount: number; txHash?: string } }>, reply: FastifyReply) => {
       const { id } = request.params;
       const { amount, txHash } = request.body;
 
@@ -391,6 +391,20 @@ export default async function poolRoutes(fastify: FastifyInstance) {
         return reply.status(400).send({ success: false, error: 'Pool is not active' });
       }
 
+      const settings = await prisma.platformSettings.upsert({
+        where: { id: 'default' },
+        update: {},
+        create: {
+          id: 'default',
+          freePoolsEnabled: false,
+        },
+      });
+      const isFreeMode = settings.freePoolsEnabled;
+
+      if (!isFreeMode && !txHash) {
+        return reply.status(400).send({ success: false, error: 'txHash is required when free pool mode is disabled' });
+      }
+
       // Create deposit + update pool + ensure membership — all in transaction
       const result = await prisma.$transaction(async (tx) => {
         const deposit = await tx.deposit.create({
@@ -398,8 +412,29 @@ export default async function poolRoutes(fastify: FastifyInstance) {
             userId: request.userId!,
             poolId: id,
             amount,
-            txHash,
-            status: 'PENDING',
+            txHash: isFreeMode ? null : txHash,
+            status: isFreeMode ? 'CONFIRMED' : 'PENDING',
+            confirmedAt: isFreeMode ? new Date() : null,
+            confirmations: isFreeMode ? 1 : 0,
+          },
+        });
+
+        await tx.transaction.create({
+          data: {
+            userId: request.userId!,
+            type: 'DEPOSIT',
+            amount,
+            txHash: isFreeMode ? null : txHash,
+            status: isFreeMode ? 'SUCCESS' : 'PENDING',
+            metadata: isFreeMode
+              ? {
+                  mode: 'FREE_MODE',
+                  note: 'Deposit created without on-chain payment',
+                  poolId: id,
+                }
+              : {
+                  poolId: id,
+                },
           },
         });
 

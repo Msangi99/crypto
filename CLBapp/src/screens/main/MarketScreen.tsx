@@ -7,6 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, FontSize, Spacing, Radius } from '../../constants/theme';
 import { userAPI } from '../../services/api';
+import { useLivePrices } from '../../hooks/useLivePrices';
 
 const COIN_ICONS: Record<string, string> = {
   BTC: '₿', ETH: 'Ξ', BNB: 'B', SOL: '◎', ADA: '₳', DOGE: 'Ð',
@@ -77,14 +78,19 @@ export default function MarketScreen() {
 
   useEffect(() => { load(); }, []);
 
+  const baseCoins = data?.market?.coins ?? [];
+  const livePrices = useLivePrices(baseCoins.map((c: any) => c.symbol));
+  const allCoins = baseCoins.map((c: any) => {
+    const live = livePrices[c.symbol];
+    return live ? { ...c, price: live.price, change24h: live.change24h } : c;
+  });
+  const targets = data?.market?.targets ?? {};
+
   const onRefresh = async () => {
     setRefreshing(true);
     await load();
     setRefreshing(false);
   };
-
-  const allCoins = data?.market?.coins ?? [];
-  const targets = data?.market?.targets ?? {};
 
   const gainers = [...allCoins].sort((a: any, b: any) => (b.change24h ?? 0) - (a.change24h ?? 0)).slice(0, 3);
   const losers = [...allCoins].sort((a: any, b: any) => (a.change24h ?? 0) - (b.change24h ?? 0)).slice(0, 3);

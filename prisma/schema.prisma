@@ -387,3 +387,13 @@ enum WithdrawalStatus {
   FAILED
   REJECTED
 }
+
+// ─── Platform Settings ─────────────────────────────
+model PlatformSettings {
+  id               String   @id @default("default")
+  freePoolsEnabled Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("platform_settings")
+}
