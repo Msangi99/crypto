@@ -361,7 +361,10 @@ export default async function authRoutes(fastify: FastifyInstance) {
         }
       }
 
-      const existing = await prisma.user.findUnique({ where: { walletAddress: normalized } });
+      // Case-insensitive: same BEP-20 address must not register twice (Postgres text is case-sensitive).
+      const existing = await prisma.user.findFirst({
+        where: { walletAddress: { equals: normalized, mode: 'insensitive' } },
+      });
       if (existing) {
         return reply.status(403).send({
           success: false,
@@ -387,6 +390,15 @@ export default async function authRoutes(fastify: FastifyInstance) {
         });
       } catch (e) {
         if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+          const targets = (e.meta as { target?: string[] })?.target ?? [];
+          if (targets.includes('walletAddress')) {
+            return reply.status(403).send({
+              success: false,
+              code: 'WALLET_ALREADY_REGISTERED',
+              error:
+                'This wallet is already registered. Use “I already have a wallet” with your recovery phrase and PIN.',
+            });
+          }
           return reply
             .status(409)
             .send({ success: false, error: 'Email is already used by another account' });
