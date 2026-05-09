@@ -48,6 +48,11 @@ export const authAPI = {
     api.post('/api/auth/verify', { walletAddress, signature }),
   devLogin: (walletAddress: string, opts?: { email?: string; recoveryPhrase?: string }) =>
     api.post('/api/auth/dev-login', { walletAddress, ...opts }),
+  /** Read-only: true if no CLB account exists for this address (create-wallet flow before PIN). */
+  checkWalletAvailable: (walletAddress: string) =>
+    api.get<{ success: boolean; available: boolean; walletAddress: string }>(
+      `/api/auth/wallet-available/${encodeURIComponent(walletAddress)}`
+    ),
   createWallet: () =>
     api.post('/api/auth/create-wallet'),
   setupPin: (pin: string, enableBiometric = false) =>

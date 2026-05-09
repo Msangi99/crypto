@@ -5,11 +5,11 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, FontSize, Spacing, Radius } from '../../constants/theme';
-import { authAPI, referralsAPI } from '../../services/api';
+import { Colors, Spacing, Radius } from '../../constants/theme';
+import { authAPI } from '../../services/api';
 import { useAuthStore } from '../../store/authStore';
 
-export default function ImportWalletScreen({ navigation, route }: any) {
+export default function ImportWalletScreen({ navigation }: any) {
   const { setAuth } = useAuthStore();
   const [seedInput, setSeedInput] = useState('');
   const [pinInput, setPinInput] = useState('');
@@ -37,23 +37,6 @@ export default function ImportWalletScreen({ navigation, route }: any) {
       const res = await authAPI.importAccount(phrase, pinToSend);
       const { token, user } = res.data;
       await setAuth(token, { ...user, pinSetup: user.pinSetup ?? false });
-
-      const regEmail = route.params?.registrationEmail as string | undefined;
-      const refCode = route.params?.referralCode as string | undefined;
-      if (regEmail?.trim()) {
-        try {
-          await authAPI.updateProfile({ email: regEmail.trim().toLowerCase() });
-        } catch {
-          /* non-fatal */
-        }
-      }
-      if (refCode?.trim()) {
-        try {
-          await referralsAPI.apply(refCode.trim().toUpperCase());
-        } catch {
-          /* non-fatal */
-        }
-      }
 
       if (!user.pinSetup) {
         Alert.alert('Welcome Back', 'Account restored. Please set up a PIN for this device.');
@@ -90,7 +73,7 @@ export default function ImportWalletScreen({ navigation, route }: any) {
               <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
                 <Ionicons name="arrow-back" size={24} color={Colors.textPrimary} />
               </TouchableOpacity>
-              <Text style={styles.headerTitle}>Import Wallet</Text>
+              <Text style={styles.headerTitle}>Restore account</Text>
               <View style={{ width: 32 }} />
             </View>
 

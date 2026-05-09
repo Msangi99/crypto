@@ -298,6 +298,49 @@ export default async function authRoutes(fastify: FastifyInstance) {
     }
   );
 
+  // GET /auth/wallet-available/:walletAddress — read-only: can this address register as a new user?
+  fastify.get<{ Params: { walletAddress: string } }>(
+    '/wallet-available/:walletAddress',
+    {
+      schema: {
+        tags: ['Auth'],
+        summary: 'Check if wallet address is available for registration',
+        description:
+          'Returns whether no user row exists for this BEP-20 address (case-insensitive). No DB writes.',
+        params: {
+          type: 'object',
+          properties: { walletAddress: { type: 'string' } },
+          required: ['walletAddress'],
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              success: { type: 'boolean' },
+              available: { type: 'boolean' },
+              walletAddress: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const raw = request.params.walletAddress?.trim() ?? '';
+      const normalized = raw.toLowerCase();
+      if (!normalized.startsWith('0x') || normalized.length !== 42 || !/^0x[0-9a-f]{40}$/.test(normalized)) {
+        return reply.status(400).send({ success: false, error: 'Invalid BEP-20 address' });
+      }
+      const existing = await prisma.user.findFirst({
+        where: { walletAddress: { equals: normalized, mode: 'insensitive' } },
+      });
+      return {
+        success: true,
+        available: !existing,
+        walletAddress: normalized,
+      };
+    }
+  );
+
   // POST /auth/dev-login — development login without signature (for mobile app testing)
   fastify.post<{ Body: { walletAddress: string; email?: string; recoveryPhrase?: string } }>(
     '/dev-login',

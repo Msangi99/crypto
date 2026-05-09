@@ -10,6 +10,7 @@ import {
   Platform,
   Alert,
   Image,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,20 +21,22 @@ import { Colors, Spacing, Radius } from '../../constants/theme';
 import Button from '../../components/ui/Button';
 import { authAPI, referralsAPI } from '../../services/api';
 import { useAuthStore } from '../../store/authStore';
-import type { RegisterFlow } from './RegisterEmailReferralScreen';
 
 const LOGO = require('../../../assets/logo.png');
 
 export default function RegisterConnectWalletScreen({ navigation, route }: any) {
   const email: string = route.params?.email ?? '';
   const referralCode: string = route.params?.referralCode ?? '';
-  const flow: RegisterFlow = route.params?.flow ?? 'create';
 
   const [walletAddress, setWalletAddress] = useState('');
   const [phrase, setPhrase] = useState('');
   const [backupConfirmed, setBackupConfirmed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showPhrase, setShowPhrase] = useState(false);
+  /** After phrase + backup OK: server check for address availability */
+  const [addrAvailability, setAddrAvailability] = useState<
+    'idle' | 'checking' | 'available' | 'taken' | 'invalid_phrase' | 'error'
+  >('idle');
 
   const { setAuth } = useAuthStore();
   const { open: openAppKit } = useAppKit();
@@ -59,6 +62,34 @@ export default function RegisterConnectWalletScreen({ navigation, route }: any) 
     }
   }, [isConnected, connectedAddress, phrase, wordCount]);
 
+  useEffect(() => {
+    if (!backupConfirmed || wordCount < 12) {
+      setAddrAvailability('idle');
+      return;
+    }
+    let derived: string;
+    try {
+      derived = mnemonicToAccount(phrase.trim()).address.toLowerCase();
+    } catch {
+      setAddrAvailability('invalid_phrase');
+      return;
+    }
+    if (walletAddress.trim().toLowerCase() !== derived) {
+      setAddrAvailability('idle');
+      return;
+    }
+    const t = setTimeout(async () => {
+      setAddrAvailability('checking');
+      try {
+        const { data } = await authAPI.checkWalletAvailable(derived);
+        setAddrAvailability(data.available ? 'available' : 'taken');
+      } catch {
+        setAddrAvailability('error');
+      }
+    }, 550);
+    return () => clearTimeout(t);
+  }, [backupConfirmed, phrase, wordCount, walletAddress]);
+
   const handleGeneratePhrase = () => {
     const mnemonic = generateMnemonic(english);
     const acc = mnemonicToAccount(mnemonic);
@@ -73,41 +104,46 @@ export default function RegisterConnectWalletScreen({ navigation, route }: any) 
   };
 
   const handleSubmit = async () => {
-    const p = phrase.trim().toLowerCase();
-    if (flow === 'create') {
-      if (wordCount < 12) {
-        Alert.alert('Recovery phrase', 'Use “Generate phrase” or paste your 12 words from Trust Wallet / MetaMask.');
-        return;
-      }
-      if (!backupConfirmed) {
-        Alert.alert('Confirmation', 'Confirm that you have saved your recovery phrase.');
-        return;
-      }
+    if (wordCount < 12) {
+      Alert.alert('Recovery phrase', 'Use “Generate phrase” or paste your 12 words from Trust Wallet / MetaMask.');
+      return;
+    }
+    if (!backupConfirmed) {
+      Alert.alert('Confirmation', 'Confirm that you have saved your recovery phrase.');
+      return;
     }
 
-    const hasPhrase = p.split(/\s+/).filter(Boolean).length >= 12;
     let addr: string;
-    let recoveryPhrase: string | undefined;
+    let recoveryPhrase: string;
+    try {
+      addr = mnemonicToAccount(phrase.trim()).address.toLowerCase();
+      recoveryPhrase = phrase.trim();
+    } catch {
+      Alert.alert('Recovery phrase', 'These words are not a valid BIP39 phrase. Check spelling and order.');
+      return;
+    }
 
-    if (hasPhrase) {
-      try {
-        addr = mnemonicToAccount(phrase.trim()).address.toLowerCase();
-        recoveryPhrase = phrase.trim();
-      } catch {
-        Alert.alert('Recovery phrase', 'These words are not a valid BIP39 phrase. Check spelling and order.');
-        return;
-      }
-    } else {
-      addr = walletAddress.trim().toLowerCase();
-      recoveryPhrase = undefined;
-      if (!addr.startsWith('0x') || addr.length !== 42) {
-        Alert.alert('Invalid address', 'Enter a valid BEP-20 address or connect your wallet.');
-        return;
-      }
+    if (walletAddress.trim().toLowerCase() !== addr) {
+      Alert.alert(
+        'Address mismatch',
+        'The BEP-20 field must match the address from your 12-word phrase. Paste the phrase again or tap Generate.'
+      );
+      return;
     }
 
     setLoading(true);
     try {
+      const check = await authAPI.checkWalletAvailable(addr);
+      if (!check.data.available) {
+        Alert.alert(
+          'Wallet already registered',
+          'This address already has a CLB account. Use “I already have a wallet” with your phrase and PIN, or generate a new phrase.',
+          [{ text: 'OK' }]
+        );
+        setAddrAvailability('taken');
+        return;
+      }
+
       const res = await authAPI.devLogin(addr, {
         email: email || undefined,
         recoveryPhrase,
@@ -164,9 +200,8 @@ export default function RegisterConnectWalletScreen({ navigation, route }: any) 
             <Image source={LOGO} style={styles.logo} resizeMode="contain" />
             <Text style={styles.title}>Link your wallet</Text>
             <Text style={styles.subtitle}>
-              {flow === 'create'
-                ? 'After you generate or paste your 12 words, we always use the address from that phrase. Connecting another wallet will not replace it unless it is the same address.'
-                : 'Connect your external wallet or paste your BEP-20 address. Optional: add a phrase so you can restore this account later.'}
+              After you generate or paste your 12 words, we always use the address from that phrase. Connecting
+              another wallet will not replace it unless it is the same address.
             </Text>
           </LinearGradient>
 
@@ -231,9 +266,8 @@ export default function RegisterConnectWalletScreen({ navigation, route }: any) 
                 </TouchableOpacity>
               </View>
               <Text style={styles.phraseHint}>
-                {flow === 'create'
-                  ? 'Must match the address above. Tap generate for a new phrase on this phone, or paste from your existing wallet.'
-                  : 'Optional: if you add a valid BIP39 phrase, it must match the address and will be used for “Import” recovery.'}
+                Must match the address above. Tap generate for a new phrase on this phone, or paste from your
+                existing wallet.
               </Text>
               <TextInput
                 value={phrase}
@@ -254,37 +288,68 @@ export default function RegisterConnectWalletScreen({ navigation, route }: any) 
                 <Text style={[styles.wordCount, wordCount >= 12 && styles.wordCountOk]}>
                   {wordCount}/12+ words
                 </Text>
-                {flow === 'create' && (
-                  <TouchableOpacity style={styles.genBtn} onPress={handleGeneratePhrase}>
-                    <Ionicons name="refresh-outline" size={16} color="#000" />
-                    <Text style={styles.genBtnText}>Generate phrase on device</Text>
-                  </TouchableOpacity>
-                )}
+                <TouchableOpacity style={styles.genBtn} onPress={handleGeneratePhrase}>
+                  <Ionicons name="refresh-outline" size={16} color="#000" />
+                  <Text style={styles.genBtnText}>Generate phrase on device</Text>
+                </TouchableOpacity>
               </View>
             </View>
 
-            {flow === 'create' && (
-              <TouchableOpacity
-                style={styles.checkRow}
-                onPress={() => setBackupConfirmed(!backupConfirmed)}
-                activeOpacity={0.8}
+            <TouchableOpacity
+              style={styles.checkRow}
+              onPress={() => setBackupConfirmed(!backupConfirmed)}
+              activeOpacity={0.8}
+            >
+              <Ionicons
+                name={backupConfirmed ? 'checkbox' : 'square-outline'}
+                size={22}
+                color={backupConfirmed ? Colors.primary : Colors.textMuted}
+              />
+              <Text style={styles.checkText}>
+                I have written down my recovery phrase and understand I need it to restore access.
+              </Text>
+            </TouchableOpacity>
+
+            {addrAvailability !== 'idle' && (
+              <View
+                style={[
+                  styles.availBanner,
+                  addrAvailability === 'available' && styles.availOk,
+                  addrAvailability === 'taken' && styles.availBad,
+                  (addrAvailability === 'checking' ||
+                    addrAvailability === 'invalid_phrase' ||
+                    addrAvailability === 'error') &&
+                    styles.availNeutral,
+                ]}
               >
-                <Ionicons
-                  name={backupConfirmed ? 'checkbox' : 'square-outline'}
-                  size={22}
-                  color={backupConfirmed ? Colors.primary : Colors.textMuted}
-                />
-                <Text style={styles.checkText}>
-                  I have written down my recovery phrase and understand I need it to restore access.
+                {addrAvailability === 'checking' && (
+                  <ActivityIndicator size="small" color={Colors.primary} style={{ marginRight: 8 }} />
+                )}
+                <Text style={styles.availText}>
+                  {addrAvailability === 'checking' && 'Checking if this address is free…'}
+                  {addrAvailability === 'available' &&
+                    'This address is available — you can continue to set your PIN.'}
+                  {addrAvailability === 'taken' &&
+                    'This address is already in use. Generate a new phrase or use “I already have a wallet”.'}
+                  {addrAvailability === 'invalid_phrase' &&
+                    'These words are not a valid recovery phrase. Fix spelling or order.'}
+                  {addrAvailability === 'error' &&
+                    'Could not verify availability online. You can still try Continue — we will check again.'}
                 </Text>
-              </TouchableOpacity>
+              </View>
             )}
 
-            <Button label="Continue to PIN" onPress={handleSubmit} loading={loading} fullWidth />
+            <Button
+              label="Continue to PIN"
+              onPress={handleSubmit}
+              loading={loading}
+              disabled={addrAvailability === 'taken' || addrAvailability === 'invalid_phrase'}
+              fullWidth
+            />
 
             <Text style={styles.footerNote}>
-              One wallet address = one CLB account. Use the same flow to sign in on a new phone with your phrase
-              (Import) or this address.
+              Already have a CLB account? Go back and use “I already have a wallet” (phrase + PIN) or “Connect with
+              address” for a quick sign-in with a new device address.
             </Text>
           </View>
         </ScrollView>
@@ -423,5 +488,31 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 16,
     marginTop: 4,
+  },
+  availBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: Spacing.md,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+  },
+  availOk: {
+    backgroundColor: 'rgba(0,214,161,0.08)',
+    borderColor: 'rgba(0,214,161,0.35)',
+  },
+  availBad: {
+    backgroundColor: 'rgba(239,68,68,0.08)',
+    borderColor: 'rgba(239,68,68,0.35)',
+  },
+  availNeutral: {
+    backgroundColor: Colors.bgCard,
+    borderColor: Colors.border,
+  },
+  availText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+    lineHeight: 17,
   },
 });

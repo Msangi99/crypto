@@ -18,28 +18,10 @@ import Button from '../../components/ui/Button';
 
 const LOGO = require('../../../assets/logo.png');
 
-export type RegisterFlow = 'create' | 'import' | 'connect';
-
-export default function RegisterEmailReferralScreen({ navigation, route }: any) {
-  const flow: RegisterFlow = route.params?.flow ?? 'create';
+/** Step 1 — only for “Create new wallet”. Restore & connect use other screens. */
+export default function RegisterEmailReferralScreen({ navigation }: any) {
   const [email, setEmail] = useState('');
   const [referralCode, setReferralCode] = useState('');
-
-  const title =
-    flow === 'create'
-      ? 'Create account'
-      : flow === 'import'
-        ? 'Restore account'
-        : 'Connect wallet';
-
-  const subtitle =
-    flow === 'create'
-      ? 'Enter your email and optional referral code. Next you will link your BSC wallet and secure your recovery phrase.'
-      : flow === 'import'
-        ? 'Enter your email, then you will paste your 12-word phrase to restore your CLB account.'
-        : 'Enter your email, then connect your Trust Wallet, MetaMask, or paste your BEP-20 address.';
-
-  const continueLabel = 'Continue';
 
   const handleContinue = () => {
     const e = email.trim().toLowerCase();
@@ -47,17 +29,9 @@ export default function RegisterEmailReferralScreen({ navigation, route }: any) 
       Alert.alert('Email required', 'Please enter a valid email address.');
       return;
     }
-    if (flow === 'import') {
-      navigation.navigate('ImportWallet', {
-        registrationEmail: e,
-        referralCode: referralCode.trim().toUpperCase(),
-      });
-      return;
-    }
     navigation.navigate('RegisterConnectWallet', {
       email: e,
       referralCode: referralCode.trim().toUpperCase(),
-      flow,
     });
   };
 
@@ -70,8 +44,11 @@ export default function RegisterEmailReferralScreen({ navigation, route }: any) 
           <Ionicons name="arrow-back" size={24} color={Colors.textPrimary} />
         </TouchableOpacity>
         <Image source={LOGO} style={styles.logo} resizeMode="contain" />
-        <Text style={styles.title}>{title}</Text>
-        <Text style={styles.subtitle}>{subtitle}</Text>
+        <Text style={styles.title}>Create account</Text>
+        <Text style={styles.subtitle}>
+          New to CLB only. Enter your email and optional referral code, then you will create your wallet
+          phrase and link your address.
+        </Text>
       </LinearGradient>
 
       <KeyboardAvoidingView
@@ -115,12 +92,7 @@ export default function RegisterEmailReferralScreen({ navigation, route }: any) 
             </View>
           </View>
 
-          <Button
-            label={continueLabel}
-            onPress={handleContinue}
-            disabled={!emailValid}
-            fullWidth
-          />
+          <Button label="Continue" onPress={handleContinue} disabled={!emailValid} fullWidth />
         </ScrollView>
       </KeyboardAvoidingView>
     </View>

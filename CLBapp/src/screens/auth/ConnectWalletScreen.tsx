@@ -126,7 +126,7 @@ export default function ConnectWalletScreen() {
               <Image source={LOGO} style={styles.logo} resizeMode="contain" />
             </View>
             <Text style={styles.title}>CryptoLoanBoost</Text>
-            <Text style={styles.subtitle}>Connect your wallet to get started</Text>
+            <Text style={styles.subtitle}>Sign in with your BEP-20 address (new device / quick access)</Text>
 
             {/* Feature Pills */}
             <View style={styles.pillsRow}>
@@ -143,7 +143,9 @@ export default function ConnectWalletScreen() {
             <View style={styles.infoBanner}>
               <Ionicons name="information-circle-outline" size={16} color={Colors.primary} />
               <Text style={styles.infoText}>
-                Use your Trust Wallet or MetaMask BSC address. New wallets are registered automatically.
+                This path does not ask for your 12-word phrase. If you already have a CLB account, use “I already
+                have a wallet” on the welcome screen instead. Here we register a new address or open a lightweight
+                session for the address you enter.
               </Text>
             </View>
 
