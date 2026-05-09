@@ -91,9 +91,11 @@ export default async function withdrawalRoutes(fastify: FastifyInstance) {
         }
 
         if (!tokenService.isConfigured(token)) {
+          const config = tokenService.getConfigStatus(token);
           return reply.status(503).send({
             success: false,
             error: `On-chain ${token} withdrawals are not configured yet.`,
+            config,
           });
         }
 

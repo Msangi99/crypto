@@ -44,6 +44,17 @@ export const tokenService = {
     return !!wallet && CLB_ABI.length > 0 && !!TOKEN_ADDRESSES[token];
   },
 
+  getConfigStatus(token = 'CLB') {
+    return {
+      token,
+      configured: !!wallet && CLB_ABI.length > 0 && !!TOKEN_ADDRESSES[token],
+      hasTokenAddress: !!TOKEN_ADDRESSES[token],
+      hasPrivateKey: !!wallet,
+      hasAbi: CLB_ABI.length > 0,
+      chainId: env.CHAIN_ID,
+    };
+  },
+
   /**
    * Get contract address for a token
    */
