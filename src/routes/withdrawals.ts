@@ -191,7 +191,7 @@ export default async function withdrawalRoutes(fastify: FastifyInstance) {
             toAddress: completedWithdrawal.toAddress,
             status: completedWithdrawal.status,
             txHash,
-            explorerUrl: `https://bscscan.com/tx/${txHash}`,
+            explorerUrl: tokenService.getExplorerTxUrl(txHash),
             createdAt: completedWithdrawal.createdAt,
             processedAt: completedWithdrawal.processedAt,
           },

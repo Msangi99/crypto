@@ -14,18 +14,17 @@ try {
 
 // Token contract addresses from env
 const TOKEN_ADDRESSES: Record<string, string> = {
-  CLB: process.env.CLB_TOKEN_ADDRESS || '',
-  CLBg: process.env.CLBG_TOKEN_ADDRESS || '',
-  CLBs: process.env.CLBS_TOKEN_ADDRESS || '',
+  CLB: env.CLB_TOKEN_ADDRESS,
+  CLBg: env.CLBG_TOKEN_ADDRESS,
+  CLBs: env.CLBS_TOKEN_ADDRESS,
 };
 
 // BSC provider
-// Use testnet RPC while tokens are on testnet; switch to BSC_RPC_URL for mainnet
-const BSC_RPC = process.env.BSC_TESTNET_RPC_URL || process.env.BSC_RPC_URL || 'https://data-seed-prebsc-1-s1.binance.org:8545';
+const BSC_RPC = env.CHAIN_ID === 56 ? env.BSC_RPC_URL : env.BSC_TESTNET_RPC_URL;
 const provider = new ethers.JsonRpcProvider(BSC_RPC);
 
 // Hot wallet (minter) — same key used to deploy tokens
-const PRIVATE_KEY = process.env.PRIVATE_KEY || '';
+const PRIVATE_KEY = env.PRIVATE_KEY;
 let wallet: Wallet | null = null;
 if (PRIVATE_KEY && PRIVATE_KEY.length >= 64 && !PRIVATE_KEY.includes('never-commit')) {
   wallet = new Wallet(PRIVATE_KEY, provider);
@@ -116,5 +115,10 @@ export const tokenService = {
    */
   getTokenAddresses(): Record<string, string> {
     return { ...TOKEN_ADDRESSES };
+  },
+
+  getExplorerTxUrl(txHash: string): string {
+    const baseUrl = env.CHAIN_ID === 56 ? 'https://bscscan.com' : 'https://testnet.bscscan.com';
+    return `${baseUrl}/tx/${txHash}`;
   },
 };

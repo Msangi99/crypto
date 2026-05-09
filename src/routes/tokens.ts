@@ -280,7 +280,7 @@ export default async function tokenRoutes(fastify: FastifyInstance) {
           type: isInternal ? 'INTERNAL' : 'EXTERNAL',
           status: isInternal ? 'COMPLETED' : status,
           txHash,
-          explorerUrl: txHash ? `https://bscscan.com/tx/${txHash}` : null,
+          explorerUrl: txHash ? tokenService.getExplorerTxUrl(txHash) : null,
         },
       };
     }
@@ -504,7 +504,7 @@ export default async function tokenRoutes(fastify: FastifyInstance) {
         alreadyInSync: false,
         minted: amountToMint,
         txHash,
-        explorerUrl: txHash ? `https://bscscan.com/tx/${txHash}` : null,
+        explorerUrl: txHash ? tokenService.getExplorerTxUrl(txHash) : null,
         sync: {
           portfolioValueUsd,
           onChainCLBBalanceBefore: parseFloat(onChainBalance.toFixed(6)),

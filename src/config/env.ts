@@ -1,5 +1,6 @@
 import dotenv from 'dotenv';
 dotenv.config();
+dotenv.config({ path: '.env.example' });
 
 export const env = {
   // Server
@@ -19,6 +20,9 @@ export const env = {
   CHAIN_ID: parseInt(process.env.CHAIN_ID || '97', 10),
   POOL_MANAGER_CONTRACT: process.env.POOL_MANAGER_CONTRACT || '',
   PRIVATE_KEY: process.env.PRIVATE_KEY || '',
+  CLB_TOKEN_ADDRESS: process.env.CLB_TOKEN_ADDRESS || '',
+  CLBG_TOKEN_ADDRESS: process.env.CLBG_TOKEN_ADDRESS || '',
+  CLBS_TOKEN_ADDRESS: process.env.CLBS_TOKEN_ADDRESS || '',
 
   // Price Feed (optional PRO key → header x-cg-pro-api-key on requests)
   COINGECKO_API_URL: process.env.COINGECKO_API_URL || 'https://api.coingecko.com/api/v3',
