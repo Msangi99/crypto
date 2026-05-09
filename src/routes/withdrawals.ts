@@ -1,6 +1,13 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import prisma from '../config/db';
 import { authMiddleware } from '../middleware/auth';
+import { tokenService } from '../services/tokenService';
+
+const CLB_TOKENS = ['CLB', 'CLBg', 'CLBs'];
+
+function isValidEvmAddress(address: string): boolean {
+  return /^0x[a-fA-F0-9]{40}$/.test(address);
+}
 
 // Minimum withdrawal amounts
 const MIN_WITHDRAW: Record<string, number> = {
@@ -40,14 +47,30 @@ export default async function withdrawalRoutes(fastify: FastifyInstance) {
         return reply.status(400).send({ success: false, error: 'Missing required fields' });
       }
 
-      const isClbToken = ['CLB', 'CLBg', 'CLBs'].includes(token);
+      const isClbToken = CLB_TOKENS.includes(token);
       const min = MIN_WITHDRAW[token] || 0;
       const fee = WITHDRAW_FEES[token] || 0;
+      const netAmount = amount - fee;
+      const normalizedToAddress = toAddress.toLowerCase();
 
       if (amount < min) {
         return reply.status(400).send({
           success: false,
           error: `Minimum withdrawal for ${token} is ${min}`,
+        });
+      }
+
+      if (netAmount <= 0) {
+        return reply.status(400).send({
+          success: false,
+          error: `Amount must be greater than the ${fee} ${token} fee`,
+        });
+      }
+
+      if (isClbToken && !isValidEvmAddress(toAddress)) {
+        return reply.status(400).send({
+          success: false,
+          error: 'Enter a valid BNB Smart Chain wallet address',
         });
       }
 
@@ -60,21 +83,119 @@ export default async function withdrawalRoutes(fastify: FastifyInstance) {
           ? Number(balance.balance) - Number(balance.locked)
           : 0;
 
-        if (available < amount + fee) {
+        if (available < amount) {
           return reply.status(400).send({
             success: false,
-            error: `Insufficient ${token} balance. Available: ${available.toFixed(2)}, Need: ${(amount + fee).toFixed(2)} (incl. fee)`,
+            error: `Insufficient ${token} balance. Available: ${available.toFixed(2)}`,
           });
         }
 
-        // Lock the withdrawal amount
-        await prisma.tokenBalance.update({
-          where: { userId_token: { userId, token } },
-          data: {
-            balance: { decrement: amount + fee },
-            locked: { increment: amount },
-          },
+        if (!tokenService.isConfigured(token)) {
+          return reply.status(503).send({
+            success: false,
+            error: `On-chain ${token} withdrawals are not configured yet.`,
+          });
+        }
+
+        const [withdrawal, txLog] = await prisma.$transaction([
+          prisma.tokenBalance.update({
+            where: { userId_token: { userId, token } },
+            data: { balance: { decrement: amount } },
+          }),
+          prisma.withdrawal.create({
+            data: {
+              userId,
+              token,
+              amount,
+              toAddress: normalizedToAddress,
+              fee,
+              status: 'PROCESSING',
+            },
+          }),
+          prisma.transaction.create({
+            data: {
+              userId,
+              type: 'WITHDRAWAL',
+              amount,
+              toAddress: normalizedToAddress,
+              status: 'PENDING',
+              metadata: { token, fee, netAmount, directOnChain: true },
+            },
+          }),
+        ]).then(([, createdWithdrawal, createdTx]) => [createdWithdrawal, createdTx] as const);
+
+        let txHash: string | undefined;
+        try {
+          const result = await tokenService.mint(token, normalizedToAddress, netAmount);
+          if (!result?.txHash) throw new Error(`On-chain ${token} withdrawal did not return a transaction hash`);
+          txHash = result.txHash;
+        } catch (err: any) {
+          await prisma.$transaction([
+            prisma.tokenBalance.update({
+              where: { userId_token: { userId, token } },
+              data: { balance: { increment: amount } },
+            }),
+            prisma.withdrawal.update({
+              where: { id: withdrawal.id },
+              data: { status: 'FAILED', processedAt: new Date() },
+            }),
+            prisma.transaction.update({
+              where: { id: txLog.id },
+              data: {
+                status: 'FAILED',
+                metadata: { token, fee, netAmount, directOnChain: true, error: err?.message || 'On-chain withdrawal failed' },
+              },
+            }),
+          ]);
+
+          return reply.status(502).send({
+            success: false,
+            error: 'On-chain withdrawal failed. Balance refunded.',
+            detail: err?.message,
+          });
+        }
+
+        const completedWithdrawal = await prisma.withdrawal.update({
+          where: { id: withdrawal.id },
+          data: { status: 'COMPLETED', txHash, processedAt: new Date() },
         });
+
+        await prisma.$transaction([
+          prisma.transaction.update({
+            where: { id: txLog.id },
+            data: {
+              txHash,
+              status: 'SUCCESS',
+              metadata: { withdrawalId: withdrawal.id, token, fee, netAmount, directOnChain: true },
+            },
+          }),
+          prisma.notification.create({
+            data: {
+              userId,
+              type: 'WITHDRAWAL',
+              title: `${token} sent to wallet`,
+              body: `${netAmount.toFixed(6)} ${token} was sent on BNB Smart Chain to ${toAddress.slice(0, 8)}...${toAddress.slice(-4)}.`,
+              data: { withdrawalId: withdrawal.id, token, amount, netAmount, txHash },
+            },
+          }),
+        ]);
+
+        return {
+          success: true,
+          withdrawal: {
+            id: completedWithdrawal.id,
+            token,
+            amount: Number(completedWithdrawal.amount),
+            fee: Number(completedWithdrawal.fee),
+            netAmount,
+            toAddress: completedWithdrawal.toAddress,
+            status: completedWithdrawal.status,
+            txHash,
+            explorerUrl: `https://bscscan.com/tx/${txHash}`,
+            createdAt: completedWithdrawal.createdAt,
+            processedAt: completedWithdrawal.processedAt,
+          },
+        };
       }
 
       const withdrawal = await prisma.withdrawal.create({
@@ -82,7 +203,7 @@ export default async function withdrawalRoutes(fastify: FastifyInstance) {
           userId,
           token,
           amount,
-          toAddress: toAddress.toLowerCase(),
+          toAddress: normalizedToAddress,
           fee,
           status: 'PENDING',
         },
@@ -94,7 +215,7 @@ export default async function withdrawalRoutes(fastify: FastifyInstance) {
           userId,
           type: 'WITHDRAWAL',
           amount,
-          toAddress: toAddress.toLowerCase(),
+          toAddress: normalizedToAddress,
           status: 'PENDING',
           metadata: { withdrawalId: withdrawal.id, token, fee },
         },
@@ -118,7 +239,7 @@ export default async function withdrawalRoutes(fastify: FastifyInstance) {
           token,
           amount: Number(withdrawal.amount),
           fee: Number(withdrawal.fee),
-          netAmount: amount - fee,
+          netAmount,
           toAddress: withdrawal.toAddress,
           status: withdrawal.status,
           createdAt: withdrawal.createdAt,

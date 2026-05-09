@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput, Alert,
-  ScrollView, KeyboardAvoidingView, Platform, Image,
+  ScrollView, KeyboardAvoidingView, Platform, Image, Linking,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,9 +11,9 @@ import { withdrawalsAPI, tokensAPI } from '../../services/api';
 const CLB_LOGO = require('../../../assets/clb-token.png');
 
 const TOKENS = [
+  { symbol: 'CLB', name: 'CLB Token', color: '#3B82F6', icon: 'cube' },
   { symbol: 'CLBg', name: 'CLB Gold', color: '#F0B90B', icon: 'diamond' },
   { symbol: 'CLBs', name: 'CLB Silver', color: '#C0C0C0', icon: 'flash' },
-  { symbol: 'CLB', name: 'CLB Token', color: '#3B82F6', icon: 'cube' },
 ];
 
 export default function WithdrawScreen({ navigation }: any) {
@@ -57,7 +57,11 @@ export default function WithdrawScreen({ navigation }: any) {
       Alert.alert('Minimum', `Minimum withdrawal is ${minAmount} ${selectedToken.symbol}`);
       return;
     }
-    if (numAmount + fee > available) {
+    if (numAmount <= fee) {
+      Alert.alert('Amount too low', `Amount must be greater than the ${fee} ${selectedToken.symbol} fee`);
+      return;
+    }
+    if (numAmount > available) {
       Alert.alert('Insufficient Balance', `Available: ${available.toFixed(2)} ${selectedToken.symbol}`);
       return;
     }
@@ -68,15 +72,21 @@ export default function WithdrawScreen({ navigation }: any) {
 
     setLoading(true);
     try {
-      await withdrawalsAPI.request({
+      const res = await withdrawalsAPI.request({
         token: selectedToken.symbol,
         amount: numAmount,
         toAddress,
       });
+      const explorerUrl = res.data?.withdrawal?.explorerUrl;
       Alert.alert(
-        'Withdrawal Submitted',
-        `${netAmount.toFixed(2)} ${selectedToken.symbol} will be sent to your wallet.`,
-        [{ text: 'OK', onPress: () => navigation.goBack() }]
+        'Withdrawal Sent',
+        `${netAmount.toFixed(2)} ${selectedToken.symbol} was sent directly on BNB Smart Chain.`,
+        [
+          ...(explorerUrl
+            ? [{ text: 'View on BscScan', onPress: () => Linking.openURL(explorerUrl) }]
+            : []),
+          { text: 'OK', onPress: () => navigation.goBack() },
+        ]
       );
     } catch (err: any) {
       Alert.alert('Error', err?.response?.data?.error || 'Withdrawal failed');
@@ -133,7 +143,7 @@ export default function WithdrawScreen({ navigation }: any) {
               value={amount}
               onChangeText={setAmount}
             />
-            <TouchableOpacity onPress={() => setAmount(Math.max(0, available - fee).toFixed(2))}>
+            <TouchableOpacity onPress={() => setAmount(Math.max(0, available).toFixed(2))}>
               <Text style={styles.maxBtn}>MAX</Text>
             </TouchableOpacity>
           </View>
@@ -155,7 +165,7 @@ export default function WithdrawScreen({ navigation }: any) {
           </View>
           <Text style={styles.addressHint}>
             <Ionicons name="information-circle-outline" size={12} color={Colors.textMuted} />
-            {' '}BEP-20 / ERC-20 compatible address
+            {' '}Use a BNB Smart Chain address. CLB is a BEP-20 token; Trust Wallet may show the network as BNB.
           </Text>
 
           {/* Summary */}

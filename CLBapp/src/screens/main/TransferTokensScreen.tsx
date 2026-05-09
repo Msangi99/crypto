@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput, Alert,
-  ScrollView, KeyboardAvoidingView, Platform, Image,
+  ScrollView, KeyboardAvoidingView, Platform, Image, Linking,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -32,9 +32,9 @@ function amountStringForInput(n: number): string {
 }
 
 const TOKENS = [
+  { symbol: 'CLB', name: 'CLB Token', color: '#3B82F6', icon: 'cube' },
   { symbol: 'CLBg', name: 'CLB Gold', color: '#F0B90B', icon: 'diamond' },
   { symbol: 'CLBs', name: 'CLB Silver', color: '#C0C0C0', icon: 'flash' },
-  { symbol: 'CLB', name: 'CLB Token', color: '#3B82F6', icon: 'cube' },
 ];
 
 export default function TransferTokensScreen({ navigation }: any) {
@@ -102,11 +102,18 @@ export default function TransferTokensScreen({ navigation }: any) {
                 token: selectedToken.symbol,
                 amount: numAmount,
                 note: note || undefined,
+                delivery: 'ON_CHAIN',
               });
+              const explorerUrl = res.data?.transfer?.explorerUrl;
               Alert.alert(
-                'Transfer Sent!',
-                `${formatSelectableBalance(toNum(res.data?.transfer?.netAmount))} ${selectedToken.symbol} sent successfully.`,
-                [{ text: 'OK', onPress: () => { loadBalances(); navigation.goBack(); } }],
+                'Transfer Sent',
+                `${formatSelectableBalance(toNum(res.data?.transfer?.netAmount))} ${selectedToken.symbol} sent directly on BNB Smart Chain.`,
+                [
+                  ...(explorerUrl
+                    ? [{ text: 'View on BscScan', onPress: () => Linking.openURL(explorerUrl) }]
+                    : []),
+                  { text: 'OK', onPress: () => { loadBalances(); navigation.goBack(); } },
+                ],
               );
             } catch (err: any) {
               Alert.alert('Error', err?.response?.data?.error || 'Transfer failed');
@@ -180,6 +187,9 @@ export default function TransferTokensScreen({ navigation }: any) {
               autoCapitalize="none"
             />
           </View>
+          <Text style={styles.balanceHint}>
+            Use the recipient's BNB Smart Chain address. CLB is sent as a BEP-20 token, not as BNB.
+          </Text>
 
           {/* Amount */}
           <Text style={styles.label}>Amount</Text>

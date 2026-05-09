@@ -41,8 +41,8 @@ export const tokenService = {
   /**
    * Check if on-chain token service is configured
    */
-  isConfigured(): boolean {
-    return !!wallet && CLB_ABI.length > 0 && !!TOKEN_ADDRESSES.CLB;
+  isConfigured(token = 'CLB'): boolean {
+    return !!wallet && CLB_ABI.length > 0 && !!TOKEN_ADDRESSES[token];
   },
 
   /**

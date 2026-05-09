@@ -12,6 +12,11 @@ import { computeMiningProgress } from '../services/miningAccrual';
  * "Sync to Wallet" presses.
  */
 const MIN_SYNC_GAP_USD = 0.5;
+const CLB_TOKENS = ['CLB', 'CLBg', 'CLBs'];
+
+function isValidEvmAddress(address: string): boolean {
+  return /^0x[a-fA-F0-9]{40}$/.test(address);
+}
 
 export default async function tokenRoutes(fastify: FastifyInstance) {
 
@@ -114,15 +119,15 @@ export default async function tokenRoutes(fastify: FastifyInstance) {
 
   // ─── POST /tokens/transfer — Transfer tokens to another user ─
   fastify.post<{
-    Body: { toAddress: string; token: string; amount: number; note?: string };
+    Body: { toAddress: string; token: string; amount: number; note?: string; delivery?: 'INTERNAL' | 'ON_CHAIN' };
   }>(
     '/transfer',
     { preHandler: [authMiddleware] },
     async (request: FastifyRequest<{
-      Body: { toAddress: string; token: string; amount: number; note?: string };
+      Body: { toAddress: string; token: string; amount: number; note?: string; delivery?: 'INTERNAL' | 'ON_CHAIN' };
     }>, reply: FastifyReply) => {
       const userId = request.userId!;
-      const { toAddress, token, amount, note } = request.body;
+      const { toAddress, token, amount, note, delivery } = request.body;
 
       if (!toAddress || !token || !amount) {
         return reply.status(400).send({ success: false, error: 'Missing required fields' });
@@ -130,7 +135,7 @@ export default async function tokenRoutes(fastify: FastifyInstance) {
       if (amount <= 0) {
         return reply.status(400).send({ success: false, error: 'Amount must be positive' });
       }
-      if (!['CLB', 'CLBg', 'CLBs'].includes(token)) {
+      if (!CLB_TOKENS.includes(token)) {
         return reply.status(400).send({ success: false, error: 'Invalid token' });
       }
 
@@ -150,14 +155,18 @@ export default async function tokenRoutes(fastify: FastifyInstance) {
         });
       }
 
-      // Find recipient by wallet address
-      const recipient = await prisma.user.findUnique({
-        where: { walletAddress: toAddress.toLowerCase() },
-      });
+      const forceOnChain = delivery === 'ON_CHAIN';
+      const recipient = forceOnChain
+        ? null
+        : await prisma.user.findUnique({
+            where: { walletAddress: toAddress.toLowerCase() },
+          });
 
       const isInternal = !!recipient;
       const fee = isInternal ? 0 : amount * 0.01; // 1% fee for external transfers
       const netAmount = amount - fee;
+      let txHash: string | undefined;
+      let status: 'COMPLETED' = 'COMPLETED';
 
       if (isInternal) {
         // Internal transfer
@@ -212,29 +221,31 @@ export default async function tokenRoutes(fastify: FastifyInstance) {
         });
       } else {
         // External transfer (to Trust Wallet etc.) — on-chain mint
-        let txHash: string | undefined;
-        let status: 'PENDING' | 'COMPLETED' | 'FAILED' = 'PENDING';
+        if (!isValidEvmAddress(toAddress)) {
+          return reply.status(400).send({
+            success: false,
+            error: 'Enter a valid BNB Smart Chain wallet address',
+          });
+        }
 
-        if (tokenService.isConfigured()) {
-          try {
-            const result = await tokenService.mint(token, toAddress, netAmount);
-            if (result) {
-              txHash = result.txHash;
-              status = 'COMPLETED';
-            }
-          } catch (err: any) {
-            console.error('[External Transfer] On-chain mint failed:', err.message);
-            status = 'FAILED';
-            // Refund balance
-            await prisma.tokenBalance.update({
-              where: { userId_token: { userId, token } },
-              data: { balance: { increment: amount } },
-            });
-            return reply.status(500).send({
-              success: false,
-              error: 'On-chain transfer failed. Balance refunded.',
-            });
-          }
+        if (!tokenService.isConfigured(token)) {
+          return reply.status(503).send({
+            success: false,
+            error: `On-chain ${token} transfers are not configured yet.`,
+          });
+        }
+
+        try {
+          const result = await tokenService.mint(token, toAddress, netAmount);
+          if (!result?.txHash) throw new Error(`On-chain ${token} transfer did not return a transaction hash`);
+          txHash = result.txHash;
+        } catch (err: any) {
+          console.error('[External Transfer] On-chain mint failed:', err.message);
+          return reply.status(502).send({
+            success: false,
+            error: 'On-chain transfer failed. No balance was deducted.',
+            detail: err.message,
+          });
         }
 
         await prisma.$transaction([
@@ -267,7 +278,9 @@ export default async function tokenRoutes(fastify: FastifyInstance) {
           netAmount,
           toAddress,
           type: isInternal ? 'INTERNAL' : 'EXTERNAL',
-          status: isInternal ? 'COMPLETED' : 'PENDING',
+          status: isInternal ? 'COMPLETED' : status,
+          txHash,
+          explorerUrl: txHash ? `https://bscscan.com/tx/${txHash}` : null,
         },
       };
     }

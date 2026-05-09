@@ -195,6 +195,7 @@ export const tokensAPI = {
     token: string;
     amount: number;
     note?: string;
+    delivery?: 'INTERNAL' | 'ON_CHAIN';
   }) => api.post('/api/tokens/transfer', data),
   history: (page = 1, limit = 20, token?: string) =>
     api.get(`/api/tokens/history?page=${page}&limit=${limit}${token ? `&token=${token}` : ''}`),
