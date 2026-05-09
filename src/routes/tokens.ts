@@ -2,13 +2,15 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import prisma from '../config/db';
 import { authMiddleware } from '../middleware/auth';
 import { tokenService } from '../services/tokenService';
+import { getTokenUsdQuotes } from '../services/tokenUsdPrices';
+import { computePortfolioValueUsd } from '../services/portfolioValuation';
 
-// CLB token prices (in USD) — in production, these would come from an oracle/market
-const TOKEN_PRICES: Record<string, number> = {
-  CLB: 1.00,
-  CLBg: 5.00,
-  CLBs: 2.50,
-};
+/**
+ * Smallest USD gap we'll bother minting on-chain CLB for, to avoid wasting gas
+ * on dust-sized mints when prices wobble by a fraction of a cent between
+ * "Sync to Wallet" presses.
+ */
+const MIN_SYNC_GAP_USD = 0.5;
 
 export default async function tokenRoutes(fastify: FastifyInstance) {
 
@@ -23,13 +25,13 @@ export default async function tokenRoutes(fastify: FastifyInstance) {
         where: { userId },
       });
 
-      // Ensure all token types exist
+      const quotes = await getTokenUsdQuotes();
       const allTokens = ['CLB', 'CLBg', 'CLBs'];
       const result = allTokens.map((token) => {
         const found = balances.find((b) => b.token === token);
         const balance = found ? Number(found.balance) : 0;
         const locked = found ? Number(found.locked) : 0;
-        const price = TOKEN_PRICES[token] || 0;
+        const price = quotes[token]?.priceUsd ?? 0;
         return {
           token,
           balance,
@@ -48,12 +50,13 @@ export default async function tokenRoutes(fastify: FastifyInstance) {
 
   // ─── GET /tokens/prices — Token prices ─────────────────
   fastify.get('/prices', async () => {
+    const quotes = await getTokenUsdQuotes();
     return {
       success: true,
-      prices: Object.entries(TOKEN_PRICES).map(([token, price]) => ({
+      prices: Object.entries(quotes).map(([token, q]) => ({
         token,
-        priceUsd: price,
-        change24h: Math.random() * 6 - 2, // Simulated for now
+        priceUsd: q.priceUsd,
+        ...(q.change24h != null ? { change24h: q.change24h } : {}),
       })),
     };
   });
@@ -294,5 +297,181 @@ export default async function tokenRoutes(fastify: FastifyInstance) {
         pagination: { page, limit, total, pages: Math.ceil(total / limit) },
       };
     }
+  );
+
+  // ─── GET /tokens/sync-status — Portfolio vs on-chain CLB gap ──────────
+  // Lightweight read so the wallet UI can render the "in sync" state and
+  // the "Sync N CLB to Wallet" CTA without needing to send a transaction.
+  fastify.get(
+    '/sync-status',
+    { preHandler: [authMiddleware] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const userId = request.userId!;
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { walletAddress: true },
+      });
+      if (!user?.walletAddress) {
+        return reply.status(400).send({ success: false, error: 'User has no wallet address' });
+      }
+
+      const [portfolioValueUsd, onChainBalance, quotes] = await Promise.all([
+        computePortfolioValueUsd(userId),
+        tokenService.getBalance('CLB', user.walletAddress),
+        getTokenUsdQuotes(),
+      ]);
+
+      const clbPrice = quotes.CLB?.priceUsd || 1;
+      const onChainValueUsd = onChainBalance * clbPrice;
+      const gapUsd = Math.max(0, portfolioValueUsd - onChainValueUsd);
+      const mintableClb = clbPrice > 0 ? gapUsd / clbPrice : 0;
+
+      return {
+        success: true,
+        sync: {
+          walletAddress: user.walletAddress,
+          portfolioValueUsd,
+          onChainCLBBalance: parseFloat(onChainBalance.toFixed(6)),
+          onChainCLBValueUsd: parseFloat(onChainValueUsd.toFixed(2)),
+          gapUsd: parseFloat(gapUsd.toFixed(2)),
+          mintableClb: parseFloat(mintableClb.toFixed(6)),
+          inSync: gapUsd < MIN_SYNC_GAP_USD,
+          minSyncGapUsd: MIN_SYNC_GAP_USD,
+          clbPriceUsd: clbPrice,
+          chainConfigured: tokenService.isConfigured(),
+        },
+      };
+    },
+  );
+
+  // ─── POST /tokens/sync-portfolio — Mint CLB to user's wallet ──────────
+  // Mints (portfolioValueUsd − onChainCLBValueUsd) worth of CLB tokens to
+  // the user's wallet so they can see their CLB DApp portfolio value
+  // directly inside Trust Wallet / MetaMask. Idempotent: calling it twice
+  // in a row is a no-op the second time because the gap closes after the
+  // first mint.
+  fastify.post(
+    '/sync-portfolio',
+    { preHandler: [authMiddleware] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const userId = request.userId!;
+
+      if (!tokenService.isConfigured()) {
+        return reply.status(503).send({
+          success: false,
+          error:
+            'On-chain token service is not configured. Set CLB_TOKEN_ADDRESS and PRIVATE_KEY in the backend env.',
+        });
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { walletAddress: true },
+      });
+      if (!user?.walletAddress) {
+        return reply.status(400).send({ success: false, error: 'User has no wallet address' });
+      }
+
+      const [portfolioValueUsd, onChainBalance, quotes] = await Promise.all([
+        computePortfolioValueUsd(userId),
+        tokenService.getBalance('CLB', user.walletAddress),
+        getTokenUsdQuotes(),
+      ]);
+
+      const clbPrice = quotes.CLB?.priceUsd || 1;
+      const onChainValueUsd = onChainBalance * clbPrice;
+      const gapUsd = portfolioValueUsd - onChainValueUsd;
+
+      if (gapUsd < MIN_SYNC_GAP_USD) {
+        return {
+          success: true,
+          alreadyInSync: true,
+          minted: 0,
+          sync: {
+            portfolioValueUsd,
+            onChainCLBBalance: parseFloat(onChainBalance.toFixed(6)),
+            onChainCLBValueUsd: parseFloat(onChainValueUsd.toFixed(2)),
+            gapUsd: parseFloat(Math.max(0, gapUsd).toFixed(2)),
+          },
+        };
+      }
+
+      const amountToMint = parseFloat((gapUsd / clbPrice).toFixed(6));
+
+      let txHash: string | undefined;
+      try {
+        const result = await tokenService.mint('CLB', user.walletAddress, amountToMint);
+        txHash = result?.txHash;
+      } catch (err: any) {
+        console.error('[Sync Portfolio] On-chain mint failed:', err.message);
+        return reply.status(502).send({
+          success: false,
+          error: 'On-chain mint failed. No tokens were minted.',
+          detail: err.message,
+        });
+      }
+
+      // Record the on-chain mint in the platform ledger so it shows up in
+      // history / activity. fromUserId == userId here because the schema
+      // requires a sender; semantically the user is "materialising" their
+      // portfolio value into their own external wallet.
+      await prisma.$transaction([
+        prisma.tokenTransfer.create({
+          data: {
+            fromUserId: userId,
+            toAddress: user.walletAddress.toLowerCase(),
+            token: 'CLB',
+            amount: amountToMint,
+            fee: 0,
+            type: 'REWARD',
+            status: txHash ? 'COMPLETED' : 'PENDING',
+            txHash,
+            note: `Portfolio sync — minted ${amountToMint} CLB to wallet`,
+          },
+        }),
+        prisma.transaction.create({
+          data: {
+            userId,
+            type: 'REWARD',
+            amount: amountToMint,
+            toAddress: user.walletAddress.toLowerCase(),
+            txHash,
+            status: txHash ? 'SUCCESS' : 'PENDING',
+            metadata: {
+              kind: 'PORTFOLIO_SYNC',
+              token: 'CLB',
+              gapUsd: parseFloat(gapUsd.toFixed(2)),
+              portfolioValueUsd,
+              onChainBalanceBefore: parseFloat(onChainBalance.toFixed(6)),
+              clbPriceUsd: clbPrice,
+            },
+          },
+        }),
+        prisma.notification.create({
+          data: {
+            userId,
+            type: 'TRANSFER',
+            title: 'Portfolio synced to wallet',
+            body: `Minted ${amountToMint.toFixed(2)} CLB ($${gapUsd.toFixed(2)}) to your wallet. Open Trust Wallet to view.`,
+            data: { amount: amountToMint, token: 'CLB', txHash, gapUsd },
+          },
+        }),
+      ]);
+
+      return {
+        success: true,
+        alreadyInSync: false,
+        minted: amountToMint,
+        txHash,
+        explorerUrl: txHash ? `https://bscscan.com/tx/${txHash}` : null,
+        sync: {
+          portfolioValueUsd,
+          onChainCLBBalanceBefore: parseFloat(onChainBalance.toFixed(6)),
+          onChainCLBBalanceAfter: parseFloat((onChainBalance + amountToMint).toFixed(6)),
+          gapUsd: parseFloat(gapUsd.toFixed(2)),
+          clbPriceUsd: clbPrice,
+        },
+      };
+    },
   );
 }

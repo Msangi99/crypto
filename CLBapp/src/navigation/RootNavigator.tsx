@@ -18,6 +18,7 @@ import ReceiptsScreen from '../screens/main/ReceiptsScreen';
 import PoolDetailScreen from '../screens/main/PoolDetailScreen';
 import NotificationsScreen from '../screens/main/NotificationsScreen';
 import WalletTokensScreen from '../screens/main/WalletTokensScreen';
+import MiningClbScreen from '../screens/main/MiningClbScreen';
 import LoanRequestScreen from '../screens/main/LoanRequestScreen';
 import MyLoansScreen from '../screens/main/MyLoansScreen';
 import TransferTokensScreen from '../screens/main/TransferTokensScreen';
@@ -112,6 +113,9 @@ export default function RootNavigator() {
               options={{ headerShown: false }}
             />
             <Stack.Screen name="WalletTokens" component={WalletTokensScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen name="MiningClb" component={MiningClbScreen}
               options={{ headerShown: false }}
             />
             <Stack.Screen name="LoanRequest" component={LoanRequestScreen}

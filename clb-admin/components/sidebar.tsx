@@ -22,6 +22,7 @@ import {
   Wallet,
   Ticket,
   Rocket,
+  Cpu,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useSidebar } from "@/lib/sidebar-context";
@@ -31,6 +32,7 @@ const navItems = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
   { href: "/dashboard/contracts", label: "Contracts", icon: Blocks },
   { href: "/dashboard/packages", label: "Packages", icon: Package },
+  { href: "/dashboard/clb-mining", label: "CLB Mining", icon: Cpu },
   { href: "/dashboard/pools", label: "Pools", icon: Waves },
   { href: "/dashboard/users", label: "Users", icon: Users },
   { href: "/dashboard/investments", label: "Investments", icon: TrendingUp },

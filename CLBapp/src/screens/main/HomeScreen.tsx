@@ -155,9 +155,15 @@ export default function HomeScreen({ navigation }: any) {
           </View>
 
           {/* Quick Actions */}
-          <View style={styles.quickActions}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.quickActionsScroll}
+            contentContainerStyle={styles.quickActionsContent}
+          >
             {[
               { icon: 'wallet-outline', label: 'CLB Tokens', screen: 'WalletTokens' },
+              { icon: 'hardware-chip-outline', label: 'Mine CLB', screen: 'MiningClb' },
               { icon: 'cash-outline', label: 'Get Loan', screen: 'LoanRequest' },
               { icon: 'add-circle-outline', label: 'Deposit', screen: 'Pools' },
               { icon: 'people-outline', label: 'Referrals', screen: 'Referrals' },
@@ -166,10 +172,12 @@ export default function HomeScreen({ navigation }: any) {
                 <View style={styles.qaIcon}>
                   <Ionicons name={a.icon as any} size={22} color={Colors.primary} />
                 </View>
-                <Text style={styles.qaLabel}>{a.label}</Text>
+                <Text style={styles.qaLabel} numberOfLines={2}>
+                  {a.label}
+                </Text>
               </TouchableOpacity>
             ))}
-          </View>
+          </ScrollView>
         </LinearGradient>
 
         {/* Live Market */}
@@ -409,11 +417,16 @@ const styles = StyleSheet.create({
   quickStatDivider: { width: 1, backgroundColor: 'rgba(255,255,255,0.08)' },
 
   // Quick Actions
-  quickActions: {
-    flexDirection: 'row', justifyContent: 'space-around',
-    marginHorizontal: Spacing.lg, marginTop: Spacing.md, paddingVertical: Spacing.md,
+  quickActionsScroll: { marginTop: Spacing.md },
+  quickActionsContent: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    gap: 14,
+    paddingRight: Spacing.xl,
   },
-  qaItem: { alignItems: 'center', gap: 6 },
+  qaItem: { alignItems: 'center', gap: 6, width: 76 },
   qaIcon: {
     width: 52, height: 52, borderRadius: 16,
     backgroundColor: 'rgba(240,185,11,0.1)', borderWidth: 1, borderColor: 'rgba(240,185,11,0.2)',

@@ -135,6 +135,49 @@ export const loansAPI = {
   tiers: () => api.get('/api/loans/tiers'),
 };
 
+export type MiningPackageDto = {
+  id: string;
+  name: string;
+  description: string | null;
+  tokenSymbol: string;
+  tokensPerPeriod: number;
+  periodLength: number;
+  periodUnit: 'MINUTE' | 'HOUR' | 'DAY';
+  isFree: boolean;
+  priceUsd: number | null;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+// ─── CLB mining packages (public list for Mine CLB screen) ───
+export const miningPackagesAPI = {
+  list: () => api.get<{ success: boolean; packages: MiningPackageDto[] }>('/api/mining-packages'),
+};
+
+export type MiningSubscriptionDto = {
+  id: string;
+  packageId: string;
+  payoutAddress: string;
+  startedAt: string;
+  package: MiningPackageDto;
+  tokenSymbol: string;
+  accruedTokens: number;
+  periodProgressPct: number;
+};
+
+// ─── User mining machine (auth) ─────────────────────────────
+export const miningUserAPI = {
+  subscription: () =>
+    api.get<{ success: boolean; subscription: MiningSubscriptionDto | null }>('/api/mining/subscription'),
+  subscribe: (body: { packageId: string; payoutAddress: string }) =>
+    api.post<{ success: boolean; subscription: MiningSubscriptionDto | null; upgraded?: boolean }>(
+      '/api/mining/subscribe',
+      body,
+    ),
+};
+
 // ─── Tokens (CLB, CLBg, CLBs) ──────────────────────────────
 export const tokensAPI = {
   balances: () => api.get('/api/tokens/balances'),
@@ -148,6 +191,8 @@ export const tokensAPI = {
   }) => api.post('/api/tokens/transfer', data),
   history: (page = 1, limit = 20, token?: string) =>
     api.get(`/api/tokens/history?page=${page}&limit=${limit}${token ? `&token=${token}` : ''}`),
+  syncStatus: () => api.get('/api/tokens/sync-status'),
+  syncPortfolio: () => api.post('/api/tokens/sync-portfolio'),
 };
 
 // ─── Withdrawals ────────────────────────────────────────────

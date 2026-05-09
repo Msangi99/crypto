@@ -1,91 +1,225 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, FlatList,
-  RefreshControl, Alert, Dimensions, Image,
+  RefreshControl, Image, Alert, ActivityIndicator, Linking,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radius, Shadow } from '../../constants/theme';
-import { tokensAPI, userAPI } from '../../services/api';
+import { tokensAPI, miningUserAPI, type MiningSubscriptionDto } from '../../services/api';
+import { computeMiningProgressLive, type MiningPeriodUnit } from '../../utils/miningProgress';
 import { useAuthStore } from '../../store/authStore';
+import { useOnChainWallet, type OnChainAsset } from '../../hooks/useOnChainWallet';
+
+type SyncStatus = {
+  walletAddress: string;
+  portfolioValueUsd: number;
+  onChainCLBBalance: number;
+  onChainCLBValueUsd: number;
+  gapUsd: number;
+  mintableClb: number;
+  inSync: boolean;
+  minSyncGapUsd: number;
+  clbPriceUsd: number;
+  chainConfigured: boolean;
+};
 
 const CLB_LOGO = require('../../../assets/clb-token.png');
 
-const { width } = Dimensions.get('window');
-
-const TOKEN_META: Record<string, { name: string; color: string; icon: string; tier: string }> = {
-  CLBg: { name: 'CLB Gold', color: '#F0B90B', icon: 'diamond', tier: 'Gold' },
-  CLBs: { name: 'CLB Silver', color: '#C0C0C0', icon: 'flash', tier: 'Silver' },
-  CLB:  { name: 'CLB Token', color: '#3B82F6', icon: 'cube', tier: 'Standard' },
+const ASSET_META: Record<string, { color: string; icon: string }> = {
+  BNB:  { color: '#F0B90B', icon: 'cube' },
+  USDT: { color: '#26A17B', icon: 'cash' },
+  BUSD: { color: '#F0B90B', icon: 'cash' },
+  USDC: { color: '#2775CA', icon: 'cash' },
+  CLBg: { color: '#F0B90B', icon: 'diamond' },
+  CLBs: { color: '#C0C0C0', icon: 'flash' },
+  CLB:  { color: '#3B82F6', icon: 'cube' },
 };
 
+function formatBalance(value: number): string {
+  if (value === 0) return '0';
+  if (value < 0.0001) return '<0.0001';
+  if (value < 1) return value.toFixed(4);
+  if (value < 1000) return value.toFixed(4);
+  return value.toLocaleString('en-US', { maximumFractionDigits: 2 });
+}
+
+function formatUsd(value: number): string {
+  return `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function shortAddress(addr?: string | null): string {
+  if (!addr || addr.length < 10) return addr ?? '';
+  return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
+}
+
 export default function WalletTokensScreen({ navigation }: any) {
-  const { isAuthenticated } = useAuthStore();
-  const [balances, setBalances] = useState<any[]>([]);
-  const [totalValue, setTotalValue] = useState(0);
-  const [portfolioValue, setPortfolioValue] = useState(0);
+  const { user, isAuthenticated } = useAuthStore();
+  const walletAddress = user?.walletAddress ?? null;
+
+  const {
+    assets,
+    totalValueUsd,
+    isLoading: isLoadingChain,
+    isRefetching,
+    error,
+    refetch,
+  } = useOnChainWallet(walletAddress);
+
   const [history, setHistory] = useState<any[]>([]);
   const [refreshing, setRefreshing] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [miningSub, setMiningSub] = useState<MiningSubscriptionDto | null>(null);
+  const [miningTick, setMiningTick] = useState(0);
 
-  const fetchData = useCallback(async () => {
+  const loadHistory = useCallback(async () => {
+    if (!isAuthenticated) {
+      setHistory([]);
+      return;
+    }
     try {
-      const [balRes, histRes, dashboardRes] = await Promise.all([
-        tokensAPI.balances(),
-        tokensAPI.history(1, 10),
-        isAuthenticated ? userAPI.dashboard() : Promise.resolve(null),
-      ]);
-      setBalances(balRes.data.balances || []);
-      setTotalValue(balRes.data.totalValueUsd || 0);
-      setHistory(histRes.data.transfers || []);
-      setPortfolioValue(dashboardRes?.data?.dashboard?.stats?.portfolioValueUsd || 0);
-    } catch (err) {
-      console.log('Token fetch error:', err);
-    } finally {
-      setLoading(false);
+      const res = await tokensAPI.history(1, 10);
+      setHistory(res.data?.transfers ?? []);
+    } catch {
+      // Silent — wallet view should still work without history.
     }
   }, [isAuthenticated]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  const loadSyncStatus = useCallback(async () => {
+    if (!isAuthenticated) {
+      setSyncStatus(null);
+      return;
+    }
+    try {
+      const res = await tokensAPI.syncStatus();
+      setSyncStatus(res.data?.sync ?? null);
+    } catch {
+      setSyncStatus(null);
+    }
+  }, [isAuthenticated]);
+
+  const loadMiningSub = useCallback(async () => {
+    if (!isAuthenticated) {
+      setMiningSub(null);
+      return;
+    }
+    try {
+      const res = await miningUserAPI.subscription();
+      setMiningSub(res.data?.subscription ?? null);
+    } catch {
+      setMiningSub(null);
+    }
+  }, [isAuthenticated]);
+
+  useEffect(() => {
+    loadHistory();
+    loadSyncStatus();
+    loadMiningSub();
+  }, [loadHistory, loadSyncStatus, loadMiningSub]);
+
+  useEffect(() => {
+    if (!miningSub) return;
+    const t = setInterval(() => setMiningTick((x) => x + 1), 1000);
+    return () => clearInterval(t);
+  }, [miningSub?.id]);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchData();
+    await Promise.all([refetch(), loadHistory(), loadSyncStatus(), loadMiningSub()]);
     setRefreshing(false);
   };
 
-  const renderTokenCard = ({ item }: { item: any }) => {
-    const meta = TOKEN_META[item.token] || TOKEN_META.CLB;
+  const handleSync = async () => {
+    if (isSyncing) return;
+    setIsSyncing(true);
+    try {
+      const res = await tokensAPI.syncPortfolio();
+      const data = res.data ?? {};
+      if (data.alreadyInSync) {
+        Alert.alert(
+          'Already in sync',
+          'Your on-chain CLB balance already matches your portfolio value.',
+        );
+      } else {
+        const minted = Number(data.minted ?? 0);
+        const txHash = data.txHash as string | undefined;
+        const explorerUrl = data.explorerUrl as string | undefined;
+        Alert.alert(
+          'Synced to wallet',
+          `Minted ${minted.toFixed(2)} CLB to your wallet. Open Trust Wallet to view.`,
+          [
+            ...(explorerUrl
+              ? [{
+                  text: 'View on BscScan',
+                  onPress: () => Linking.openURL(explorerUrl),
+                }]
+              : []),
+            { text: 'OK', style: 'default' as const },
+          ],
+        );
+        // Re-read on-chain balances + sync status so the UI updates.
+        await Promise.all([refetch(), loadSyncStatus()]);
+      }
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.error ||
+        err?.response?.data?.message ||
+        err?.message ||
+        'Sync failed.';
+      Alert.alert('Sync failed', msg);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  // Order: native first, then non-zero balances by USD value desc, then empty.
+  const sortedAssets = [...assets].sort((a, b) => {
+    if (a.isNative && !b.isNative) return -1;
+    if (!a.isNative && b.isNative) return 1;
+    const aHas = a.balance > 0 ? 1 : 0;
+    const bHas = b.balance > 0 ? 1 : 0;
+    if (aHas !== bHas) return bHas - aHas;
+    return b.valueUsd - a.valueUsd;
+  });
+
+  const renderAsset = ({ item }: { item: OnChainAsset }) => {
+    const meta = ASSET_META[item.symbol] || { color: Colors.primary, icon: 'cube' };
+    const isClb = item.tier === 'CLB';
+    const change = item.change24h;
     return (
-      <TouchableOpacity style={styles.tokenCard} activeOpacity={0.8}>
-        <View style={styles.tokenRow}>
-          <View style={[styles.tokenIconBg, { backgroundColor: meta.color + '18' }]}>
-            <Image source={CLB_LOGO} style={styles.tokenLogo} resizeMode="contain" />
+      <View style={styles.assetCard}>
+        <View style={styles.assetRow}>
+          <View style={[styles.assetIconBg, { backgroundColor: meta.color + '18' }]}>
+            {isClb ? (
+              <Image source={CLB_LOGO} style={styles.assetLogo} resizeMode="contain" />
+            ) : (
+              <Ionicons name={meta.icon as any} size={20} color={meta.color} />
+            )}
           </View>
-          <View style={styles.tokenInfo}>
-            <Text style={styles.tokenName}>{meta.name}</Text>
-            <Text style={styles.tokenTier}>{meta.tier} Tier</Text>
+          <View style={styles.assetInfo}>
+            <View style={styles.assetTitleRow}>
+              <Text style={styles.assetSymbol}>{item.symbol}</Text>
+              <View style={styles.assetTierBadge}>
+                <Text style={styles.assetTierText}>{item.tier}</Text>
+              </View>
+            </View>
+            <Text style={styles.assetName} numberOfLines={1}>{item.name}</Text>
+            <Text style={styles.assetPriceLine}>
+              {item.priceUsd > 0 ? `${formatUsd(item.priceUsd)} per ${item.symbol}` : 'Price unavailable'}
+              {typeof change === 'number' && Math.abs(change) > 0.001 ? (
+                <Text style={[styles.assetChange, change >= 0 ? styles.changeUp : styles.changeDown]}>
+                  {`  ${change >= 0 ? '+' : ''}${change.toFixed(2)}%`}
+                </Text>
+              ) : null}
+            </Text>
           </View>
-          <View style={styles.tokenValues}>
-            <Text style={styles.tokenBalance}>{item.balance.toFixed(2)}</Text>
-            <Text style={styles.tokenUsd}>${item.valueUsd.toFixed(2)}</Text>
+          <View style={styles.assetValues}>
+            <Text style={styles.assetBalance}>{formatBalance(item.balance)}</Text>
+            <Text style={styles.assetUsd}>{formatUsd(item.valueUsd)}</Text>
           </View>
         </View>
-        <View style={styles.tokenDetails}>
-          <View style={styles.tokenDetailItem}>
-            <Text style={styles.detailLabel}>Available</Text>
-            <Text style={styles.detailValue}>{item.available.toFixed(2)}</Text>
-          </View>
-          <View style={styles.tokenDetailItem}>
-            <Text style={styles.detailLabel}>Locked</Text>
-            <Text style={styles.detailValue}>{item.locked.toFixed(2)}</Text>
-          </View>
-          <View style={styles.tokenDetailItem}>
-            <Text style={styles.detailLabel}>Price</Text>
-            <Text style={styles.detailValue}>${item.priceUsd.toFixed(2)}</Text>
-          </View>
-        </View>
-      </TouchableOpacity>
+      </View>
     );
   };
 
@@ -97,12 +231,12 @@ export default function WalletTokensScreen({ navigation }: any) {
           <Ionicons name={isOut ? 'arrow-up' : 'arrow-down'} size={16} color={isOut ? '#FF4757' : '#00D26A'} />
         </View>
         <View style={styles.historyInfo}>
-          <Text style={styles.historyType}>{item.type.replace('_', ' ')}</Text>
+          <Text style={styles.historyType}>{String(item.type).replace('_', ' ')}</Text>
           <Text style={styles.historyCounterparty}>{item.counterparty}</Text>
         </View>
         <View style={styles.historyAmountCol}>
           <Text style={[styles.historyAmount, { color: isOut ? '#FF4757' : '#00D26A' }]}>
-            {isOut ? '-' : '+'}{item.amount.toFixed(2)}
+            {isOut ? '-' : '+'}{Number(item.amount).toFixed(2)}
           </Text>
           <Text style={styles.historyToken}>{item.token}</Text>
         </View>
@@ -110,37 +244,183 @@ export default function WalletTokensScreen({ navigation }: any) {
     );
   };
 
+  const isInitialLoad = isLoadingChain && Object.keys(assets.reduce((acc, a) => ({ ...acc, [a.symbol]: a.balance }), {})).every((k) => assets.find((a) => a.symbol === k)?.balance === 0);
+
+  const miningLive = useMemo(() => {
+    if (!miningSub) return null;
+    return computeMiningProgressLive(
+      miningSub.package.tokensPerPeriod,
+      miningSub.package.periodUnit as MiningPeriodUnit,
+      miningSub.package.periodLength,
+      miningSub.startedAt,
+    );
+  }, [miningSub, miningTick]);
+
   return (
     <View style={styles.container}>
       <FlatList
-        data={balances}
-        keyExtractor={(item) => item.token}
-        renderItem={renderTokenCard}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
+        data={sortedAssets}
+        keyExtractor={(item) => item.symbol}
+        renderItem={renderAsset}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing || isRefetching}
+            onRefresh={onRefresh}
+            tintColor={Colors.primary}
+          />
+        }
         contentContainerStyle={styles.listContent}
         ListHeaderComponent={
           <>
-            {/* Header */}
             <LinearGradient colors={['#1A1F35', '#0B0E1A']} style={styles.header}>
               <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
                 <Ionicons name="arrow-back" size={24} color={Colors.textPrimary} />
               </TouchableOpacity>
-              <Text style={styles.headerTitle}>CLB Tokens</Text>
-              <View style={{ width: 32 }} />
+              <Text style={styles.headerTitle}>Wallet</Text>
+              <TouchableOpacity onPress={onRefresh} style={styles.backBtn} disabled={isRefetching}>
+                <Ionicons
+                  name="refresh"
+                  size={22}
+                  color={isRefetching ? Colors.textMuted : Colors.textPrimary}
+                />
+              </TouchableOpacity>
             </LinearGradient>
 
-            {/* Total Value */}
+            {/* Total Portfolio Value (on-chain) */}
             <View style={styles.totalCard}>
-              <Text style={styles.totalLabel}>Total CLB Value</Text>
-              <Text style={styles.totalValue}>${totalValue.toFixed(2)}</Text>
-              {isAuthenticated ? (
-                <View style={styles.portfolioRow}>
-                  <Ionicons name="wallet-outline" size={14} color={Colors.primary} />
-                  <Text style={styles.portfolioLabel}>Connected Portfolio</Text>
-                  <Text style={styles.portfolioValue}>${portfolioValue.toFixed(2)}</Text>
+              <View style={styles.totalLabelRow}>
+                <Ionicons name="wallet" size={14} color={Colors.primary} />
+                <Text style={styles.totalLabel}>Total Wallet Value</Text>
+              </View>
+              <Text style={styles.totalValue}>
+                {isInitialLoad ? '—' : formatUsd(totalValueUsd)}
+              </Text>
+              {walletAddress ? (
+                <View style={styles.addressRow}>
+                  <Ionicons name="link-outline" size={12} color={Colors.textMuted} />
+                  <Text style={styles.addressText}>BSC · {shortAddress(walletAddress)}</Text>
+                </View>
+              ) : (
+                <Text style={styles.addressText}>Connect a wallet to see your balance</Text>
+              )}
+              {error ? (
+                <View style={styles.errorPill}>
+                  <Ionicons name="alert-circle-outline" size={12} color="#FF4757" />
+                  <Text style={styles.errorText} numberOfLines={1}>{error}</Text>
                 </View>
               ) : null}
             </View>
+
+            {isAuthenticated && miningSub && miningLive ? (
+              <View style={styles.miningCard}>
+                <View style={styles.miningHeader}>
+                  <View style={styles.miningIconBg}>
+                    <Ionicons name="hardware-chip-outline" size={20} color={Colors.primary} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.miningTitle}>Mining in progress</Text>
+                    <Text style={styles.miningSub} numberOfLines={1}>{miningSub.package.name}</Text>
+                  </View>
+                  <TouchableOpacity onPress={() => navigation.navigate('MiningClb')} hitSlop={8}>
+                    <Text style={styles.miningLink}>Manage</Text>
+                  </TouchableOpacity>
+                </View>
+                <Text style={styles.miningAccrued}>
+                  {formatBalance(miningLive.accruedTokens)} {miningSub.tokenSymbol} accrued (off-chain)
+                </Text>
+                <View style={styles.miningTrack}>
+                  <View style={[styles.miningFill, { width: `${Math.min(100, miningLive.periodProgressPct)}%` }]} />
+                </View>
+                <View style={styles.miningPayoutRow}>
+                  <Ionicons name="navigate-outline" size={12} color={Colors.textMuted} />
+                  <Text style={styles.miningPayout}>Payout {shortAddress(miningSub.payoutAddress)}</Text>
+                </View>
+              </View>
+            ) : null}
+
+            {/* Portfolio sync card — keeps Trust Wallet CLB balance equal to
+                the user's CLB DApp portfolio value via on-chain mints. */}
+            {isAuthenticated && syncStatus ? (
+              <View style={styles.syncCard}>
+                <View style={styles.syncHeaderRow}>
+                  <View style={styles.syncIconBg}>
+                    <Ionicons name="sync-circle" size={20} color={Colors.primary} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.syncTitle}>Portfolio in Wallet</Text>
+                    <Text style={styles.syncSubtitle}>
+                      Mint your CLB portfolio to Trust Wallet
+                    </Text>
+                  </View>
+                  {syncStatus.inSync ? (
+                    <View style={styles.syncBadgeOk}>
+                      <Ionicons name="checkmark-circle" size={12} color="#00D26A" />
+                      <Text style={styles.syncBadgeOkText}>In sync</Text>
+                    </View>
+                  ) : null}
+                </View>
+
+                <View style={styles.syncRow}>
+                  <View style={styles.syncCol}>
+                    <Text style={styles.syncColLabel}>App portfolio</Text>
+                    <Text style={styles.syncColValue}>
+                      {formatUsd(syncStatus.portfolioValueUsd)}
+                    </Text>
+                  </View>
+                  <Ionicons
+                    name="arrow-forward"
+                    size={16}
+                    color={Colors.textMuted}
+                    style={{ marginHorizontal: 8 }}
+                  />
+                  <View style={styles.syncCol}>
+                    <Text style={styles.syncColLabel}>On-chain CLB</Text>
+                    <Text style={styles.syncColValue}>
+                      {formatUsd(syncStatus.onChainCLBValueUsd)}
+                    </Text>
+                  </View>
+                </View>
+
+                {!syncStatus.chainConfigured ? (
+                  <View style={styles.syncNote}>
+                    <Ionicons name="information-circle-outline" size={12} color={Colors.textMuted} />
+                    <Text style={styles.syncNoteText}>
+                      On-chain minting not configured on the server yet.
+                    </Text>
+                  </View>
+                ) : syncStatus.inSync ? (
+                  <View style={styles.syncNote}>
+                    <Ionicons name="checkmark-circle-outline" size={12} color="#00D26A" />
+                    <Text style={styles.syncNoteText}>
+                      Your wallet already shows your full portfolio value.
+                    </Text>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    onPress={handleSync}
+                    disabled={isSyncing}
+                    activeOpacity={0.85}
+                    style={styles.syncBtnWrap}
+                  >
+                    <LinearGradient
+                      colors={Colors.gradientPrimary}
+                      style={styles.syncBtn}
+                    >
+                      {isSyncing ? (
+                        <ActivityIndicator size="small" color="#000" />
+                      ) : (
+                        <>
+                          <Ionicons name="cloud-upload" size={16} color="#000" />
+                          <Text style={styles.syncBtnText}>
+                            Sync {syncStatus.mintableClb.toFixed(2)} CLB to Wallet
+                          </Text>
+                        </>
+                      )}
+                    </LinearGradient>
+                  </TouchableOpacity>
+                )}
+              </View>
+            ) : null}
 
             {/* Action Buttons */}
             <View style={styles.actions}>
@@ -173,7 +453,10 @@ export default function WalletTokensScreen({ navigation }: any) {
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.sectionTitle}>Your Tokens</Text>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Assets</Text>
+              <Text style={styles.sectionSub}>On-chain · BSC</Text>
+            </View>
           </>
         }
         ListFooterComponent={
@@ -187,11 +470,11 @@ export default function WalletTokensScreen({ navigation }: any) {
           ) : null
         }
         ListEmptyComponent={
-          !loading ? (
+          !isLoadingChain ? (
             <View style={styles.emptyState}>
               <Ionicons name="wallet-outline" size={48} color={Colors.textMuted} />
-              <Text style={styles.emptyText}>No CLB tokens yet</Text>
-              <Text style={styles.emptySubtext}>Get a loan to receive CLB tokens</Text>
+              <Text style={styles.emptyText}>No assets to show</Text>
+              <Text style={styles.emptySubtext}>Pull down to refresh</Text>
             </View>
           ) : null
         }
@@ -208,7 +491,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingTop: 56, paddingBottom: Spacing.lg, paddingHorizontal: Spacing.lg,
   },
-  backBtn: { padding: 4 },
+  backBtn: { padding: 4, width: 32, alignItems: 'center' },
   headerTitle: { fontSize: 20, fontWeight: '800', color: Colors.textPrimary },
 
   totalCard: {
@@ -216,16 +499,106 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.bgCard, borderWidth: 1, borderColor: Colors.border,
     alignItems: 'center', ...Shadow.card,
   },
+  totalLabelRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+  },
   totalLabel: { fontSize: 13, fontWeight: '600', color: Colors.textMuted },
   totalValue: { fontSize: 36, fontWeight: '900', color: Colors.primary, marginTop: 4 },
-  portfolioRow: {
+
+  miningCard: {
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.md,
+    padding: Spacing.md,
+    borderRadius: Radius.lg,
+    backgroundColor: Colors.bgCard,
+    borderWidth: 1,
+    borderColor: 'rgba(240,185,11,0.25)',
+  },
+  miningHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  miningIconBg: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(240,185,11,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  miningTitle: { fontSize: 11, fontWeight: '800', color: '#00D26A', letterSpacing: 0.4 },
+  miningSub: { fontSize: 15, fontWeight: '800', color: Colors.textPrimary, marginTop: 2 },
+  miningLink: { fontSize: 13, fontWeight: '800', color: Colors.primary },
+  miningAccrued: { fontSize: 18, fontWeight: '900', color: Colors.primary, marginTop: Spacing.sm },
+  miningTrack: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.08)',
     marginTop: Spacing.sm,
+    overflow: 'hidden',
+  },
+  miningFill: { height: '100%', borderRadius: 3, backgroundColor: '#00D26A' },
+  miningPayoutRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: Spacing.sm },
+  miningPayout: { fontSize: 12, fontWeight: '600', color: Colors.textMuted },
+
+  addressRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: Spacing.sm,
+  },
+  addressText: { fontSize: 12, fontWeight: '600', color: Colors.textMuted },
+  errorPill: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    marginTop: Spacing.sm, paddingHorizontal: 10, paddingVertical: 4,
+    borderRadius: 99, backgroundColor: 'rgba(255,71,87,0.1)',
+    maxWidth: '100%',
+  },
+  errorText: { fontSize: 11, fontWeight: '600', color: '#FF4757', flexShrink: 1 },
+
+  // Portfolio sync card
+  syncCard: {
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.lg,
+    padding: Spacing.md,
+    borderRadius: Radius.lg,
+    backgroundColor: Colors.bgCard,
+    borderWidth: 1,
+    borderColor: 'rgba(240,185,11,0.2)',
+    gap: Spacing.md,
+  },
+  syncHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: Spacing.sm,
   },
-  portfolioLabel: { fontSize: 12, fontWeight: '600', color: Colors.textSecondary },
-  portfolioValue: { fontSize: 13, fontWeight: '800', color: Colors.textPrimary },
+  syncIconBg: {
+    width: 36, height: 36, borderRadius: 12,
+    backgroundColor: 'rgba(240,185,11,0.1)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  syncTitle: { fontSize: 14, fontWeight: '800', color: Colors.textPrimary },
+  syncSubtitle: { fontSize: 11, fontWeight: '600', color: Colors.textMuted },
+  syncBadgeOk: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 99,
+    backgroundColor: 'rgba(0,210,106,0.1)',
+  },
+  syncBadgeOkText: { fontSize: 10, fontWeight: '800', color: '#00D26A' },
+  syncRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderRadius: Radius.md,
+  },
+  syncCol: { flex: 1, gap: 2 },
+  syncColLabel: { fontSize: 10, fontWeight: '700', color: Colors.textMuted, textTransform: 'uppercase' },
+  syncColValue: { fontSize: 14, fontWeight: '800', color: Colors.textPrimary },
+  syncNote: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 6,
+    paddingHorizontal: 4,
+  },
+  syncNoteText: { flex: 1, fontSize: 11, fontWeight: '600', color: Colors.textMuted, lineHeight: 16 },
+  syncBtnWrap: { borderRadius: Radius.lg, overflow: 'hidden' },
+  syncBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    paddingVertical: 12,
+  },
+  syncBtnText: { fontSize: 13, fontWeight: '800', color: '#000' },
 
   actions: {
     flexDirection: 'row', gap: 10, paddingHorizontal: Spacing.lg, marginBottom: Spacing.lg,
@@ -244,37 +617,43 @@ const styles = StyleSheet.create({
   },
   actionOutlineText: { fontSize: 14, fontWeight: '800', color: Colors.primary },
 
-  sectionTitle: {
-    fontSize: 16, fontWeight: '800', color: Colors.textPrimary,
+  sectionHeader: {
+    flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between',
     paddingHorizontal: Spacing.lg, marginBottom: Spacing.md,
   },
+  sectionTitle: {
+    fontSize: 16, fontWeight: '800', color: Colors.textPrimary,
+  },
+  sectionSub: { fontSize: 11, fontWeight: '700', color: Colors.textMuted },
 
-  tokenCard: {
+  assetCard: {
     marginHorizontal: Spacing.lg, marginBottom: Spacing.md,
     padding: Spacing.md, borderRadius: Radius.lg,
     backgroundColor: Colors.bgCard, borderWidth: 1, borderColor: Colors.border,
   },
-  tokenRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  tokenIconBg: {
+  assetRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  assetIconBg: {
     width: 44, height: 44, borderRadius: 14,
     alignItems: 'center', justifyContent: 'center',
   },
-  tokenLogo: { width: 32, height: 32, borderRadius: 8 },
-  tokenInfo: { flex: 1 },
-  tokenName: { fontSize: 15, fontWeight: '800', color: Colors.textPrimary },
-  tokenTier: { fontSize: 12, fontWeight: '600', color: Colors.textMuted },
-  tokenValues: { alignItems: 'flex-end' },
-  tokenBalance: { fontSize: 16, fontWeight: '800', color: Colors.textPrimary },
-  tokenUsd: { fontSize: 12, fontWeight: '600', color: Colors.textMuted },
-
-  tokenDetails: {
-    flexDirection: 'row', justifyContent: 'space-between',
-    marginTop: Spacing.sm, paddingTop: Spacing.sm,
-    borderTopWidth: 1, borderTopColor: Colors.border,
+  assetLogo: { width: 32, height: 32, borderRadius: 8 },
+  assetInfo: { flex: 1, gap: 2 },
+  assetTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  assetSymbol: { fontSize: 15, fontWeight: '800', color: Colors.textPrimary },
+  assetTierBadge: {
+    paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
   },
-  tokenDetailItem: { alignItems: 'center' },
-  detailLabel: { fontSize: 11, fontWeight: '600', color: Colors.textMuted },
-  detailValue: { fontSize: 13, fontWeight: '700', color: Colors.textPrimary, marginTop: 2 },
+  assetTierText: { fontSize: 9, fontWeight: '700', color: Colors.textMuted, letterSpacing: 0.4 },
+  assetName: { fontSize: 11, fontWeight: '600', color: Colors.textMuted },
+  assetPriceLine: { fontSize: 11, fontWeight: '600', color: Colors.textMuted },
+  assetChange: { fontSize: 11, fontWeight: '800' },
+  changeUp: { color: '#00D26A' },
+  changeDown: { color: '#FF4757' },
+  assetValues: { alignItems: 'flex-end' },
+  assetBalance: { fontSize: 15, fontWeight: '800', color: Colors.textPrimary },
+  assetUsd: { fontSize: 12, fontWeight: '600', color: Colors.textMuted },
 
   historySection: { marginTop: Spacing.lg },
   historyItem: {

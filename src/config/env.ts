@@ -20,6 +20,7 @@ export const env = {
   POOL_MANAGER_CONTRACT: process.env.POOL_MANAGER_CONTRACT || '',
   PRIVATE_KEY: process.env.PRIVATE_KEY || '',
 
-  // Price Feed
+  // Price Feed (optional PRO key → header x-cg-pro-api-key on requests)
   COINGECKO_API_URL: process.env.COINGECKO_API_URL || 'https://api.coingecko.com/api/v3',
+  COINGECKO_API_KEY: process.env.COINGECKO_API_KEY || '',
 } as const;

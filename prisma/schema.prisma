@@ -45,6 +45,7 @@ model User {
   transfersIn   TokenTransfer[] @relation("TransferTo")
   withdrawals   Withdrawal[]
   creditDraws   CreditDraw[]
+  miningSubscription UserMiningSubscription?
 
   @@map("users")
 }
@@ -396,4 +397,47 @@ model PlatformSettings {
   updatedAt        DateTime @updatedAt
 
   @@map("platform_settings")
+}
+
+// ─── CLB mining machine packages (admin → app Mine CLB) ─
+enum MiningPackagePeriodUnit {
+  MINUTE
+  HOUR
+  DAY
+}
+
+model ClbMiningPackage {
+  id               String                   @id @default(uuid())
+  name             String
+  description      String?
+  tokenSymbol      String                   @default("CLB")
+  // Tokens credited each period (see periodLength + periodUnit).
+  tokensPerPeriod  Decimal                  @db.Decimal(36, 18)
+  periodLength     Int                      @default(1)
+  periodUnit       MiningPackagePeriodUnit
+  isFree           Boolean                  @default(false)
+  priceUsd         Decimal?                 @db.Decimal(18, 2)
+  sortOrder        Int                      @default(0)
+  isActive         Boolean                  @default(true)
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+
+  miningSubscriptions UserMiningSubscription[]
+
+  @@map("clb_mining_packages")
+}
+
+// ─── User mining machine (one active machine per user) ─────
+model UserMiningSubscription {
+  id              String   @id @default(uuid())
+  userId          String   @unique
+  packageId       String
+  payoutAddress   String
+  startedAt       DateTime @default(now())
+
+  user    User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  package ClbMiningPackage @relation(fields: [packageId], references: [id], onDelete: Restrict)
+
+  @@index([packageId])
+  @@map("user_mining_subscriptions")
 }

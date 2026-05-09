@@ -1,7 +1,10 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import { Prisma } from '@prisma/client';
 import prisma from '../config/db';
 import { authMiddleware } from '../middleware/auth';
 import { liquidationService } from '../services/liquidationService';
+import { serializeMiningPackage } from './miningPackages';
+import type { MiningPackagePeriodUnit } from '@prisma/client';
 
 // Admin-only middleware — reads role from JWT (no extra DB query)
 async function adminMiddleware(request: FastifyRequest, reply: FastifyReply): Promise<void> {
@@ -467,6 +470,186 @@ export default async function adminRoutes(fastify: FastifyInstance) {
       }
 
       return result;
+    }
+  );
+
+  const miningPeriodUnits: MiningPackagePeriodUnit[] = ['MINUTE', 'HOUR', 'DAY'];
+  const miningTokens = ['CLB', 'CLBg', 'CLBs'] as const;
+
+  function parseMiningPeriodUnit(v: string): MiningPackagePeriodUnit | null {
+    const u = String(v || '').toUpperCase();
+    return miningPeriodUnits.includes(u as MiningPackagePeriodUnit) ? (u as MiningPackagePeriodUnit) : null;
+  }
+
+  // ─── CLB mining machine packages ─────────────────────────────
+  fastify.get('/mining-packages', { preHandler: [adminMiddleware] }, async () => {
+    const rows = await prisma.clbMiningPackage.findMany({
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
+    });
+    return { success: true, packages: rows.map(serializeMiningPackage) };
+  });
+
+  fastify.post<{
+    Body: {
+      name: string;
+      description?: string | null;
+      tokenSymbol?: string;
+      tokensPerPeriod: number;
+      periodLength: number;
+      periodUnit: string;
+      isFree?: boolean;
+      priceUsd?: number | null;
+      sortOrder?: number;
+      isActive?: boolean;
+    };
+  }>('/mining-packages', { preHandler: [adminMiddleware] }, async (request, reply) => {
+    const b = request.body;
+    if (!b?.name || typeof b.name !== 'string' || !b.name.trim()) {
+      return reply.status(400).send({ success: false, error: 'Package name is required' });
+    }
+    const tpp = Number(b.tokensPerPeriod);
+    if (!Number.isFinite(tpp) || tpp <= 0) {
+      return reply.status(400).send({ success: false, error: 'tokensPerPeriod must be a positive number' });
+    }
+    const pl = parseInt(String(b.periodLength), 10);
+    if (!Number.isFinite(pl) || pl < 1) {
+      return reply.status(400).send({ success: false, error: 'periodLength must be a positive integer' });
+    }
+    const unit = parseMiningPeriodUnit(b.periodUnit);
+    if (!unit) {
+      return reply.status(400).send({ success: false, error: 'periodUnit must be MINUTE, HOUR, or DAY' });
+    }
+    const sym = (b.tokenSymbol?.trim() || 'CLB') as string;
+    const tokenSymbol = miningTokens.includes(sym as (typeof miningTokens)[number]) ? sym : 'CLB';
+    const isFree = Boolean(b.isFree);
+    if (!isFree) {
+      const p = b.priceUsd;
+      if (p != null && (typeof p !== 'number' || !Number.isFinite(p) || p < 0)) {
+        return reply.status(400).send({ success: false, error: 'priceUsd must be a non-negative number when not free' });
+      }
+    }
+
+    const row = await prisma.clbMiningPackage.create({
+      data: {
+        name: b.name.trim(),
+        description: b.description?.trim() || null,
+        tokenSymbol,
+        tokensPerPeriod: new Prisma.Decimal(String(tpp)),
+        periodLength: pl,
+        periodUnit: unit,
+        isFree,
+        priceUsd: isFree ? null : new Prisma.Decimal(String(b.priceUsd ?? 0)),
+        sortOrder: b.sortOrder ?? 0,
+        isActive: b.isActive ?? true,
+      },
+    });
+    return { success: true, package: serializeMiningPackage(row) };
+  });
+
+  fastify.put<{
+    Params: { id: string };
+    Body: {
+      name?: string;
+      description?: string | null;
+      tokenSymbol?: string;
+      tokensPerPeriod?: number;
+      periodLength?: number;
+      periodUnit?: string;
+      isFree?: boolean;
+      priceUsd?: number | null;
+      sortOrder?: number;
+      isActive?: boolean;
+    };
+  }>('/mining-packages/:id', { preHandler: [adminMiddleware] }, async (request, reply) => {
+    const existing = await prisma.clbMiningPackage.findUnique({ where: { id: request.params.id } });
+    if (!existing) {
+      return reply.status(404).send({ success: false, error: 'Package not found' });
+    }
+    const b = request.body;
+    const data: Prisma.ClbMiningPackageUpdateInput = {};
+
+    if (b.name !== undefined) {
+      if (typeof b.name !== 'string' || !b.name.trim()) {
+        return reply.status(400).send({ success: false, error: 'Invalid name' });
+      }
+      data.name = b.name.trim();
+    }
+    if (b.description !== undefined) {
+      data.description = b.description === null || b.description === '' ? null : String(b.description).trim();
+    }
+    if (b.tokenSymbol !== undefined) {
+      const sym = b.tokenSymbol.trim();
+      if (!miningTokens.includes(sym as (typeof miningTokens)[number])) {
+        return reply.status(400).send({ success: false, error: 'tokenSymbol must be CLB, CLBg, or CLBs' });
+      }
+      data.tokenSymbol = sym;
+    }
+    if (b.tokensPerPeriod !== undefined) {
+      const tpp = Number(b.tokensPerPeriod);
+      if (!Number.isFinite(tpp) || tpp <= 0) {
+        return reply.status(400).send({ success: false, error: 'tokensPerPeriod must be positive' });
+      }
+      data.tokensPerPeriod = new Prisma.Decimal(String(tpp));
+    }
+    if (b.periodLength !== undefined) {
+      const pl = parseInt(String(b.periodLength), 10);
+      if (!Number.isFinite(pl) || pl < 1) {
+        return reply.status(400).send({ success: false, error: 'periodLength must be a positive integer' });
+      }
+      data.periodLength = pl;
+    }
+    if (b.periodUnit !== undefined) {
+      const unit = parseMiningPeriodUnit(b.periodUnit);
+      if (!unit) {
+        return reply.status(400).send({ success: false, error: 'periodUnit must be MINUTE, HOUR, or DAY' });
+      }
+      data.periodUnit = unit;
+    }
+    if (b.sortOrder !== undefined) {
+      data.sortOrder = parseInt(String(b.sortOrder), 10) || 0;
+    }
+    if (b.isActive !== undefined) {
+      data.isActive = Boolean(b.isActive);
+    }
+    if (b.isFree !== undefined) {
+      data.isFree = Boolean(b.isFree);
+    }
+    if (b.priceUsd !== undefined) {
+      const isFree = b.isFree !== undefined ? Boolean(b.isFree) : existing.isFree;
+      if (isFree) {
+        data.priceUsd = null;
+      } else {
+        const p = b.priceUsd;
+        if (p != null && (typeof p !== 'number' || !Number.isFinite(p) || p < 0)) {
+          return reply.status(400).send({ success: false, error: 'Invalid priceUsd' });
+        }
+        data.priceUsd = new Prisma.Decimal(String(p ?? 0));
+      }
+    } else if (b.isFree === true) {
+      data.priceUsd = null;
+    }
+
+    if (b.isFree === false && b.priceUsd === undefined && data.priceUsd === undefined) {
+      data.priceUsd = existing.priceUsd ?? new Prisma.Decimal(0);
+    }
+
+    const row = await prisma.clbMiningPackage.update({
+      where: { id: request.params.id },
+      data,
+    });
+    return { success: true, package: serializeMiningPackage(row) };
+  });
+
+  fastify.delete<{ Params: { id: string } }>(
+    '/mining-packages/:id',
+    { preHandler: [adminMiddleware] },
+    async (request, reply) => {
+      const existing = await prisma.clbMiningPackage.findUnique({ where: { id: request.params.id } });
+      if (!existing) {
+        return reply.status(404).send({ success: false, error: 'Package not found' });
+      }
+      await prisma.clbMiningPackage.delete({ where: { id: request.params.id } });
+      return { success: true, message: 'Package deleted' };
     }
   );
 }

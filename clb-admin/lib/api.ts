@@ -1,5 +1,34 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
 
+export type AdminMiningPackage = {
+  id: string;
+  name: string;
+  description: string | null;
+  tokenSymbol: string;
+  tokensPerPeriod: number;
+  periodLength: number;
+  periodUnit: "MINUTE" | "HOUR" | "DAY";
+  isFree: boolean;
+  priceUsd: number | null;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AdminMiningPackageInput = {
+  name: string;
+  description?: string | null;
+  tokenSymbol?: string;
+  tokensPerPeriod: number;
+  periodLength: number;
+  periodUnit: string;
+  isFree?: boolean;
+  priceUsd?: number | null;
+  sortOrder?: number;
+  isActive?: boolean;
+};
+
 async function request<T>(
   endpoint: string,
   options: RequestInit = {}
@@ -149,6 +178,23 @@ export const api = {
     }),
   getAdminReceipts: (page = 1, limit = 20) =>
     request<{ receipts: Array<{ id: string; tokenId: string; holder: string; holderName: string | null; poolName: string; poolSymbol: string; amount: number; txHash: string | null; status: string; mintedAt: string }>; total: number }>(`/api/admin/receipts?page=${page}&limit=${limit}`),
+
+  getAdminMiningPackages: () =>
+    request<{ success: boolean; packages: AdminMiningPackage[] }>("/api/admin/mining-packages"),
+  createAdminMiningPackage: (body: AdminMiningPackageInput) =>
+    request<{ success: boolean; package: AdminMiningPackage }>("/api/admin/mining-packages", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  updateAdminMiningPackage: (id: string, body: Partial<AdminMiningPackageInput>) =>
+    request<{ success: boolean; package: AdminMiningPackage }>(`/api/admin/mining-packages/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+  deleteAdminMiningPackage: (id: string) =>
+    request<{ success: boolean; message: string }>(`/api/admin/mining-packages/${id}`, {
+      method: "DELETE",
+    }),
 
   // Transactions
   getTransactions: (page = 1, limit = 20) =>

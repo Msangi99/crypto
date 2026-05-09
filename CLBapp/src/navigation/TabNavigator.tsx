@@ -41,6 +41,7 @@ export default function TabNavigator() {
         tabBarActiveTintColor: Colors.primary,
         tabBarInactiveTintColor: Colors.textMuted,
         tabBarLabelStyle: styles.tabLabel,
+        tabBarIconStyle: styles.tabBarIconStyle,
         tabBarIcon: ({ focused, color }) => {
           const tab = TABS.find((t) => t.name === route.name);
           if (route.name === 'Home') {
@@ -99,28 +100,34 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   iconActive: {
-    transform: [{ scale: 1.1 }],
+    transform: [{ scale: 1.05 }],
   },
   iconGradient: {
     width: 44, height: 44, borderRadius: 22,
     alignItems: 'center', justifyContent: 'center',
   },
+  tabBarIconStyle: {
+    marginBottom: 2,
+  },
   homeIconWrapper: {
-    width: 48, height: 48, borderRadius: 16,
-    alignItems: 'center', justifyContent: 'center',
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    padding: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: 'rgba(240,185,11,0.1)',
-    borderWidth: 2,
+    borderWidth: 1,
     borderColor: 'transparent',
   },
   homeIconActive: {
     backgroundColor: 'rgba(240,185,11,0.2)',
     borderColor: Colors.primary,
-    transform: [{ scale: 1.1 }],
   },
-  homeLogoIcon: { width: 32, height: 32 },
+  homeLogoIcon: { width: 26, height: 26 },
   tabLabel: {
     fontSize: 11,
     fontWeight: '700',
-    marginTop: 4,
+    marginTop: 8,
   },
 });

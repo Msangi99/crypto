@@ -21,6 +21,8 @@ import notificationRoutes from './routes/notifications';
 import loanRoutes from './routes/loans';
 import tokenRoutes from './routes/tokens';
 import withdrawalRoutes from './routes/withdrawals';
+import miningPackageRoutes from './routes/miningPackages';
+import userMiningRoutes from './routes/userMining';
 
 const buildApp = async () => {
   const fastify = Fastify({
@@ -155,6 +157,8 @@ const buildApp = async () => {
   await fastify.register(loanRoutes, { prefix: '/api/loans' });
   await fastify.register(tokenRoutes, { prefix: '/api/tokens' });
   await fastify.register(withdrawalRoutes, { prefix: '/api/withdrawals' });
+  await fastify.register(miningPackageRoutes, { prefix: '/api/mining-packages' });
+  await fastify.register(userMiningRoutes, { prefix: '/api/mining' });
 
   // ─── Root Route ────────────────────────────────
   fastify.get('/', async () => {
@@ -174,6 +178,8 @@ const buildApp = async () => {
         loans: '/api/loans',
         tokens: '/api/tokens',
         withdrawals: '/api/withdrawals',
+        miningPackages: '/api/mining-packages',
+        mining: '/api/mining',
       },
     };
   });
