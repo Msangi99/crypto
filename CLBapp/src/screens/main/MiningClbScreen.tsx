@@ -187,7 +187,7 @@ export default function MiningClbScreen({ navigation }: { navigation: any }) {
               <View style={[styles.progressFill, { width: `${liveMining.periodProgressPct}%` }]} />
             </View>
             <Text style={styles.progressHint}>
-              Current cycle: {liveMining.periodProgressPct.toFixed(1)}% — next payout slice at 100%
+              Cycle bar: {liveMining.periodProgressPct.toFixed(1)}% through current period · Total earned updates continuously
             </Text>
             <View style={styles.payoutRow}>
               <Ionicons name="navigate-outline" size={14} color={Colors.textMuted} />

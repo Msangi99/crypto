@@ -113,4 +113,45 @@ export default async function userMiningRoutes(fastify: FastifyInstance) {
       return { success: true, subscription };
     },
   );
+
+  /** Move computed mining accrual into app ledger (`token_balances`) and reset the mining timer. */
+  fastify.post('/claim', { preHandler: [authMiddleware] }, async (request, reply) => {
+    const userId = request.userId!;
+    const sub = await prisma.userMiningSubscription.findUnique({
+      where: { userId },
+      include: { package: true },
+    });
+    if (!sub) {
+      return reply.status(400).send({ success: false, error: 'No active mining subscription' });
+    }
+    const p = sub.package;
+    const tpp = Number(p.tokensPerPeriod);
+    const { accruedTokens } = computeMiningProgress(tpp, p.periodUnit, p.periodLength, sub.startedAt);
+    if (!Number.isFinite(accruedTokens) || accruedTokens <= 0) {
+      return reply.status(400).send({ success: false, error: 'Nothing to claim yet' });
+    }
+    const token = p.tokenSymbol;
+    if (!['CLB', 'CLBg', 'CLBs'].includes(token)) {
+      return reply.status(400).send({ success: false, error: 'Invalid mining token' });
+    }
+
+    await prisma.$transaction([
+      prisma.tokenBalance.upsert({
+        where: { userId_token: { userId, token } },
+        create: { userId, token, balance: accruedTokens },
+        update: { balance: { increment: accruedTokens } },
+      }),
+      prisma.userMiningSubscription.update({
+        where: { userId },
+        data: { startedAt: new Date() },
+      }),
+    ]);
+
+    return {
+      success: true,
+      claimed: accruedTokens,
+      token,
+      message: 'Mining accrual added to your in-app balance. Timer reset for the next accrual.',
+    };
+  });
 }

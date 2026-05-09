@@ -176,6 +176,13 @@ export const miningUserAPI = {
       '/api/mining/subscribe',
       body,
     ),
+  claim: () =>
+    api.post<{
+      success: boolean;
+      claimed: number;
+      token: string;
+      message?: string;
+    }>('/api/mining/claim'),
 };
 
 // ─── Tokens (CLB, CLBg, CLBs) ──────────────────────────────

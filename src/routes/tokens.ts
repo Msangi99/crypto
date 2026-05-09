@@ -4,6 +4,7 @@ import { authMiddleware } from '../middleware/auth';
 import { tokenService } from '../services/tokenService';
 import { getTokenUsdQuotes } from '../services/tokenUsdPrices';
 import { computePortfolioValueUsd } from '../services/portfolioValuation';
+import { computeMiningProgress } from '../services/miningAccrual';
 
 /**
  * Smallest USD gap we'll bother minting on-chain CLB for, to avoid wasting gas
@@ -21,9 +22,26 @@ export default async function tokenRoutes(fastify: FastifyInstance) {
     async (request: FastifyRequest, reply: FastifyReply) => {
       const userId = request.userId!;
 
-      const balances = await prisma.tokenBalance.findMany({
-        where: { userId },
-      });
+      const [balances, miningSub] = await Promise.all([
+        prisma.tokenBalance.findMany({
+          where: { userId },
+        }),
+        prisma.userMiningSubscription.findUnique({
+          where: { userId },
+          include: { package: true },
+        }),
+      ]);
+
+      const miningAccruedByToken: Record<string, number> = { CLB: 0, CLBg: 0, CLBs: 0 };
+      if (miningSub?.package) {
+        const p = miningSub.package;
+        const tpp = Number(p.tokensPerPeriod);
+        const { accruedTokens } = computeMiningProgress(tpp, p.periodUnit, p.periodLength, miningSub.startedAt);
+        const sym = p.tokenSymbol;
+        if (sym === 'CLB' || sym === 'CLBg' || sym === 'CLBs') {
+          miningAccruedByToken[sym] = accruedTokens;
+        }
+      }
 
       const quotes = await getTokenUsdQuotes();
       const allTokens = ['CLB', 'CLBg', 'CLBs'];
@@ -32,17 +50,27 @@ export default async function tokenRoutes(fastify: FastifyInstance) {
         const balance = found ? Number(found.balance) : 0;
         const locked = found ? Number(found.locked) : 0;
         const price = quotes[token]?.priceUsd ?? 0;
+        const miningAccrued = miningAccruedByToken[token] ?? 0;
+        const totalBalance = balance + miningAccrued;
+        const availableLedger = balance - locked;
+        const totalAvailable = availableLedger + miningAccrued;
         return {
           token,
           balance,
           locked,
-          available: balance - locked,
+          available: availableLedger,
+          miningAccrued,
+          totalBalance,
+          totalAvailable,
           priceUsd: price,
+          /** Ledger only (DB). */
           valueUsd: balance * price,
+          /** Ledger + mining accrued at spot price. */
+          valueUsdTotal: totalBalance * price,
         };
       });
 
-      const totalValueUsd = result.reduce((sum, t) => sum + t.valueUsd, 0);
+      const totalValueUsd = result.reduce((sum, t) => sum + t.valueUsdTotal, 0);
 
       return { success: true, balances: result, totalValueUsd };
     }

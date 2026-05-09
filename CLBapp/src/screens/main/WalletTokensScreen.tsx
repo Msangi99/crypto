@@ -24,6 +24,21 @@ type SyncStatus = {
   chainConfigured: boolean;
 };
 
+type AppTokenRow = {
+  token: string;
+  balance: number;
+  locked: number;
+  available: number;
+  miningAccrued?: number;
+  totalBalance?: number;
+  totalAvailable?: number;
+  priceUsd: number;
+  valueUsd: number;
+  valueUsdTotal?: number;
+};
+
+const CLB_FAMILY_ORDER = ['CLB', 'CLBs', 'CLBg'] as const;
+
 const CLB_LOGO = require('../../../assets/clb-token.png');
 
 const ASSET_META: Record<string, { color: string; icon: string }> = {
@@ -59,10 +74,8 @@ export default function WalletTokensScreen({ navigation }: any) {
 
   const {
     assets,
-    totalValueUsd,
     isLoading: isLoadingChain,
     isRefetching,
-    error,
     refetch,
   } = useOnChainWallet(walletAddress);
 
@@ -72,6 +85,8 @@ export default function WalletTokensScreen({ navigation }: any) {
   const [isSyncing, setIsSyncing] = useState(false);
   const [miningSub, setMiningSub] = useState<MiningSubscriptionDto | null>(null);
   const [miningTick, setMiningTick] = useState(0);
+  const [appTokenRows, setAppTokenRows] = useState<AppTokenRow[] | null>(null);
+  const [claimingMining, setClaimingMining] = useState(false);
 
   const loadHistory = useCallback(async () => {
     if (!isAuthenticated) {
@@ -112,11 +127,26 @@ export default function WalletTokensScreen({ navigation }: any) {
     }
   }, [isAuthenticated]);
 
+  const loadAppBalances = useCallback(async () => {
+    if (!isAuthenticated) {
+      setAppTokenRows(null);
+      return;
+    }
+    try {
+      const res = await tokensAPI.balances();
+      const list: AppTokenRow[] = (res.data?.balances ?? []) as AppTokenRow[];
+      setAppTokenRows(list);
+    } catch {
+      setAppTokenRows(null);
+    }
+  }, [isAuthenticated]);
+
   useEffect(() => {
     loadHistory();
     loadSyncStatus();
     loadMiningSub();
-  }, [loadHistory, loadSyncStatus, loadMiningSub]);
+    loadAppBalances();
+  }, [loadHistory, loadSyncStatus, loadMiningSub, loadAppBalances]);
 
   useEffect(() => {
     if (!miningSub) return;
@@ -126,7 +156,7 @@ export default function WalletTokensScreen({ navigation }: any) {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([refetch(), loadHistory(), loadSyncStatus(), loadMiningSub()]);
+    await Promise.all([refetch(), loadHistory(), loadSyncStatus(), loadMiningSub(), loadAppBalances()]);
     setRefreshing(false);
   };
 
@@ -159,7 +189,7 @@ export default function WalletTokensScreen({ navigation }: any) {
           ],
         );
         // Re-read on-chain balances + sync status so the UI updates.
-        await Promise.all([refetch(), loadSyncStatus()]);
+        await Promise.all([refetch(), loadSyncStatus(), loadAppBalances()]);
       }
     } catch (err: any) {
       const msg =
@@ -244,8 +274,6 @@ export default function WalletTokensScreen({ navigation }: any) {
     );
   };
 
-  const isInitialLoad = isLoadingChain && Object.keys(assets.reduce((acc, a) => ({ ...acc, [a.symbol]: a.balance }), {})).every((k) => assets.find((a) => a.symbol === k)?.balance === 0);
-
   const miningLive = useMemo(() => {
     if (!miningSub) return null;
     return computeMiningProgressLive(
@@ -255,6 +283,43 @@ export default function WalletTokensScreen({ navigation }: any) {
       miningSub.startedAt,
     );
   }, [miningSub, miningTick]);
+
+  const appTokenBySymbol = useMemo(() => {
+    const m: Record<string, AppTokenRow> = {};
+    (appTokenRows ?? []).forEach((r) => { m[r.token] = r; });
+    return m;
+  }, [appTokenRows]);
+
+  const appTokenTotalUsd = useMemo(
+    () =>
+      CLB_FAMILY_ORDER.reduce((s, t) => {
+        const r = appTokenBySymbol[t];
+        const v = r?.valueUsdTotal ?? r?.valueUsd ?? 0;
+        return s + v;
+      }, 0),
+    [appTokenBySymbol],
+  );
+
+  const handleClaimMining = async () => {
+    if (claimingMining) return;
+    setClaimingMining(true);
+    try {
+      const res = await miningUserAPI.claim();
+      const claimed = res.data?.claimed ?? 0;
+      const tok = res.data?.token ?? 'CLB';
+      Alert.alert(
+        'Claimed',
+        `${claimed.toFixed(6)} ${tok} moved to your in-app balance. You can transfer after claiming.`,
+      );
+      await Promise.all([loadAppBalances(), loadMiningSub()]);
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.error || err?.response?.data?.message || err?.message || 'Claim failed';
+      Alert.alert('Claim', String(msg));
+    } finally {
+      setClaimingMining(false);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -286,27 +351,66 @@ export default function WalletTokensScreen({ navigation }: any) {
               </TouchableOpacity>
             </LinearGradient>
 
-            {/* Total Portfolio Value (on-chain) */}
-            <View style={styles.totalCard}>
-              <View style={styles.totalLabelRow}>
-                <Ionicons name="wallet" size={14} color={Colors.primary} />
-                <Text style={styles.totalLabel}>Total Wallet Value</Text>
-              </View>
-              <Text style={styles.totalValue}>
-                {isInitialLoad ? '—' : formatUsd(totalValueUsd)}
-              </Text>
-              {walletAddress ? (
-                <View style={styles.addressRow}>
-                  <Ionicons name="link-outline" size={12} color={Colors.textMuted} />
-                  <Text style={styles.addressText}>BSC · {shortAddress(walletAddress)}</Text>
+            {/* Pool portfolio + in-app CLB family USD */}
+            <View style={styles.portfolioCard}>
+              <View style={styles.portfolioHero}>
+                <View style={styles.totalLabelRow}>
+                  <Ionicons name="pie-chart" size={14} color={Colors.primary} />
+                  <Text style={styles.totalLabel}>Pool portfolio value</Text>
                 </View>
-              ) : (
-                <Text style={styles.addressText}>Connect a wallet to see your balance</Text>
-              )}
-              {error ? (
-                <View style={styles.errorPill}>
-                  <Ionicons name="alert-circle-outline" size={12} color="#FF4757" />
-                  <Text style={styles.errorText} numberOfLines={1}>{error}</Text>
+                <Text style={styles.portfolioHeroValue}>
+                  {isAuthenticated && syncStatus
+                    ? formatUsd(syncStatus.portfolioValueUsd)
+                    : '—'}
+                </Text>
+                <Text style={styles.portfolioHeroHint}>
+                  {isAuthenticated
+                    ? 'USD value of your active pool positions (leveraged)'
+                    : 'Sign in to see your pool portfolio'}
+                </Text>
+              </View>
+              <View style={styles.portfolioDivider} />
+              <Text style={styles.appTokenSectionLabel}>CLB token value (in app)</Text>
+              <Text style={styles.appTokenHint}>
+                Includes mined tokens (off-chain accrual) until you claim — then they live in your ledger balance for transfer.
+              </Text>
+              {isAuthenticated && appTokenRows
+                ? CLB_FAMILY_ORDER.map((sym) => {
+                  const row = appTokenBySymbol[sym];
+                  const totalBal = row?.totalBalance ?? row?.balance ?? 0;
+                  const val = row?.valueUsdTotal ?? row?.valueUsd ?? 0;
+                  const ledgerBal = row?.balance ?? 0;
+                  const miningExtra = row?.miningAccrued ?? 0;
+                  const meta = ASSET_META[sym] || { color: Colors.primary, icon: 'cube' };
+                  return (
+                    <View key={sym} style={styles.appTokenRow}>
+                      <View style={styles.appTokenLeft}>
+                        <View style={[styles.appTokenDot, { backgroundColor: meta.color + '44' }]} />
+                        <View>
+                          <Text style={styles.appTokenSymbol}>{sym}</Text>
+                          <Text style={styles.appTokenBal}>
+                            {formatBalance(totalBal)} {sym}
+                            {miningExtra > 0 ? (
+                              <Text style={styles.appTokenLedgerNote}>
+                                {' '}· ledger {formatBalance(ledgerBal)}
+                              </Text>
+                            ) : null}
+                          </Text>
+                        </View>
+                      </View>
+                      <Text style={styles.appTokenUsd}>{formatUsd(val)}</Text>
+                    </View>
+                  );
+                })
+                : (
+                  <Text style={styles.appTokenPlaceholder}>
+                    {isAuthenticated ? 'Loading balances…' : 'Sign in to see CLB, CLBs & CLBg'}
+                  </Text>
+                )}
+              {isAuthenticated && appTokenRows ? (
+                <View style={styles.appTokenFooter}>
+                  <Text style={styles.appTokenFooterLabel}>Total CLB family (app)</Text>
+                  <Text style={styles.appTokenFooterUsd}>{formatUsd(appTokenTotalUsd)}</Text>
                 </View>
               ) : null}
             </View>
@@ -331,6 +435,18 @@ export default function WalletTokensScreen({ navigation }: any) {
                 <View style={styles.miningTrack}>
                   <View style={[styles.miningFill, { width: `${Math.min(100, miningLive.periodProgressPct)}%` }]} />
                 </View>
+                <TouchableOpacity
+                  style={styles.claimMiningBtn}
+                  onPress={handleClaimMining}
+                  disabled={claimingMining || (miningLive?.accruedTokens ?? 0) <= 0}
+                  activeOpacity={0.85}
+                >
+                  {claimingMining ? (
+                    <ActivityIndicator size="small" color="#000" />
+                  ) : (
+                    <Text style={styles.claimMiningText}>Claim to in-app balance</Text>
+                  )}
+                </TouchableOpacity>
                 <View style={styles.miningPayoutRow}>
                   <Ionicons name="navigate-outline" size={12} color={Colors.textMuted} />
                   <Text style={styles.miningPayout}>Payout {shortAddress(miningSub.payoutAddress)}</Text>
@@ -494,16 +610,87 @@ const styles = StyleSheet.create({
   backBtn: { padding: 4, width: 32, alignItems: 'center' },
   headerTitle: { fontSize: 20, fontWeight: '800', color: Colors.textPrimary },
 
-  totalCard: {
-    margin: Spacing.lg, padding: Spacing.xl, borderRadius: Radius.xl,
-    backgroundColor: Colors.bgCard, borderWidth: 1, borderColor: Colors.border,
-    alignItems: 'center', ...Shadow.card,
+  portfolioCard: {
+    marginHorizontal: Spacing.lg,
+    marginBottom: Spacing.md,
+    padding: Spacing.lg,
+    borderRadius: Radius.xl,
+    backgroundColor: Colors.bgCard,
+    borderWidth: 1,
+    borderColor: 'rgba(240,185,11,0.22)',
+    ...Shadow.card,
   },
+  portfolioHero: { alignItems: 'center' },
+  portfolioHeroValue: {
+    fontSize: 32,
+    fontWeight: '900',
+    color: Colors.primary,
+    marginTop: 6,
+    letterSpacing: -0.5,
+  },
+  portfolioHeroHint: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: Colors.textMuted,
+    textAlign: 'center',
+    marginTop: 6,
+    lineHeight: 16,
+    paddingHorizontal: Spacing.sm,
+  },
+  portfolioDivider: {
+    height: 1,
+    backgroundColor: Colors.border,
+    marginVertical: Spacing.md,
+  },
+  appTokenSectionLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: Colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    marginBottom: 4,
+  },
+  appTokenHint: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: Colors.textMuted,
+    lineHeight: 16,
+    marginBottom: Spacing.sm,
+  },
+  appTokenRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.06)',
+  },
+  appTokenLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  appTokenDot: { width: 8, height: 8, borderRadius: 4 },
+  appTokenSymbol: { fontSize: 15, fontWeight: '800', color: Colors.textPrimary },
+  appTokenBal: { fontSize: 11, fontWeight: '600', color: Colors.textMuted, marginTop: 2 },
+  appTokenLedgerNote: { fontSize: 11, fontWeight: '600', color: Colors.textSecondary },
+  appTokenUsd: { fontSize: 15, fontWeight: '800', color: Colors.textPrimary },
+  appTokenPlaceholder: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.textMuted,
+    paddingVertical: Spacing.sm,
+  },
+  appTokenFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: Spacing.sm,
+    paddingTop: Spacing.sm,
+  },
+  appTokenFooterLabel: { fontSize: 12, fontWeight: '700', color: Colors.textSecondary },
+  appTokenFooterUsd: { fontSize: 15, fontWeight: '900', color: Colors.primary },
+
   totalLabelRow: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
   },
   totalLabel: { fontSize: 13, fontWeight: '600', color: Colors.textMuted },
-  totalValue: { fontSize: 36, fontWeight: '900', color: Colors.primary, marginTop: 4 },
 
   miningCard: {
     marginHorizontal: Spacing.lg,
@@ -537,18 +724,16 @@ const styles = StyleSheet.create({
   miningFill: { height: '100%', borderRadius: 3, backgroundColor: '#00D26A' },
   miningPayoutRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: Spacing.sm },
   miningPayout: { fontSize: 12, fontWeight: '600', color: Colors.textMuted },
-
-  addressRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: Spacing.sm,
+  claimMiningBtn: {
+    marginTop: Spacing.sm,
+    alignSelf: 'stretch',
+    paddingVertical: 10,
+    paddingHorizontal: Spacing.md,
+    borderRadius: Radius.md,
+    backgroundColor: Colors.primary,
+    alignItems: 'center',
   },
-  addressText: { fontSize: 12, fontWeight: '600', color: Colors.textMuted },
-  errorPill: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    marginTop: Spacing.sm, paddingHorizontal: 10, paddingVertical: 4,
-    borderRadius: 99, backgroundColor: 'rgba(255,71,87,0.1)',
-    maxWidth: '100%',
-  },
-  errorText: { fontSize: 11, fontWeight: '600', color: '#FF4757', flexShrink: 1 },
+  claimMiningText: { fontSize: 13, fontWeight: '800', color: '#000' },
 
   // Portfolio sync card
   syncCard: {

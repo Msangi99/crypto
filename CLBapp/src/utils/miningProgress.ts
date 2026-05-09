@@ -14,6 +14,7 @@ export function periodDurationMs(unit: MiningPeriodUnit, length: number): number
   }
 }
 
+/** Matches server: linear accrual within each period window (smooth earning). */
 export function computeMiningProgressLive(
   tokensPerPeriod: number,
   unit: MiningPeriodUnit,
@@ -23,10 +24,11 @@ export function computeMiningProgressLive(
 ): { accruedTokens: number; periodProgressPct: number } {
   const started = new Date(startedAtIso).getTime();
   const periodMs = periodDurationMs(unit, periodLength);
-  if (periodMs <= 0) return { accruedTokens: 0, periodProgressPct: 0 };
+  if (periodMs <= 0 || !Number.isFinite(tokensPerPeriod) || tokensPerPeriod <= 0) {
+    return { accruedTokens: 0, periodProgressPct: 0 };
+  }
   const elapsed = Math.max(0, nowMs - started);
-  const fullPeriods = Math.floor(elapsed / periodMs);
-  const accruedTokens = fullPeriods * tokensPerPeriod;
+  const accruedTokens = (elapsed / periodMs) * tokensPerPeriod;
   const into = elapsed % periodMs;
   const periodProgressPct = Math.min(100, (into / periodMs) * 100);
   return { accruedTokens, periodProgressPct };

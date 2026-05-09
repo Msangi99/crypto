@@ -1,14 +1,35 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput, Alert,
   ScrollView, KeyboardAvoidingView, Platform, Image,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radius } from '../../constants/theme';
 import { tokensAPI } from '../../services/api';
 
 const CLB_LOGO = require('../../../assets/clb-token.png');
+
+function toNum(v: unknown): number {
+  if (typeof v === 'number' && Number.isFinite(v)) return v;
+  const n = parseFloat(String(v ?? '').replace(',', ''));
+  return Number.isFinite(n) ? n : 0;
+}
+
+/** Readable balance on token chips (.toFixed(1) hides small mined amounts). */
+function formatSelectableBalance(n: number): string {
+  if (!Number.isFinite(n) || n === 0) return '0';
+  if (n < 0.0001) return n.toExponential(1);
+  if (n < 1) return n.toFixed(6).replace(/\.?0+$/, '');
+  if (n < 1000) return n.toLocaleString('en-US', { maximumFractionDigits: 6 });
+  return n.toLocaleString('en-US', { maximumFractionDigits: 2 });
+}
+
+function amountStringForInput(n: number): string {
+  if (!Number.isFinite(n) || n <= 0) return '';
+  return n.toFixed(8).replace(/\.?0+$/, '');
+}
 
 const TOKENS = [
   { symbol: 'CLBg', name: 'CLB Gold', color: '#F0B90B', icon: 'diamond' },
@@ -24,18 +45,32 @@ export default function TransferTokensScreen({ navigation }: any) {
   const [balances, setBalances] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    const fetch = async () => {
-      try {
-        const res = await tokensAPI.balances();
-        setBalances(res.data.balances || []);
-      } catch {}
-    };
-    fetch();
+  const loadBalances = useCallback(async () => {
+    try {
+      const res = await tokensAPI.balances();
+      const list = res.data?.balances ?? res.data?.data?.balances;
+      setBalances(Array.isArray(list) ? list : []);
+    } catch {
+      setBalances([]);
+    }
   }, []);
 
+  useFocusEffect(
+    useCallback(() => {
+      loadBalances();
+    }, [loadBalances]),
+  );
+
   const balance = balances.find((b) => b.token === selectedToken.symbol);
-  const available = balance ? balance.available : 0;
+  /** Ledger only — backend transfer uses DB; claim mining on Wallet first to move accrual here. */
+  const available = balance
+    ? toNum(balance.available ?? toNum(balance.balance) - toNum(balance.locked))
+    : 0;
+  const locked = balance ? toNum(balance.locked) : 0;
+  const grossLedger = balance ? toNum(balance.balance) : 0;
+  const totalWithMining = balance
+    ? toNum(balance.totalBalance != null ? balance.totalBalance : balance.balance)
+    : 0;
   const numAmount = parseFloat(amount || '0');
 
   const handleTransfer = async () => {
@@ -44,7 +79,7 @@ export default function TransferTokensScreen({ navigation }: any) {
       return;
     }
     if (numAmount > available) {
-      Alert.alert('Insufficient Balance', `Available: ${available.toFixed(2)} ${selectedToken.symbol}`);
+              Alert.alert('Insufficient Balance', `Available: ${formatSelectableBalance(available)} ${selectedToken.symbol}`);
       return;
     }
     if (!toAddress || toAddress.length < 10) {
@@ -70,8 +105,8 @@ export default function TransferTokensScreen({ navigation }: any) {
               });
               Alert.alert(
                 'Transfer Sent!',
-                `${res.data.transfer.netAmount.toFixed(2)} ${selectedToken.symbol} sent successfully.`,
-                [{ text: 'OK', onPress: () => navigation.goBack() }]
+                `${formatSelectableBalance(toNum(res.data?.transfer?.netAmount))} ${selectedToken.symbol} sent successfully.`,
+                [{ text: 'OK', onPress: () => { loadBalances(); navigation.goBack(); } }],
               );
             } catch (err: any) {
               Alert.alert('Error', err?.response?.data?.error || 'Transfer failed');
@@ -102,6 +137,9 @@ export default function TransferTokensScreen({ navigation }: any) {
           <View style={styles.tokensRow}>
             {TOKENS.map((t) => {
               const bal = balances.find((b) => b.token === t.symbol);
+              const chipBal = bal
+                ? toNum(bal.totalBalance != null ? bal.totalBalance : bal.balance)
+                : 0;
               return (
                 <TouchableOpacity
                   key={t.symbol}
@@ -110,7 +148,20 @@ export default function TransferTokensScreen({ navigation }: any) {
                 >
                   <Image source={CLB_LOGO} style={styles.chipLogo} resizeMode="contain" />
                   <Text style={[styles.tokenChipText, selectedToken.symbol === t.symbol && { color: t.color }]}>{t.symbol}</Text>
-                  <Text style={styles.tokenChipBal}>{(bal?.available || 0).toFixed(1)}</Text>
+                  <Text
+                    style={[
+                      styles.tokenChipBal,
+                      selectedToken.symbol === t.symbol && { color: Colors.textSecondary },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {formatSelectableBalance(chipBal)}
+                  </Text>
+                  {bal && toNum(bal.locked) > 0 ? (
+                    <Text style={styles.tokenChipLocked} numberOfLines={1}>
+                      {formatSelectableBalance(toNum(bal.locked))} locked
+                    </Text>
+                  ) : null}
                 </TouchableOpacity>
               );
             })}
@@ -141,11 +192,17 @@ export default function TransferTokensScreen({ navigation }: any) {
               value={amount}
               onChangeText={setAmount}
             />
-            <TouchableOpacity onPress={() => setAmount(available.toFixed(2))}>
+            <TouchableOpacity onPress={() => setAmount(amountStringForInput(available))}>
               <Text style={styles.maxBtn}>MAX</Text>
             </TouchableOpacity>
           </View>
-          <Text style={styles.balanceHint}>Available: {available.toFixed(2)} {selectedToken.symbol}</Text>
+          <Text style={styles.balanceHint}>
+            Sendable (ledger): {formatSelectableBalance(available)} {selectedToken.symbol}
+            {locked > 0 ? ` · ${formatSelectableBalance(locked)} locked` : ''}
+            {totalWithMining > grossLedger
+              ? ` · total ${formatSelectableBalance(totalWithMining)} (claim mined on Wallet to send)`
+              : ''}
+          </Text>
 
           {/* Note */}
           <Text style={styles.label}>Note (optional)</Text>
@@ -206,7 +263,8 @@ const styles = StyleSheet.create({
   },
   chipLogo: { width: 22, height: 22, borderRadius: 6 },
   tokenChipText: { fontSize: 12, fontWeight: '800', color: Colors.textMuted },
-  tokenChipBal: { fontSize: 10, fontWeight: '600', color: Colors.textMuted },
+  tokenChipBal: { fontSize: 11, fontWeight: '800', color: Colors.textPrimary, maxWidth: '100%' },
+  tokenChipLocked: { fontSize: 9, fontWeight: '600', color: Colors.textMuted, marginTop: 2 },
 
   inputCard: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
