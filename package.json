@@ -14,7 +14,8 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "android": "npm --prefix CLBapp run android",
-    "ios": "npm --prefix CLBapp run ios"
+    "ios": "npm --prefix CLBapp run ios",
+    "e2e:transfer": "ts-node --transpile-only scripts/e2e-transfer-test.ts"
   },
   "keywords": [
     "blockchain",

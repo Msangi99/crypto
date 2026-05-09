@@ -8,7 +8,7 @@ function loadClbAbi(): { abi: any[]; resolvedFrom: string | null; tried: string[
   const tried: string[] = [];
   const candidates: string[] = [];
 
-  const envOverride = process.env.CLB_TOKEN_ABI_PATH?.trim();
+  const envOverride = env.CLB_TOKEN_ABI_PATH?.trim();
   if (envOverride) candidates.push(envOverride);
 
   candidates.push(

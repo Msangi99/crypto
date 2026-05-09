@@ -30,6 +30,8 @@ export const env = {
   CLBG_TOKEN_ADDRESS: envValue('CLBG_TOKEN_ADDRESS'),
   CLBS_TOKEN_ADDRESS: envValue('CLBS_TOKEN_ADDRESS'),
   GLM_TOKEN_ADDRESS: envValue('GLM_TOKEN_ADDRESS'),
+  /** Absolute path to CLBToken.json on the server (production VPS / Docker). */
+  CLB_TOKEN_ABI_PATH: envValue('CLB_TOKEN_ABI_PATH'),
 
   // Price Feed (optional PRO key → header x-cg-pro-api-key on requests)
   COINGECKO_API_URL: envValue('COINGECKO_API_URL', 'https://api.coingecko.com/api/v3'),

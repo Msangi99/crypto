@@ -6,6 +6,7 @@ import swaggerUi from '@fastify/swagger-ui';
 import { env } from './config/env';
 import prisma from './config/db';
 import { verifyConnection } from './config/blockchain';
+import { tokenService } from './services/tokenService';
 import { eventService } from './services/eventService';
 import { liquidationService } from './services/liquidationService';
 
@@ -135,12 +136,24 @@ const buildApp = async () => {
         blockchainStatus = 'error';
       }
 
+      const clb = tokenService.getConfigStatus('CLB');
+
       return {
         status: 'ok',
         timestamp: new Date().toISOString(),
         uptime: process.uptime(),
         database: dbStatus,
         blockchain: blockchainStatus,
+        /** Why transfers fail with "not configured" — check hasAbi, abiResolvedFrom. */
+        clbOnChain: {
+          configured: clb.configured,
+          hasTokenAddress: clb.hasTokenAddress,
+          hasPrivateKey: clb.hasPrivateKey,
+          hasAbi: clb.hasAbi,
+          chainId: clb.chainId,
+          abiResolvedFrom: clb.abiResolvedFrom,
+          cwd: clb.cwd,
+        },
       };
     }
   );
