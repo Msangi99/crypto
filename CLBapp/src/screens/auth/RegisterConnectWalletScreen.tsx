@@ -39,15 +39,25 @@ export default function RegisterConnectWalletScreen({ navigation, route }: any) 
   const { open: openAppKit } = useAppKit();
   const { address: connectedAddress, isConnected } = useAccount();
   const lastFilled = useRef<string | null>(null);
+  const wordCount = phrase.trim().split(/\s+/).filter(Boolean).length;
 
+  /** If user already has a 12-word phrase, don't replace address with a different connected wallet (common 400 cause). */
   useEffect(() => {
-    if (isConnected && connectedAddress && lastFilled.current !== connectedAddress) {
+    if (!isConnected || !connectedAddress) return;
+    const connected = connectedAddress.toLowerCase();
+    if (wordCount >= 12 && phrase.trim()) {
+      try {
+        const derived = mnemonicToAccount(phrase.trim()).address.toLowerCase();
+        if (derived !== connected) return;
+      } catch {
+        return;
+      }
+    }
+    if (lastFilled.current !== connectedAddress) {
       lastFilled.current = connectedAddress;
       setWalletAddress(connectedAddress);
     }
-  }, [isConnected, connectedAddress]);
-
-  const wordCount = phrase.trim().split(/\s+/).filter(Boolean).length;
+  }, [isConnected, connectedAddress, phrase, wordCount]);
 
   const handleGeneratePhrase = () => {
     const mnemonic = generateMnemonic(english);
@@ -63,12 +73,6 @@ export default function RegisterConnectWalletScreen({ navigation, route }: any) 
   };
 
   const handleSubmit = async () => {
-    const addr = walletAddress.trim().toLowerCase();
-    if (!addr.startsWith('0x') || addr.length !== 42) {
-      Alert.alert('Invalid address', 'Enter a valid BEP-20 address or connect your wallet.');
-      return;
-    }
-
     const p = phrase.trim().toLowerCase();
     if (flow === 'create') {
       if (wordCount < 12) {
@@ -81,7 +85,26 @@ export default function RegisterConnectWalletScreen({ navigation, route }: any) 
       }
     }
 
-    const recoveryPhrase = p.split(/\s+/).length >= 12 ? phrase.trim() : undefined;
+    const hasPhrase = p.split(/\s+/).filter(Boolean).length >= 12;
+    let addr: string;
+    let recoveryPhrase: string | undefined;
+
+    if (hasPhrase) {
+      try {
+        addr = mnemonicToAccount(phrase.trim()).address.toLowerCase();
+        recoveryPhrase = phrase.trim();
+      } catch {
+        Alert.alert('Recovery phrase', 'These words are not a valid BIP39 phrase. Check spelling and order.');
+        return;
+      }
+    } else {
+      addr = walletAddress.trim().toLowerCase();
+      recoveryPhrase = undefined;
+      if (!addr.startsWith('0x') || addr.length !== 42) {
+        Alert.alert('Invalid address', 'Enter a valid BEP-20 address or connect your wallet.');
+        return;
+      }
+    }
 
     setLoading(true);
     try {
@@ -108,12 +131,20 @@ export default function RegisterConnectWalletScreen({ navigation, route }: any) 
         }
       }
     } catch (err: any) {
-      const msg =
-        err?.response?.data?.error ||
-        err?.response?.data?.message ||
-        err.message ||
-        'Could not complete registration.';
-      Alert.alert('Error', msg);
+      if (err?.response?.status === 403 && err?.response?.data?.code === 'WALLET_ALREADY_REGISTERED') {
+        Alert.alert(
+          'Wallet already registered',
+          err?.response?.data?.error ||
+            'Use “I already have a wallet” and sign in with your recovery phrase and PIN.'
+        );
+      } else {
+        const msg =
+          err?.response?.data?.error ||
+          err?.response?.data?.message ||
+          err.message ||
+          'Could not complete registration.';
+        Alert.alert('Error', msg);
+      }
     } finally {
       setLoading(false);
     }
@@ -134,7 +165,7 @@ export default function RegisterConnectWalletScreen({ navigation, route }: any) 
             <Text style={styles.title}>Link your wallet</Text>
             <Text style={styles.subtitle}>
               {flow === 'create'
-                ? 'Connect WalletConnect or paste an address. Your 12-word phrase must match this address — generate on this device or paste from Trust / MetaMask.'
+                ? 'After you generate or paste your 12 words, we always use the address from that phrase. Connecting another wallet will not replace it unless it is the same address.'
                 : 'Connect your external wallet or paste your BEP-20 address. Optional: add a phrase so you can restore this account later.'}
             </Text>
           </LinearGradient>

@@ -12,11 +12,14 @@ import { useAuthStore } from '../../store/authStore';
 export default function ImportWalletScreen({ navigation, route }: any) {
   const { setAuth } = useAuthStore();
   const [seedInput, setSeedInput] = useState('');
+  const [pinInput, setPinInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPhrase, setShowPhrase] = useState(false);
 
   const wordCount = seedInput.trim().split(/\s+/).filter(Boolean).length;
   const isValid = wordCount >= 12;
+  const pinOk = pinInput.length === 6 && /^\d+$/.test(pinInput);
+  const pinToSend = pinOk ? pinInput : undefined;
 
   const handleImport = async () => {
     const phrase = seedInput.trim().toLowerCase();
@@ -24,10 +27,14 @@ export default function ImportWalletScreen({ navigation, route }: any) {
       Alert.alert('Invalid Phrase', 'Please enter your 12-word recovery phrase.');
       return;
     }
+    if (pinInput.length > 0 && pinInput.length < 6) {
+      Alert.alert('PIN', 'Enter all 6 digits, or clear the field if you never set a PIN.');
+      return;
+    }
 
     setLoading(true);
     try {
-      const res = await authAPI.importAccount(phrase);
+      const res = await authAPI.importAccount(phrase, pinToSend);
       const { token, user } = res.data;
       await setAuth(token, { ...user, pinSetup: user.pinSetup ?? false });
 
@@ -52,8 +59,15 @@ export default function ImportWalletScreen({ navigation, route }: any) {
         Alert.alert('Welcome Back', 'Account restored. Please set up a PIN for this device.');
       }
     } catch (err: any) {
-      const msg = err?.response?.data?.error || err?.message || 'Import failed.';
-      Alert.alert('Import Failed', msg);
+      if (err?.response?.data?.code === 'PIN_REQUIRED') {
+        Alert.alert(
+          'PIN required',
+          'This account has a PIN. Enter the same 6-digit PIN you set during registration.'
+        );
+      } else {
+        const msg = err?.response?.data?.error || err?.message || 'Import failed.';
+        Alert.alert('Import Failed', msg);
+      }
     } finally {
       setLoading(false);
     }
@@ -89,7 +103,7 @@ export default function ImportWalletScreen({ navigation, route }: any) {
 
             <Text style={styles.title}>Enter Recovery Phrase</Text>
             <Text style={styles.subtitle}>
-              Enter your 12-word recovery phrase to restore your wallet. Words should be separated by spaces.
+              Enter your 12-word phrase. If you already set a PIN on this account, enter the same 6-digit PIN.
             </Text>
 
             {/* Input */}
@@ -127,11 +141,26 @@ export default function ImportWalletScreen({ navigation, route }: any) {
               </View>
             </View>
 
+            <View style={styles.inputCard}>
+              <Text style={styles.inputLabel}>6-digit PIN</Text>
+              <TextInput
+                style={styles.pinInput}
+                placeholder="••••••"
+                placeholderTextColor={Colors.textMuted + '60'}
+                value={pinInput}
+                onChangeText={(t) => setPinInput(t.replace(/\D/g, '').slice(0, 6))}
+                keyboardType="number-pad"
+                maxLength={6}
+                secureTextEntry
+              />
+              <Text style={styles.pinHint}>Leave blank only if you never finished PIN setup on this account.</Text>
+            </View>
+
             {/* Security note */}
             <View style={styles.securityNote}>
               <Ionicons name="shield-checkmark" size={16} color={Colors.primary} />
               <Text style={styles.securityText}>
-                Your phrase is encrypted and stored securely on your device. We never send it to any server in plain text.
+                Phrase and PIN are sent over HTTPS only to verify it is really you. Never share them with anyone.
               </Text>
             </View>
 
@@ -224,4 +253,14 @@ const styles = StyleSheet.create({
     paddingVertical: 18, gap: 10, borderRadius: Radius.lg,
   },
   importBtnText: { fontSize: 16, fontWeight: '900', color: '#000' },
+
+  pinInput: {
+    fontSize: 22,
+    fontWeight: '800',
+    letterSpacing: 8,
+    color: Colors.textPrimary,
+    paddingVertical: 12,
+    textAlign: 'center',
+  },
+  pinHint: { fontSize: 11, color: Colors.textMuted, marginTop: 8 },
 });

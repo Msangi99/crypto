@@ -65,8 +65,8 @@ export const authAPI = {
     api.post('/api/auth/secret-key', { pin }),
   generateSecretKey: () =>
     api.post('/api/auth/secret-key/generate'),
-  importAccount: (secretKey: string) =>
-    api.post('/api/auth/import', { secretKey }),
+  importAccount: (secretKey: string, pin?: string) =>
+    api.post('/api/auth/import', { secretKey, ...(pin ? { pin } : {}) }),
 };
 
 // ─── User Dashboard ────────────────────────────────────────

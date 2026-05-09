@@ -19,6 +19,7 @@ export default function ConnectWalletScreen() {
   const [loading, setLoading] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [secretKeyInput, setSecretKeyInput] = useState('');
+  const [importPinInput, setImportPinInput] = useState('');
   const [referralCodeInput, setReferralCodeInput] = useState('');
   const [importLoading, setImportLoading] = useState(false);
   const { setAuth } = useAuthStore();
@@ -67,8 +68,17 @@ export default function ConnectWalletScreen() {
         }
       }
     } catch (err: any) {
-      const msg = err?.response?.data?.error || err?.response?.data?.message || err.message || 'Connection failed.';
-      Alert.alert('Error', msg);
+      if (err?.response?.status === 403 && err?.response?.data?.code === 'WALLET_ALREADY_REGISTERED') {
+        Alert.alert(
+          'Wallet already in use',
+          err?.response?.data?.error ||
+            'This address is registered. Use “I already have a wallet” and sign in with your 12-word phrase and PIN.'
+        );
+      } else {
+        const msg =
+          err?.response?.data?.error || err?.response?.data?.message || err.message || 'Connection failed.';
+        Alert.alert('Error', msg);
+      }
     } finally {
       setLoading(false);
     }
@@ -76,13 +86,18 @@ export default function ConnectWalletScreen() {
 
   const handleImport = async () => {
     const key = secretKeyInput.trim();
-    if (!key || key.split(/\s+/).length < 8) {
-      Alert.alert('Invalid Key', 'Please enter your 12-word recovery phrase');
+    if (!key || key.split(/\s+/).length < 12) {
+      Alert.alert('Invalid Key', 'Please enter your full 12-word recovery phrase');
       return;
     }
+    if (importPinInput.length > 0 && importPinInput.length < 6) {
+      Alert.alert('PIN', 'Enter all 6 digits or leave PIN empty if you never set one.');
+      return;
+    }
+    const pin = importPinInput.length === 6 ? importPinInput : undefined;
     setImportLoading(true);
     try {
-      const res = await authAPI.importAccount(key);
+      const res = await authAPI.importAccount(key, pin);
       const { token, user } = res.data;
       // Imported accounts may already have PIN set up on another device
       await setAuth(token, { ...user, pinSetup: user.pinSetup ?? false });
@@ -90,8 +105,12 @@ export default function ConnectWalletScreen() {
         Alert.alert('Account Restored', 'Your account has been imported. Please set up a PIN for this device.');
       }
     } catch (err: any) {
-      const msg = err?.response?.data?.error || err?.response?.data?.message || err.message || 'Import failed.';
-      Alert.alert('Import Failed', msg);
+      if (err?.response?.data?.code === 'PIN_REQUIRED') {
+        Alert.alert('PIN required', 'Enter the 6-digit PIN you set at registration.');
+      } else {
+        const msg = err?.response?.data?.error || err?.response?.data?.message || err.message || 'Import failed.';
+        Alert.alert('Import Failed', msg);
+      }
     } finally {
       setImportLoading(false);
     }
@@ -240,6 +259,20 @@ export default function ConnectWalletScreen() {
                     autoCorrect={false}
                     multiline
                     numberOfLines={3}
+                  />
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>PIN (6 digits, if you set one)</Text>
+                  <TextInput
+                    value={importPinInput}
+                    onChangeText={(t) => setImportPinInput(t.replace(/\D/g, '').slice(0, 6))}
+                    placeholder="••••••"
+                    placeholderTextColor={Colors.textMuted}
+                    style={styles.input}
+                    keyboardType="number-pad"
+                    maxLength={6}
+                    secureTextEntry
                   />
                 </View>
 

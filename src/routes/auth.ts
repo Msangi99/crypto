@@ -306,7 +306,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
         tags: ['Auth'],
         summary: 'Dev login (no signature required)',
         description:
-          'Authenticates a wallet address without requiring a signature. Creates user if new. For development/testing only. Optional recoveryPhrase (BIP39) must derive the same address for new users; optional email is saved when unique.',
+          'Creates a new user only. If the wallet address is already registered, returns 403 — use POST /import with recovery phrase + PIN. Optional BIP39 recoveryPhrase must derive the same address.',
         body: {
           type: 'object',
           properties: {
@@ -361,47 +361,39 @@ export default async function authRoutes(fastify: FastifyInstance) {
         }
       }
 
-      // Find or create user
-      let user = await prisma.user.findUnique({ where: { walletAddress: normalized } });
-
-      if (!user) {
-        const secretPlain = phraseNorm ?? generateSecretKey();
-        const { encrypted, iv } = encryptSecretKey(secretPlain);
-        const referralCode = generateReferralCode();
-        try {
-          user = await prisma.user.create({
-            data: {
-              walletAddress: normalized,
-              secretKey: encrypted,
-              secretKeyIv: iv,
-              referralCode,
-              ...(emailNorm ? { email: emailNorm } : {}),
-            },
-          });
-        } catch (e) {
-          if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
-            return reply
-              .status(409)
-              .send({ success: false, error: 'Email is already used by another account' });
-          }
-          throw e;
-        }
-        fastify.log.info(`🆕 New user created via dev-login: ${normalized} (referral: ${referralCode})`);
-      } else if (emailNorm && user.email !== emailNorm) {
-        try {
-          user = await prisma.user.update({
-            where: { id: user.id },
-            data: { email: emailNorm },
-          });
-        } catch (e) {
-          if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
-            return reply
-              .status(409)
-              .send({ success: false, error: 'Email is already used by another account' });
-          }
-          throw e;
-        }
+      const existing = await prisma.user.findUnique({ where: { walletAddress: normalized } });
+      if (existing) {
+        return reply.status(403).send({
+          success: false,
+          code: 'WALLET_ALREADY_REGISTERED',
+          error:
+            'This wallet is already registered. Tap “I already have a wallet”, enter your 12-word recovery phrase and the PIN you created during registration.',
+        });
       }
+
+      const secretPlain = phraseNorm ?? generateSecretKey();
+      const { encrypted, iv } = encryptSecretKey(secretPlain);
+      const referralCode = generateReferralCode();
+      let user;
+      try {
+        user = await prisma.user.create({
+          data: {
+            walletAddress: normalized,
+            secretKey: encrypted,
+            secretKeyIv: iv,
+            referralCode,
+            ...(emailNorm ? { email: emailNorm } : {}),
+          },
+        });
+      } catch (e) {
+        if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+          return reply
+            .status(409)
+            .send({ success: false, error: 'Email is already used by another account' });
+        }
+        throw e;
+      }
+      fastify.log.info(`🆕 New user created via dev-login: ${normalized} (referral: ${referralCode})`);
 
       // Increment tokenVersion (invalidates old tokens on other devices)
       const updatedUser = await prisma.user.update({
@@ -801,45 +793,57 @@ export default async function authRoutes(fastify: FastifyInstance) {
     }
   );
 
-  // POST /auth/import — restore account from secret key
-  fastify.post<{ Body: { secretKey: string } }>(
+  const normRecoveryPhrase = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ');
+
+  // POST /auth/import — restore account from secret key (+ PIN when account has PIN set)
+  fastify.post<{ Body: { secretKey: string; pin?: string } }>(
     '/import',
     {
       schema: {
         tags: ['Auth'],
         summary: 'Import/restore account from secret key',
-        description: 'Enter your 12-word recovery phrase to login. Requires PIN setup if new device.',
+        description:
+          '12-word recovery phrase. If the account has a PIN, send the same 6-digit PIN from registration.',
         body: {
           type: 'object',
           required: ['secretKey'],
-          properties: { secretKey: { type: 'string', description: '12-word recovery phrase' } },
+          properties: {
+            secretKey: { type: 'string', description: '12-word recovery phrase' },
+            pin: { type: 'string', description: '6-digit PIN when account has PIN set' },
+          },
         },
       },
     },
-    async (request: FastifyRequest<{ Body: { secretKey: string } }>, reply: FastifyReply) => {
-      const { secretKey } = request.body;
-      const normalizedKey = secretKey.trim().toLowerCase();
+    async (request: FastifyRequest<{ Body: { secretKey: string; pin?: string } }>, reply: FastifyReply) => {
+      const { secretKey, pin } = request.body;
+      const normalizedKey = normRecoveryPhrase(secretKey);
+      const wordCount = normalizedKey.split(' ').filter(Boolean).length;
 
-      if (!normalizedKey || normalizedKey.split(/\s+/).length < 8) {
-        return reply.status(400).send({ success: false, error: 'Invalid secret key. Must be at least 8 words.' });
+      if (!normalizedKey || wordCount < 12) {
+        return reply.status(400).send({ success: false, error: 'Enter all 12 words of your recovery phrase.' });
       }
 
-      // Find user with matching secret key (try decrypting each)
-      // For efficiency, we use a deterministic hash of the secret key for lookup
-      const keyHash = crypto.createHash('sha256').update(normalizedKey).digest('hex');
-
-      // We need to find by trying to match — since secretKey is encrypted, we use a lookup hash
-      // Add a keyHash field approach: for now, iterate (small user base)
       const users = await prisma.user.findMany({
         where: { secretKey: { not: null } },
-        select: { id: true, walletAddress: true, secretKey: true, secretKeyIv: true, role: true, nonce: true, createdAt: true },
+        select: {
+          id: true,
+          walletAddress: true,
+          secretKey: true,
+          secretKeyIv: true,
+          role: true,
+          nonce: true,
+          createdAt: true,
+          pinHash: true,
+          pinSalt: true,
+          biometricEnabled: true,
+        },
       });
 
-      let matchedUser: typeof users[0] | null = null;
+      let matchedUser: (typeof users)[0] | null = null;
       for (const u of users) {
         try {
           const decrypted = decryptSecretKey(u.secretKey!, u.secretKeyIv!);
-          if (decrypted.toLowerCase() === normalizedKey) {
+          if (normRecoveryPhrase(decrypted) === normalizedKey) {
             matchedUser = u;
             break;
           }
@@ -849,7 +853,21 @@ export default async function authRoutes(fastify: FastifyInstance) {
       }
 
       if (!matchedUser) {
-        return reply.status(404).send({ success: false, error: 'No account found with this secret key' });
+        return reply.status(404).send({ success: false, error: 'No account found with this recovery phrase' });
+      }
+
+      if (matchedUser.pinHash && matchedUser.pinSalt) {
+        if (!pin || pin.length !== 6 || !/^\d+$/.test(pin)) {
+          return reply.status(400).send({
+            success: false,
+            code: 'PIN_REQUIRED',
+            error: 'This account has a PIN. Enter your 6-digit PIN from registration.',
+          });
+        }
+        const pinHash = crypto.createHash('sha256').update(pin + matchedUser.pinSalt).digest('hex');
+        if (pinHash !== matchedUser.pinHash) {
+          return reply.status(401).send({ success: false, error: 'Wrong PIN' });
+        }
       }
 
       // Increment tokenVersion (invalidates old tokens)
@@ -859,9 +877,16 @@ export default async function authRoutes(fastify: FastifyInstance) {
       });
 
       const token = fastify.jwt.sign(
-        { id: matchedUser.id, walletAddress: matchedUser.walletAddress, role: matchedUser.role, tokenVersion: updatedUser.tokenVersion },
+        {
+          id: matchedUser.id,
+          walletAddress: matchedUser.walletAddress,
+          role: matchedUser.role,
+          tokenVersion: updatedUser.tokenVersion,
+        },
         { expiresIn: '7d' }
       );
+
+      const hasPin = !!matchedUser.pinHash;
 
       return {
         success: true,
@@ -870,11 +895,13 @@ export default async function authRoutes(fastify: FastifyInstance) {
           id: matchedUser.id,
           walletAddress: matchedUser.walletAddress,
           role: matchedUser.role,
-          pinSetup: false, // imported on new device, needs PIN setup
-          biometricEnabled: false,
+          pinSetup: hasPin,
+          biometricEnabled: matchedUser.biometricEnabled ?? false,
           createdAt: matchedUser.createdAt,
         },
-        message: 'Account restored successfully. Set up your PIN for this device.',
+        message: hasPin
+          ? 'Account restored. Unlock with your PIN on the next screen if prompted.'
+          : 'Account restored. Set up a PIN for this device.',
       };
     }
   );
