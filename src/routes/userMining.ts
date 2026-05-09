@@ -1,4 +1,4 @@
-import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import { FastifyInstance } from 'fastify';
 import prisma from '../config/db';
 import { authMiddleware } from '../middleware/auth';
 import { serializeMiningPackage } from './miningPackages';
@@ -37,7 +37,7 @@ export default async function userMiningRoutes(fastify: FastifyInstance) {
   fastify.get(
     '/subscription',
     { preHandler: [authMiddleware] },
-    async (request: FastifyRequest) => {
+    async (request) => {
       const userId = request.userId!;
       const subscription = await buildSubscriptionResponse(userId);
       return { success: true, subscription };
@@ -49,9 +49,9 @@ export default async function userMiningRoutes(fastify: FastifyInstance) {
   }>(
     '/subscribe',
     { preHandler: [authMiddleware] },
-    async (request: FastifyRequest, reply: FastifyReply) => {
+    async (request, reply) => {
       const userId = request.userId!;
-      const { packageId, payoutAddress } = request.body || {};
+      const { packageId, payoutAddress } = request.body;
 
       if (!packageId || typeof packageId !== 'string') {
         return reply.status(400).send({ success: false, error: 'packageId is required' });

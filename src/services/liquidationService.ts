@@ -127,14 +127,13 @@ export const liquidationService = {
 
       // ═══ CHECK 2: DYNAMIC CREDIT LINES (margin calls, liquidations, credit updates) ═══
       const creditLineResult = await creditLineService.monitorAllCreditLines();
-      result.liquidated.push(...creditLineResult.liquidated);
       result.errors.push(...creditLineResult.errors);
 
       if (result.settled.length > 0 || result.liquidated.length > 0 || creditLineResult.marginCalls > 0) {
         console.log(
           `[Liquidation] Fixed loans: ${result.settled.length} settled, ${result.liquidated.filter(id =>
             fixedLoans.some(loan => loan.id === id)
-          ).length} liquidated | Credit lines: ${creditLineResult.updated} updated, ${creditLineResult.marginCalls} margin calls, ${creditLineResult.liquidated.length} liquidated`
+          ).length} liquidated | Credit lines: ${creditLineResult.updated} updated, ${creditLineResult.marginCalls} margin calls, ${creditLineResult.liquidated} liquidated`
         );
       }
 
