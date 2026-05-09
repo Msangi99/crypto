@@ -45,7 +45,7 @@ export default function WelcomeScreen({ navigation }: any) {
         <View style={styles.bottomSection}>
           <TouchableOpacity
             style={styles.createBtn}
-            onPress={() => navigation.navigate('CreateWallet')}
+            onPress={() => navigation.navigate('RegisterEmailReferral', { flow: 'create' })}
             activeOpacity={0.85}
           >
             <LinearGradient
@@ -60,7 +60,7 @@ export default function WelcomeScreen({ navigation }: any) {
 
           <TouchableOpacity
             style={styles.importBtn}
-            onPress={() => navigation.navigate('ImportWallet')}
+            onPress={() => navigation.navigate('RegisterEmailReferral', { flow: 'import' })}
             activeOpacity={0.85}
           >
             <Ionicons name="download-outline" size={20} color={Colors.primary} />
@@ -69,7 +69,7 @@ export default function WelcomeScreen({ navigation }: any) {
 
           <TouchableOpacity
             style={styles.connectBtn}
-            onPress={() => navigation.navigate('ConnectWallet')}
+            onPress={() => navigation.navigate('RegisterEmailReferral', { flow: 'connect' })}
             activeOpacity={0.85}
           >
             <Ionicons name="link-outline" size={18} color={Colors.textSecondary} />

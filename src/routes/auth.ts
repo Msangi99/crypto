@@ -3,6 +3,7 @@ import { ethers } from 'ethers';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import prisma from '../config/db';
+import { Prisma } from '@prisma/client';
 import { env } from '../config/env';
 import { authMiddleware } from '../middleware/auth';
 
@@ -298,17 +299,20 @@ export default async function authRoutes(fastify: FastifyInstance) {
   );
 
   // POST /auth/dev-login — development login without signature (for mobile app testing)
-  fastify.post<{ Body: { walletAddress: string } }>(
+  fastify.post<{ Body: { walletAddress: string; email?: string; recoveryPhrase?: string } }>(
     '/dev-login',
     {
       schema: {
         tags: ['Auth'],
         summary: 'Dev login (no signature required)',
-        description: 'Authenticates a wallet address without requiring a signature. Creates user if new. For development/testing only.',
+        description:
+          'Authenticates a wallet address without requiring a signature. Creates user if new. For development/testing only. Optional recoveryPhrase (BIP39) must derive the same address for new users; optional email is saved when unique.',
         body: {
           type: 'object',
           properties: {
             walletAddress: { type: 'string' },
+            email: { type: 'string', format: 'email' },
+            recoveryPhrase: { type: 'string', description: '12+ word BIP39 phrase; must match walletAddress for new accounts' },
           },
           required: ['walletAddress'],
         },
@@ -334,18 +338,69 @@ export default async function authRoutes(fastify: FastifyInstance) {
       },
     },
     async (request, reply) => {
-      const { walletAddress } = request.body;
+      const { walletAddress, email, recoveryPhrase } = request.body;
       const normalized = walletAddress.toLowerCase();
+      const emailNorm = email?.trim().toLowerCase() || undefined;
+
+      let phraseNorm: string | undefined;
+      if (recoveryPhrase?.trim()) {
+        phraseNorm = recoveryPhrase.trim().replace(/\s+/g, ' ').toLowerCase();
+        const wc = phraseNorm.split(' ').filter(Boolean).length;
+        if (wc < 12) {
+          return reply.status(400).send({ success: false, error: 'Recovery phrase must have at least 12 words' });
+        }
+        try {
+          const derived = ethers.HDNodeWallet.fromPhrase(phraseNorm);
+          if (derived.address.toLowerCase() !== normalized) {
+            return reply
+              .status(400)
+              .send({ success: false, error: 'Wallet address does not match this recovery phrase' });
+          }
+        } catch {
+          return reply.status(400).send({ success: false, error: 'Invalid BIP39 recovery phrase' });
+        }
+      }
 
       // Find or create user
       let user = await prisma.user.findUnique({ where: { walletAddress: normalized } });
 
       if (!user) {
-        const secretKey = generateSecretKey();
-        const { encrypted, iv } = encryptSecretKey(secretKey);
+        const secretPlain = phraseNorm ?? generateSecretKey();
+        const { encrypted, iv } = encryptSecretKey(secretPlain);
         const referralCode = generateReferralCode();
-        user = await prisma.user.create({ data: { walletAddress: normalized, secretKey: encrypted, secretKeyIv: iv, referralCode } });
+        try {
+          user = await prisma.user.create({
+            data: {
+              walletAddress: normalized,
+              secretKey: encrypted,
+              secretKeyIv: iv,
+              referralCode,
+              ...(emailNorm ? { email: emailNorm } : {}),
+            },
+          });
+        } catch (e) {
+          if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+            return reply
+              .status(409)
+              .send({ success: false, error: 'Email is already used by another account' });
+          }
+          throw e;
+        }
         fastify.log.info(`🆕 New user created via dev-login: ${normalized} (referral: ${referralCode})`);
+      } else if (emailNorm && user.email !== emailNorm) {
+        try {
+          user = await prisma.user.update({
+            where: { id: user.id },
+            data: { email: emailNorm },
+          });
+        } catch (e) {
+          if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+            return reply
+              .status(409)
+              .send({ success: false, error: 'Email is already used by another account' });
+          }
+          throw e;
+        }
       }
 
       // Increment tokenVersion (invalidates old tokens on other devices)
@@ -360,18 +415,34 @@ export default async function authRoutes(fastify: FastifyInstance) {
         { expiresIn: '7d' }
       );
 
+      const fresh = await prisma.user.findUnique({
+        where: { id: user.id },
+        select: {
+          id: true,
+          walletAddress: true,
+          username: true,
+          email: true,
+          role: true,
+          referralCode: true,
+          pinHash: true,
+          biometricEnabled: true,
+          createdAt: true,
+        },
+      });
+
       return {
         success: true,
         token,
         user: {
-          id: user.id,
-          walletAddress: user.walletAddress,
-          username: user.username,
-          role: user.role,
-          referralCode: user.referralCode,
-          pinSetup: !!user.pinHash,
-          biometricEnabled: user.biometricEnabled ?? false,
-          createdAt: user.createdAt,
+          id: fresh!.id,
+          walletAddress: fresh!.walletAddress,
+          username: fresh!.username,
+          email: fresh!.email,
+          role: fresh!.role,
+          referralCode: fresh!.referralCode,
+          pinSetup: !!fresh!.pinHash,
+          biometricEnabled: fresh!.biometricEnabled ?? false,
+          createdAt: fresh!.createdAt,
         },
       };
     }

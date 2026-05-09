@@ -46,8 +46,8 @@ export const authAPI = {
     api.get(`/api/auth/nonce/${walletAddress}`),
   verify: (walletAddress: string, signature: string) =>
     api.post('/api/auth/verify', { walletAddress, signature }),
-  devLogin: (walletAddress: string) =>
-    api.post('/api/auth/dev-login', { walletAddress }),
+  devLogin: (walletAddress: string, opts?: { email?: string; recoveryPhrase?: string }) =>
+    api.post('/api/auth/dev-login', { walletAddress, ...opts }),
   createWallet: () =>
     api.post('/api/auth/create-wallet'),
   setupPin: (pin: string, enableBiometric = false) =>
