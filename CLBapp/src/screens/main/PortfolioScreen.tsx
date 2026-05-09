@@ -59,11 +59,11 @@ export default function PortfolioScreen({ navigation }: any) {
 
   const positions = data?.positions ?? [];
   const summary = data?.summary ?? {};
-  const liveSymbols = Array.from(
+  const liveSymbols: string[] = Array.from(
     new Set(
       positions
         .map((p: any) => p.asset)
-        .filter((s: any) => typeof s === 'string' && s.length > 0)
+        .filter((s: unknown): s is string => typeof s === 'string' && s.length > 0)
     )
   );
   const livePrices = useLivePrices(liveSymbols);

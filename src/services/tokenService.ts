@@ -3,21 +3,62 @@ import { env } from '../config/env';
 import path from 'path';
 import fs from 'fs';
 
-// Load ABI
-const abiPath = path.join(__dirname, '../../contracts/abi/CLBToken.json');
-let CLB_ABI: any[] = [];
-try {
-  CLB_ABI = JSON.parse(fs.readFileSync(abiPath, 'utf8'));
-} catch {
-  console.warn('⚠️  CLBToken ABI not found at', abiPath);
+/** Resolve CLBToken ABI — production often fails if only `dist/` is copied and `contracts/abi` is missing. */
+function loadClbAbi(): { abi: any[]; resolvedFrom: string | null; tried: string[] } {
+  const tried: string[] = [];
+  const candidates: string[] = [];
+
+  const envOverride = process.env.CLB_TOKEN_ABI_PATH?.trim();
+  if (envOverride) candidates.push(envOverride);
+
+  candidates.push(
+    path.join(__dirname, '../../contracts/abi/CLBToken.json'),
+    path.join(process.cwd(), 'contracts/abi/CLBToken.json'),
+  );
+
+  for (const p of candidates) {
+    tried.push(p);
+    try {
+      if (fs.existsSync(p)) {
+        const raw = fs.readFileSync(p, 'utf8');
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return { abi: parsed, resolvedFrom: p, tried };
+        }
+      }
+    } catch {
+      // try next
+    }
+  }
+
+  try {
+    // Same resolution as compiled `require` from dist/services → repo/contracts
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const mod = require('../../contracts/abi/CLBToken.json') as unknown;
+    tried.push('require(../../contracts/abi/CLBToken.json)');
+    if (Array.isArray(mod) && mod.length > 0) {
+      return { abi: mod, resolvedFrom: 'require:../../contracts/abi/CLBToken.json', tried };
+    }
+  } catch {
+    // ignore
+  }
+
+  console.warn('⚠️  CLBToken ABI not found. Set CLB_TOKEN_ABI_PATH or copy contracts/abi/CLBToken.json next to the app. Tried:', tried);
+  return { abi: [], resolvedFrom: null, tried };
+}
+
+const { abi: CLB_ABI, resolvedFrom: CLB_ABI_RESOLVED_FROM, tried: CLB_ABI_TRIED } = loadClbAbi();
+
+function trimAddr(v: string): string {
+  return (v || '').trim();
 }
 
 // Token contract addresses from env
 const TOKEN_ADDRESSES: Record<string, string> = {
-  CLB: env.CLB_TOKEN_ADDRESS,
-  CLBg: env.CLBG_TOKEN_ADDRESS,
-  CLBs: env.CLBS_TOKEN_ADDRESS,
-  GLM: env.GLM_TOKEN_ADDRESS,
+  CLB: trimAddr(env.CLB_TOKEN_ADDRESS),
+  CLBg: trimAddr(env.CLBG_TOKEN_ADDRESS),
+  CLBs: trimAddr(env.CLBS_TOKEN_ADDRESS),
+  GLM: trimAddr(env.GLM_TOKEN_ADDRESS),
 };
 
 // BSC provider
@@ -53,6 +94,9 @@ export const tokenService = {
       hasPrivateKey: !!wallet,
       hasAbi: CLB_ABI.length > 0,
       chainId: env.CHAIN_ID,
+      abiResolvedFrom: CLB_ABI_RESOLVED_FROM,
+      abiTriedPaths: CLB_ABI_TRIED,
+      cwd: process.cwd(),
     };
   },
 

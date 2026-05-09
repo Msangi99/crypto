@@ -11,6 +11,7 @@ import { createAppKit } from '@reown/appkit-react-native';
 import { WagmiAdapter } from '@reown/appkit-wagmi-react-native';
 import { bsc } from 'wagmi/chains';
 import * as Clipboard from 'expo-clipboard';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { dappMetadata, WALLETCONNECT_PROJECT_ID } from './dapp';
 
@@ -44,6 +45,37 @@ export const appKit = createAppKit({
   networks: [...supportedNetworks],
   defaultNetwork: bsc,
   adapters: [wagmiAdapter],
+  storage: {
+    getItem: async <T = any>(key: string) => {
+      const raw = await AsyncStorage.getItem(key);
+      if (raw == null) return undefined;
+      try {
+        return JSON.parse(raw) as T;
+      } catch {
+        return raw as T;
+      }
+    },
+    setItem: async <T = any>(key: string, value: T) => {
+      await AsyncStorage.setItem(key, JSON.stringify(value));
+    },
+    getKeys: async () => {
+      const keys = await AsyncStorage.getAllKeys();
+      return [...keys];
+    },
+    getEntries: async <T = any>() => {
+      const keys = await AsyncStorage.getAllKeys();
+      const rows = await AsyncStorage.multiGet(keys);
+      return rows.flatMap(([key, raw]) => {
+        if (raw == null) return [];
+        try {
+          return [[key, JSON.parse(raw) as T] as [string, T]];
+        } catch {
+          return [[key, raw as T] as [string, T]];
+        }
+      });
+    },
+    removeItem: (key: string) => AsyncStorage.removeItem(key),
+  },
   clipboardClient: {
     setString: async (value: string) => {
       await Clipboard.setStringAsync(value);
