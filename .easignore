@@ -1,0 +1,4 @@
+# Monorepo: EAS builds the app from CLBapp/. Root-level native projects are a
+# different Android/iOS package and should not be uploaded with mobile builds.
+/android/
+/ios/

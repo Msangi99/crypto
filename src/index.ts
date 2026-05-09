@@ -113,6 +113,18 @@ const buildApp = async () => {
               uptime: { type: 'number' },
               database: { type: 'string' },
               blockchain: { type: 'string' },
+              clbOnChain: {
+                type: 'object',
+                properties: {
+                  configured: { type: 'boolean' },
+                  hasTokenAddress: { type: 'boolean' },
+                  hasPrivateKey: { type: 'boolean' },
+                  hasAbi: { type: 'boolean' },
+                  chainId: { type: 'number' },
+                  abiResolvedFrom: { type: ['string', 'null'] },
+                  cwd: { type: 'string' },
+                },
+              },
             },
           },
         },

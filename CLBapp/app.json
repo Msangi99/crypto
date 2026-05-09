@@ -31,17 +31,28 @@
       "intentFilters": [
         {
           "action": "VIEW",
-          "category": ["DEFAULT", "BROWSABLE"],
+          "category": [
+            "DEFAULT",
+            "BROWSABLE"
+          ],
           "data": [
-            { "scheme": "clb" }
+            {
+              "scheme": "clb"
+            }
           ]
         },
         {
           "action": "VIEW",
           "autoVerify": true,
-          "category": ["DEFAULT", "BROWSABLE"],
+          "category": [
+            "DEFAULT",
+            "BROWSABLE"
+          ],
           "data": [
-            { "scheme": "https", "host": "app.cryptoloanboost.com" }
+            {
+              "scheme": "https",
+              "host": "app.cryptoloanboost.com"
+            }
           ]
         }
       ]
@@ -51,7 +62,8 @@
     },
     "plugins": [
       "expo-secure-store",
-      "expo-font"
+      "expo-font",
+      "expo-build-properties"
     ],
     "extra": {
       "eas": {
