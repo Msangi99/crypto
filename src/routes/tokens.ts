@@ -5,6 +5,7 @@ import { tokenService } from '../services/tokenService';
 import { getTokenUsdQuotes } from '../services/tokenUsdPrices';
 import { computePortfolioValueUsd } from '../services/portfolioValuation';
 import { computeMiningProgress } from '../services/miningAccrual';
+import { PLATFORM_TOKENS, isPlatformToken } from '../config/tokens';
 
 /**
  * Smallest USD gap we'll bother minting on-chain CLB for, to avoid wasting gas
@@ -12,7 +13,6 @@ import { computeMiningProgress } from '../services/miningAccrual';
  * "Sync to Wallet" presses.
  */
 const MIN_SYNC_GAP_USD = 0.5;
-const CLB_TOKENS = ['CLB', 'CLBg', 'CLBs'];
 
 function isValidEvmAddress(address: string): boolean {
   return /^0x[a-fA-F0-9]{40}$/.test(address);
@@ -37,19 +37,21 @@ export default async function tokenRoutes(fastify: FastifyInstance) {
         }),
       ]);
 
-      const miningAccruedByToken: Record<string, number> = { CLB: 0, CLBg: 0, CLBs: 0 };
+      const miningAccruedByToken: Record<string, number> = Object.fromEntries(
+        PLATFORM_TOKENS.map((t) => [t, 0]),
+      );
       if (miningSub?.package) {
         const p = miningSub.package;
         const tpp = Number(p.tokensPerPeriod);
         const { accruedTokens } = computeMiningProgress(tpp, p.periodUnit, p.periodLength, miningSub.startedAt);
         const sym = p.tokenSymbol;
-        if (sym === 'CLB' || sym === 'CLBg' || sym === 'CLBs') {
+        if (isPlatformToken(sym)) {
           miningAccruedByToken[sym] = accruedTokens;
         }
       }
 
       const quotes = await getTokenUsdQuotes();
-      const allTokens = ['CLB', 'CLBg', 'CLBs'];
+      const allTokens = PLATFORM_TOKENS;
       const result = allTokens.map((token) => {
         const found = balances.find((b) => b.token === token);
         const balance = found ? Number(found.balance) : 0;
@@ -105,6 +107,7 @@ export default async function tokenRoutes(fastify: FastifyInstance) {
         { token: 'CLB', name: 'CryptoLoanBoost', address: addresses.CLB, decimals: 18 },
         { token: 'CLBg', name: 'CryptoLoanBoost Gold', address: addresses.CLBg, decimals: 18 },
         { token: 'CLBs', name: 'CryptoLoanBoost Silver', address: addresses.CLBs, decimals: 18 },
+        { token: 'GLM', name: 'Golem', address: addresses.GLM, decimals: 18 },
       ],
       instructions: [
         'Open Trust Wallet',
@@ -135,7 +138,7 @@ export default async function tokenRoutes(fastify: FastifyInstance) {
       if (amount <= 0) {
         return reply.status(400).send({ success: false, error: 'Amount must be positive' });
       }
-      if (!CLB_TOKENS.includes(token)) {
+      if (!isPlatformToken(token)) {
         return reply.status(400).send({ success: false, error: 'Invalid token' });
       }
 
@@ -238,7 +241,7 @@ export default async function tokenRoutes(fastify: FastifyInstance) {
         }
 
         try {
-          const result = await tokenService.mint(token, toAddress, netAmount);
+          const result = await tokenService.sendOnChain(token, toAddress, netAmount, { preferMint: true });
           if (!result?.txHash) throw new Error(`On-chain ${token} transfer did not return a transaction hash`);
           txHash = result.txHash;
         } catch (err: any) {

@@ -17,6 +17,7 @@ const TOKEN_ADDRESSES: Record<string, string> = {
   CLB: env.CLB_TOKEN_ADDRESS,
   CLBg: env.CLBG_TOKEN_ADDRESS,
   CLBs: env.CLBS_TOKEN_ADDRESS,
+  GLM: env.GLM_TOKEN_ADDRESS,
 };
 
 // BSC provider
@@ -80,6 +81,49 @@ export const tokenService = {
       return { txHash: receipt.hash };
     } catch (err: any) {
       console.error(`[TokenService] Mint failed:`, err.message);
+      throw err;
+    }
+  },
+
+  /**
+   * Send tokens on-chain using the best available method:
+   * - prefer mint() when contract exposes it (CLB family)
+   * - otherwise fallback to transfer() (standard ERC-20/BEP-20 like GLM)
+   */
+  async sendOnChain(
+    token: string,
+    toAddress: string,
+    amount: number,
+    opts?: { preferMint?: boolean },
+  ): Promise<{ txHash: string; method: 'mint' | 'transfer' } | null> {
+    const contract = getTokenContract(token);
+    if (!contract) {
+      console.log(`[TokenService] Not configured for on-chain send of ${token}`);
+      return null;
+    }
+
+    const amountWei = ethers.parseUnits(amount.toString(), 18);
+    const preferMint = opts?.preferMint !== false;
+    const canMint = contract.interface.hasFunction('mint(address,uint256)');
+
+    if (preferMint && canMint) {
+      try {
+        const tx = await contract.mint(toAddress, amountWei);
+        const receipt = await tx.wait();
+        console.log(`[TokenService] Minted ${amount} ${token} to ${toAddress} — tx: ${receipt.hash}`);
+        return { txHash: receipt.hash, method: 'mint' };
+      } catch (err: any) {
+        console.warn(`[TokenService] Mint path failed for ${token}, fallback to transfer:`, err?.message);
+      }
+    }
+
+    try {
+      const tx = await contract.transfer(toAddress, amountWei);
+      const receipt = await tx.wait();
+      console.log(`[TokenService] Transferred ${amount} ${token} to ${toAddress} — tx: ${receipt.hash}`);
+      return { txHash: receipt.hash, method: 'transfer' };
+    } catch (err: any) {
+      console.error(`[TokenService] sendOnChain failed for ${token}:`, err.message);
       throw err;
     }
   },

@@ -6,9 +6,10 @@ const FALLBACK_USD: Record<string, number> = {
   CLB: 1.0,
   CLBg: 5.0,
   CLBs: 2.5,
+  GLM: 0.0,
 };
 
-const CLB_FAMILY = ['CLB', 'CLBg', 'CLBs'] as const;
+const TRACKED_TOKENS = ['CLB', 'CLBg', 'CLBs', 'GLM'] as const;
 
 export type TokenUsdQuote = {
   priceUsd: number;
@@ -24,7 +25,7 @@ const TTL_MS = 60_000;
  * Token must be indexed by CoinGecko; otherwise the address is omitted from the response and we fall back.
  */
 async function fetchCoinGeckoBsc(): Promise<Partial<Record<string, TokenUsdQuote>>> {
-  const addresses = CLB_FAMILY.map((t) => tokenService.getAddress(t).trim()).filter(Boolean);
+  const addresses = TRACKED_TOKENS.map((t) => tokenService.getAddress(t).trim()).filter(Boolean);
   if (addresses.length === 0) return {};
 
   const uniqueLower = [...new Set(addresses.map((a) => a.toLowerCase()))];
@@ -47,7 +48,7 @@ async function fetchCoinGeckoBsc(): Promise<Partial<Record<string, TokenUsdQuote
   const json = (await res.json()) as Record<string, { usd?: number; usd_24h_change?: number }>;
 
   const addrToSymbol: Record<string, string> = {};
-  for (const t of CLB_FAMILY) {
+  for (const t of TRACKED_TOKENS) {
     const a = tokenService.getAddress(t).trim().toLowerCase();
     if (a) addrToSymbol[a] = t;
   }
@@ -78,7 +79,7 @@ export async function getTokenUsdQuotes(): Promise<Record<string, TokenUsdQuote>
   }
 
   const data: Record<string, TokenUsdQuote> = {};
-  for (const t of CLB_FAMILY) {
+  for (const t of TRACKED_TOKENS) {
     const r = remote[t];
     if (r) {
       data[t] = r;

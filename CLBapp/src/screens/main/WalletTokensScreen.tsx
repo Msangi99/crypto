@@ -37,7 +37,7 @@ type AppTokenRow = {
   valueUsdTotal?: number;
 };
 
-const CLB_FAMILY_ORDER = ['CLB', 'CLBs', 'CLBg'] as const;
+const CLB_FAMILY_ORDER = ['CLB', 'CLBs', 'CLBg', 'GLM'] as const;
 
 const CLB_LOGO = require('../../../assets/clb-token.png');
 
@@ -49,6 +49,7 @@ const ASSET_META: Record<string, { color: string; icon: string }> = {
   CLBg: { color: '#F0B90B', icon: 'diamond' },
   CLBs: { color: '#C0C0C0', icon: 'flash' },
   CLB:  { color: '#3B82F6', icon: 'cube' },
+  GLM:  { color: '#0F9D58', icon: 'logo-codepen' },
 };
 
 function formatBalance(value: number): string {

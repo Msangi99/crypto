@@ -2,32 +2,11 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import prisma from '../config/db';
 import { authMiddleware } from '../middleware/auth';
 import { tokenService } from '../services/tokenService';
-
-const CLB_TOKENS = ['CLB', 'CLBg', 'CLBs'];
+import { MIN_WITHDRAW, WITHDRAW_FEES, isPlatformToken } from '../config/tokens';
 
 function isValidEvmAddress(address: string): boolean {
   return /^0x[a-fA-F0-9]{40}$/.test(address);
 }
-
-// Minimum withdrawal amounts
-const MIN_WITHDRAW: Record<string, number> = {
-  CLB: 10,
-  CLBg: 1,
-  CLBs: 5,
-  BTC: 0.0001,
-  ETH: 0.001,
-  BNB: 0.01,
-};
-
-// Withdrawal fees (flat)
-const WITHDRAW_FEES: Record<string, number> = {
-  CLB: 1,
-  CLBg: 0.1,
-  CLBs: 0.5,
-  BTC: 0.00005,
-  ETH: 0.0005,
-  BNB: 0.001,
-};
 
 export default async function withdrawalRoutes(fastify: FastifyInstance) {
 
@@ -47,7 +26,7 @@ export default async function withdrawalRoutes(fastify: FastifyInstance) {
         return reply.status(400).send({ success: false, error: 'Missing required fields' });
       }
 
-      const isClbToken = CLB_TOKENS.includes(token);
+      const isPlatform = isPlatformToken(token);
       const min = MIN_WITHDRAW[token] || 0;
       const fee = WITHDRAW_FEES[token] || 0;
       const netAmount = amount - fee;
@@ -67,7 +46,7 @@ export default async function withdrawalRoutes(fastify: FastifyInstance) {
         });
       }
 
-      if (isClbToken && !isValidEvmAddress(toAddress)) {
+      if (isPlatform && !isValidEvmAddress(toAddress)) {
         return reply.status(400).send({
           success: false,
           error: 'Enter a valid BNB Smart Chain wallet address',
@@ -75,7 +54,7 @@ export default async function withdrawalRoutes(fastify: FastifyInstance) {
       }
 
       // Check balance for CLB tokens
-      if (isClbToken) {
+      if (isPlatform) {
         const balance = await prisma.tokenBalance.findUnique({
           where: { userId_token: { userId, token } },
         });
@@ -128,7 +107,7 @@ export default async function withdrawalRoutes(fastify: FastifyInstance) {
 
         let txHash: string | undefined;
         try {
-          const result = await tokenService.mint(token, normalizedToAddress, netAmount);
+          const result = await tokenService.sendOnChain(token, normalizedToAddress, netAmount, { preferMint: true });
           if (!result?.txHash) throw new Error(`On-chain ${token} withdrawal did not return a transaction hash`);
           txHash = result.txHash;
         } catch (err: any) {
