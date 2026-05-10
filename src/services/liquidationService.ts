@@ -113,9 +113,12 @@ export const liquidationService = {
               continue;
             }
 
-            // ═══ CHECK 1B: COLLATERAL VALUE TOO LOW → LIQUIDATE ═══
-            const currentLTV = (loanAmount / currentCollateralValue) * 100;
-            if (currentLTV >= LIQUIDATION_LTV_THRESHOLD) {
+            // ═══ CHECK 1B: PRICE-BASED DOWNSIDE LIQUIDATION ═══
+            // For leveraged pool entries: loanAmount == collateralValueUsd (both = position value)
+            // so LTV would always be ~100% → immediate wrong liquidation.
+            // Instead, use the explicit liquidationPriceUsd threshold set at creation (e.g. 50% of entry price).
+            const liquidationPrice = loan.liquidationPriceUsd ? Number(loan.liquidationPriceUsd) : null;
+            if (liquidationPrice && liquidationPrice > 0 && currentPrice <= liquidationPrice) {
               await this.liquidateLoan(loan, currentPrice, currentCollateralValue);
               result.liquidated.push(loan.id);
               continue;

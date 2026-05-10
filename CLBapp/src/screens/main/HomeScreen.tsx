@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View, Text, StyleSheet, ScrollView, RefreshControl,
   TouchableOpacity, Dimensions, Image, Animated,
@@ -17,7 +18,7 @@ const LOGO = require('../../../assets/logo.png');
 
 const SWAP_COIN_ICONS: Record<string, string> = {
   BTC: 'logo-bitcoin',
-  ETH: 'logo-ethereum',
+  ETH: 'diamond-outline',
   BNB: 'cube',
   SOL: 'flash',
   ADA: 'card',
@@ -73,7 +74,12 @@ export default function HomeScreen({ navigation }: any) {
     }
   }, []);
 
-  useEffect(() => { load(); }, []);
+  // Re-fetch every time screen is focused (e.g. after creating a new leveraged position)
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load])
+  );
 
   // ── Live prices via Binance WebSocket ────────────────────────────────
   const baseCoins: any[] = market?.market?.coins ?? [];
@@ -128,6 +134,7 @@ export default function HomeScreen({ navigation }: any) {
         chain: l.collateralChain,
         amount: l.collateralAmount,
         valueUsd: l.collateralValueUsd,
+        entryFeeUsd: l.entryFeeUsd,
       })));
     }
     const validLoans = loans.filter((l: any) => {
@@ -143,7 +150,7 @@ export default function HomeScreen({ navigation }: any) {
       return isValid;
     });
     console.log('Valid leveraged loans:', validLoans.length);
-    return validLoans.map((l: any) => {
+    const mapped = validLoans.map((l: any) => {
       const symbol = (l.collateralChain || '').toUpperCase();
       const amount = Number(l.collateralAmount || 0);
       const entryPrice = Number(l.collateralPriceUsd || 0);
@@ -162,30 +169,14 @@ export default function HomeScreen({ navigation }: any) {
         isLeveraged: true,
       };
     });
+    console.log('Mapped leveraged holdings:', mapped);
+    return mapped;
   }, [loans]);
 
+  // "Held Crypto" shows ONLY active leveraged loan positions (not portfolio positions)
   const swappedHoldings = useMemo(() => {
-    const map = new Map<string, { symbol: string; amount: number; valueUsd: number; entryPrice?: number; entryFeeUsd?: number; leverage?: number; isLeveraged?: boolean }>();
-    // Add portfolio positions
-    for (const pos of livePositions) {
-      const sym = (pos.symbol || 'BNB').toUpperCase();
-      const row = map.get(sym) || { symbol: sym, amount: 0, valueUsd: 0 };
-      row.amount += Number(pos.amountBought ?? 0);
-      row.valueUsd += Number(pos.currentValue ?? 0);
-      map.set(sym, row);
-    }
-    // Add leveraged positions
-    for (const lev of leveragedHoldings) {
-      const row = map.get(lev.symbol) || { ...lev, amount: 0, valueUsd: 0 };
-      row.amount += lev.amount;
-      row.valueUsd += lev.valueUsd;
-      row.entryPrice = lev.entryPrice;
-      row.leverage = lev.leverage;
-      row.isLeveraged = true;
-      map.set(lev.symbol, row);
-    }
-    return Array.from(map.values()).sort((a, b) => b.valueUsd - a.valueUsd);
-  }, [livePositions, leveragedHoldings]);
+    return leveragedHoldings;
+  }, [leveragedHoldings]);
 
   const swappedFromPositionsUsd = useMemo(
     () => swappedHoldings.reduce((s, r) => s + r.valueUsd, 0),
@@ -399,7 +390,11 @@ export default function HomeScreen({ navigation }: any) {
           </Text>
           {swappedHoldings.length > 0 ? (
             swappedHoldings.map((row) => (
-              <SwappedAssetRow key={row.symbol} row={row} />
+              <LiveCryptoCard 
+                key={row.symbol} 
+                row={row} 
+                livePrice={livePrices[row.symbol]?.price}
+              />
             ))
           ) : loans.filter((l: any) => (l.status || '').toUpperCase() === 'PENDING').length > 0 ? (
             <View style={styles.emptyState}>
@@ -422,24 +417,8 @@ export default function HomeScreen({ navigation }: any) {
           )}
         </View>
 
-        {/* Referral Promo */}
-        <View style={[styles.section, { marginBottom: 100 }]}>
-          <LinearGradient colors={Colors.gradientGold} style={styles.referralCard}>
-            <View style={styles.referralContent}>
-              <View style={styles.referralIconBg}>
-                <Ionicons name="gift-outline" size={24} color="#000" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.referralTitle}>Refer & Earn</Text>
-                <Text style={styles.referralSub}>Up to 20% on Level 1 — 5 levels deep</Text>
-              </View>
-              <TouchableOpacity onPress={() => navigation.navigate('Referrals')} style={styles.referralBtn}>
-                <Text style={styles.referralBtnText}>Share</Text>
-                <Ionicons name="arrow-forward" size={14} color="#000" />
-              </TouchableOpacity>
-            </View>
-          </LinearGradient>
-        </View>
+        {/* Bottom spacing for scroll */}
+        <View style={{ height: 100 }} />
       </ScrollView>
     </View>
   );
@@ -536,35 +515,117 @@ function MarketChipSkeleton({ label }: { label: string }) {
   );
 }
 
-function SwappedAssetRow({ row }: { row: { symbol: string; amount: number; valueUsd: number; entryPrice?: number; entryFeeUsd?: number; leverage?: number; isLeveraged?: boolean } }) {
+function LiveCryptoCard({ row, livePrice }: { row: { symbol: string; amount: number; valueUsd: number; entryPrice?: number; entryFeeUsd?: number; leverage?: number; isLeveraged?: boolean }; livePrice?: number }) {
   const icon = (SWAP_COIN_ICONS[row.symbol] || 'cube-outline') as any;
+  const flashAnim = useRef(new Animated.Value(0)).current;
+  const [flashColor, setFlashColor] = useState<string | null>(null);
+  const prevPriceRef = useRef(livePrice);
+
+  // Flash animation when price changes
+  useEffect(() => {
+    if (livePrice && prevPriceRef.current && livePrice !== prevPriceRef.current) {
+      const isUp = livePrice > prevPriceRef.current;
+      setFlashColor(isUp ? '#00D6A1' : '#FF3D57');
+      
+      Animated.sequence([
+        Animated.timing(flashAnim, {
+          toValue: 1,
+          duration: 150,
+          useNativeDriver: false,
+        }),
+        Animated.timing(flashAnim, {
+          toValue: 0,
+          duration: 400,
+          useNativeDriver: false,
+        }),
+      ]).start(() => setFlashColor(null));
+    }
+    prevPriceRef.current = livePrice;
+  }, [livePrice]);
+
+  const flashOpacity = flashAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 0.3],
+  });
+
+  const currentValue = livePrice ? row.amount * livePrice : row.valueUsd;
+  const pnl = livePrice && row.entryPrice ? ((livePrice - row.entryPrice) / row.entryPrice) * 100 : 0;
+  const isProfit = pnl >= 0;
+
   return (
-    <View style={[styles.actRow, row.isLeveraged && styles.leveragedRow]}>
-      <View style={[styles.actIconBg, { backgroundColor: row.isLeveraged ? 'rgba(0,214,161,0.15)' : 'rgba(240,185,11,0.12)' }]}>
-        <Ionicons name={icon} size={20} color={row.isLeveraged ? '#00D6A1' : Colors.primary} />
-      </View>
-      <View style={{ flex: 1 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <Text style={styles.actType}>{row.symbol}</Text>
-          {row.isLeveraged && row.leverage && (
-            <View style={styles.leverageBadge}>
-              <Text style={styles.leverageBadgeText}>{row.leverage}x</Text>
+    <View style={styles.cryptoCard}>
+      {/* Flash overlay for price changes */}
+      {flashColor && (
+        <Animated.View
+          style={[
+            styles.flashOverlay,
+            { backgroundColor: flashColor, opacity: flashOpacity },
+          ]}
+        />
+      )}
+      
+      {/* Gradient background */}
+      <LinearGradient
+        colors={row.isLeveraged ? ['rgba(0,214,161,0.08)', 'rgba(0,214,161,0.02)'] : ['rgba(240,185,11,0.08)', 'rgba(240,185,11,0.02)']}
+        style={styles.cryptoCardGradient}
+      />
+      
+      <View style={styles.cryptoCardContent}>
+        {/* Left: Icon + Symbol */}
+        <View style={styles.cryptoCardLeft}>
+          <View style={[styles.cryptoIconBg, { backgroundColor: row.isLeveraged ? 'rgba(0,214,161,0.2)' : 'rgba(240,185,11,0.2)' }]}>
+            <Ionicons name={icon} size={28} color={row.isLeveraged ? '#00D6A1' : Colors.primary} />
+          </View>
+          <View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Text style={styles.cryptoSymbol}>{row.symbol}</Text>
+              {row.isLeveraged && row.leverage && (
+                <View style={styles.leverageBadgeLarge}>
+                  <Text style={styles.leverageBadgeTextLarge}>{row.leverage}x</Text>
+                </View>
+              )}
             </View>
+            <Text style={styles.cryptoAmount}>
+              {row.amount >= 0.0001 ? row.amount.toFixed(6) : row.amount.toFixed(8)} {row.symbol}
+            </Text>
+          </View>
+        </View>
+
+        {/* Center: Price Info */}
+        <View style={styles.cryptoCardCenter}>
+          {livePrice ? (
+            <View style={styles.livePriceContainer}>
+              <View style={styles.liveIndicator}>
+                <View style={styles.livePulse} />
+                <Text style={styles.livePriceText}>${livePrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
+              </View>
+              <View style={[styles.pnlBadge, { backgroundColor: isProfit ? 'rgba(0,214,161,0.15)' : 'rgba(255,61,87,0.15)' }]}>
+                <Ionicons name={isProfit ? 'trending-up' : 'trending-down'} size={12} color={isProfit ? '#00D6A1' : '#FF3D57'} />
+                <Text style={[styles.pnlText, { color: isProfit ? '#00D6A1' : '#FF3D57' }]}>
+                  {isProfit ? '+' : ''}{pnl.toFixed(2)}%
+                </Text>
+              </View>
+            </View>
+          ) : (
+            <Text style={styles.entryPriceText}>@${row.entryPrice?.toLocaleString()}</Text>
           )}
         </View>
-        <Text style={styles.actTime}>
-          {row.amount >= 0.0001 ? row.amount.toFixed(6) : row.amount.toFixed(8)} {row.symbol}
-          {row.entryPrice ? ` @ $${row.entryPrice.toLocaleString()}` : ''}
-        </Text>
-        {row.isLeveraged && row.entryFeeUsd ? (
-          <Text style={styles.entryFeeTag}>Entry: ${row.entryFeeUsd.toLocaleString()}</Text>
-        ) : null}
-      </View>
-      <View style={{ alignItems: 'flex-end' }}>
-        <Text style={[styles.actAmount, { color: Colors.textPrimary }]}>
-          ${row.valueUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-        </Text>
-        {row.isLeveraged && <Text style={styles.holdingTag}>Platform Held</Text>}
+
+        {/* Right: Value */}
+        <View style={styles.cryptoCardRight}>
+          <Text style={styles.cryptoValue}>
+            ${currentValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </Text>
+          {row.isLeveraged && (
+            <View style={styles.platformHeldBadge}>
+              <Ionicons name="shield-checkmark" size={10} color="#00D6A1" />
+              <Text style={styles.platformHeldText}>Platform Held</Text>
+            </View>
+          )}
+          {row.entryFeeUsd && (
+            <Text style={styles.entryFeeSmall}>Entry: ${row.entryFeeUsd.toLocaleString()}</Text>
+          )}
+        </View>
       </View>
     </View>
   );
@@ -855,5 +916,135 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
     color: '#000',
+  },
+
+  // New Amazing Crypto Card Styles
+  cryptoCard: {
+    borderRadius: Radius.xl,
+    marginBottom: Spacing.md,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    position: 'relative',
+  },
+  flashOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 1,
+  },
+  cryptoCardGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  cryptoCardContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: Spacing.md,
+    position: 'relative',
+    zIndex: 2,
+  },
+  cryptoCardLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  cryptoIconBg: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cryptoSymbol: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: Colors.textPrimary,
+  },
+  leverageBadgeLarge: {
+    backgroundColor: '#00D6A1',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  leverageBadgeTextLarge: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: '#000',
+  },
+  cryptoAmount: {
+    fontSize: 12,
+    color: Colors.textMuted,
+    marginTop: 2,
+  },
+  cryptoCardCenter: {
+    alignItems: 'center',
+    paddingHorizontal: Spacing.md,
+  },
+  livePriceContainer: {
+    alignItems: 'center',
+    gap: 6,
+  },
+  liveIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(0,214,161,0.12)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 99,
+  },
+  livePulse: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#00D6A1',
+  },
+  livePriceText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#00D6A1',
+  },
+  pnlText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  entryPriceText: {
+    fontSize: 12,
+    color: Colors.textMuted,
+  },
+  cryptoCardRight: {
+    alignItems: 'flex-end',
+  },
+  cryptoValue: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: Colors.textPrimary,
+  },
+  platformHeldBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+    backgroundColor: 'rgba(0,214,161,0.1)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  platformHeldText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#00D6A1',
+  },
+  entryFeeSmall: {
+    fontSize: 10,
+    color: Colors.textMuted,
+    marginTop: 2,
   },
 });
