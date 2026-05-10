@@ -342,20 +342,21 @@ export default async function authRoutes(fastify: FastifyInstance) {
   );
 
   // POST /auth/dev-login — development login without signature (for mobile app testing)
-  fastify.post<{ Body: { walletAddress: string; email?: string; recoveryPhrase?: string } }>(
+  fastify.post<{ Body: { walletAddress: string; email?: string; recoveryPhrase?: string; accountPassword?: string } }>(
     '/dev-login',
     {
       schema: {
         tags: ['Auth'],
         summary: 'Dev login (no signature required)',
         description:
-          'Creates a new user only. If the wallet address is already registered, returns 403 — use POST /import with recovery phrase + PIN. Optional BIP39 recoveryPhrase must derive the same address.',
+          'Creates a new user only. If the wallet address is already registered, returns 403 — use POST /import with recovery phrase + PIN. Optional BIP39 recoveryPhrase must derive the same address. Optional accountPassword (8+ chars) is stored as passwordHash for account recovery flows.',
         body: {
           type: 'object',
           properties: {
             walletAddress: { type: 'string' },
             email: { type: 'string', format: 'email' },
             recoveryPhrase: { type: 'string', description: '12+ word BIP39 phrase; must match walletAddress for new accounts' },
+            accountPassword: { type: 'string', minLength: 8, maxLength: 128, description: 'Optional app account password from registration step 1' },
           },
           required: ['walletAddress'],
         },
@@ -381,9 +382,17 @@ export default async function authRoutes(fastify: FastifyInstance) {
       },
     },
     async (request, reply) => {
-      const { walletAddress, email, recoveryPhrase } = request.body;
+      const { walletAddress, email, recoveryPhrase, accountPassword } = request.body;
       const normalized = walletAddress.toLowerCase();
       const emailNorm = email?.trim().toLowerCase() || undefined;
+      let passwordHash: string | undefined;
+      if (accountPassword != null && String(accountPassword).length > 0) {
+        const pw = String(accountPassword);
+        if (pw.length < 8) {
+          return reply.status(400).send({ success: false, error: 'Account password must be at least 8 characters' });
+        }
+        passwordHash = await bcrypt.hash(pw, 10);
+      }
 
       let phraseNorm: string | undefined;
       if (recoveryPhrase?.trim()) {
@@ -429,6 +438,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
             secretKeyIv: iv,
             referralCode,
             ...(emailNorm ? { email: emailNorm } : {}),
+            ...(passwordHash ? { passwordHash } : {}),
           },
         });
       } catch (e) {

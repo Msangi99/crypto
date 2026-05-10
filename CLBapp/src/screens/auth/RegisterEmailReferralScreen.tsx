@@ -18,10 +18,16 @@ import Button from '../../components/ui/Button';
 
 const LOGO = require('../../../assets/logo.png');
 
+const PW_MIN = 8;
+
 /** Step 1 — only for “Create new wallet”. Restore & connect use other screens. */
 export default function RegisterEmailReferralScreen({ navigation }: any) {
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [referralCode, setReferralCode] = useState('');
+  const [showPw, setShowPw] = useState(false);
+  const [showPw2, setShowPw2] = useState(false);
 
   const handleContinue = () => {
     const e = email.trim().toLowerCase();
@@ -29,13 +35,25 @@ export default function RegisterEmailReferralScreen({ navigation }: any) {
       Alert.alert('Email required', 'Please enter a valid email address.');
       return;
     }
+    if (password.length < PW_MIN) {
+      Alert.alert('Password', `Use at least ${PW_MIN} characters for your account password.`);
+      return;
+    }
+    if (password !== confirmPassword) {
+      Alert.alert('Password', 'Password and confirmation do not match.');
+      return;
+    }
     navigation.navigate('RegisterConnectWallet', {
       email: e,
       referralCode: referralCode.trim().toUpperCase(),
+      accountPassword: password,
     });
   };
 
   const emailValid = email.trim().includes('@') && email.trim().length > 3;
+  const passwordOk =
+    password.length >= PW_MIN && confirmPassword.length >= PW_MIN && password === confirmPassword;
+  const canContinue = emailValid && passwordOk;
 
   return (
     <View style={styles.container}>
@@ -46,8 +64,8 @@ export default function RegisterEmailReferralScreen({ navigation }: any) {
         <Image source={LOGO} style={styles.logo} resizeMode="contain" />
         <Text style={styles.title}>Create account</Text>
         <Text style={styles.subtitle}>
-          New to CLB only. Enter your email and optional referral code, then you will create your wallet
-          phrase and link your address.
+          New to CLB only. Enter your email, a strong account password, and optional referral code. Next you will paste
+          your BEP-20 address (Trust / MetaMask / Binance) and your 12-word recovery phrase.
         </Text>
       </LinearGradient>
 
@@ -77,6 +95,46 @@ export default function RegisterEmailReferralScreen({ navigation }: any) {
           </View>
 
           <View style={styles.inputGroup}>
+            <Text style={styles.label}>Account password</Text>
+            <View style={styles.inputRow}>
+              <Ionicons name="lock-closed-outline" size={18} color={Colors.primary} style={styles.inputIcon} />
+              <TextInput
+                value={password}
+                onChangeText={setPassword}
+                placeholder={`At least ${PW_MIN} characters`}
+                placeholderTextColor={Colors.textMuted}
+                style={styles.input}
+                autoCapitalize="none"
+                autoCorrect={false}
+                secureTextEntry={!showPw}
+              />
+              <TouchableOpacity onPress={() => setShowPw(!showPw)} style={styles.eyeBtn}>
+                <Ionicons name={showPw ? 'eye-off-outline' : 'eye-outline'} size={20} color={Colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Confirm password</Text>
+            <View style={styles.inputRow}>
+              <Ionicons name="lock-closed-outline" size={18} color={Colors.primary} style={styles.inputIcon} />
+              <TextInput
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                placeholder="Same as above"
+                placeholderTextColor={Colors.textMuted}
+                style={styles.input}
+                autoCapitalize="none"
+                autoCorrect={false}
+                secureTextEntry={!showPw2}
+              />
+              <TouchableOpacity onPress={() => setShowPw2(!showPw2)} style={styles.eyeBtn}>
+                <Ionicons name={showPw2 ? 'eye-off-outline' : 'eye-outline'} size={20} color={Colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <View style={styles.inputGroup}>
             <Text style={styles.label}>Referral code (optional)</Text>
             <View style={styles.inputRow}>
               <Ionicons name="gift-outline" size={18} color={Colors.primary} style={styles.inputIcon} />
@@ -92,7 +150,7 @@ export default function RegisterEmailReferralScreen({ navigation }: any) {
             </View>
           </View>
 
-          <Button label="Continue" onPress={handleContinue} disabled={!emailValid} fullWidth />
+          <Button label="Continue" onPress={handleContinue} disabled={!canContinue} fullWidth />
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
@@ -142,4 +200,5 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     fontSize: 14,
   },
+  eyeBtn: { paddingHorizontal: 10, paddingVertical: 8 },
 });

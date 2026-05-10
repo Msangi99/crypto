@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -27,80 +27,81 @@ const LOGO = require('../../../assets/logo.png');
 export default function RegisterConnectWalletScreen({ navigation, route }: any) {
   const email: string = route.params?.email ?? '';
   const referralCode: string = route.params?.referralCode ?? '';
+  const accountPassword: string = route.params?.accountPassword ?? '';
 
   const [walletAddress, setWalletAddress] = useState('');
   const [phrase, setPhrase] = useState('');
   const [backupConfirmed, setBackupConfirmed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showPhrase, setShowPhrase] = useState(false);
-  /** After phrase + backup OK: server check for address availability */
-  const [addrAvailability, setAddrAvailability] = useState<
-    'idle' | 'checking' | 'available' | 'taken' | 'invalid_phrase' | 'error'
+  /** Server check on the BEP-20 you paste (Trust / MetaMask / Binance) — before phrase step */
+  const [addressAvail, setAddressAvail] = useState<
+    'idle' | 'checking' | 'available' | 'taken' | 'invalid_fmt' | 'error'
   >('idle');
 
   const { setAuth } = useAuthStore();
   const { open: openAppKit } = useAppKit();
   const { address: connectedAddress, isConnected } = useAccount();
-  const lastFilled = useRef<string | null>(null);
   const wordCount = phrase.trim().split(/\s+/).filter(Boolean).length;
 
-  /** If user already has a 12-word phrase, don't replace address with a different connected wallet (common 400 cause). */
+  const derivedFromPhrase = useMemo(() => {
+    if (wordCount < 12 || !phrase.trim()) return null;
+    try {
+      return mnemonicToAccount(phrase.trim()).address.toLowerCase();
+    } catch {
+      return null;
+    }
+  }, [phrase, wordCount]);
+
+  /** WalletConnect only fills the address field when it is empty — never overwrites your pasted BEP-20. */
   useEffect(() => {
     if (!isConnected || !connectedAddress) return;
-    const connected = connectedAddress.toLowerCase();
-    if (wordCount >= 12 && phrase.trim()) {
-      try {
-        const derived = mnemonicToAccount(phrase.trim()).address.toLowerCase();
-        if (derived !== connected) return;
-      } catch {
-        return;
-      }
-    }
-    if (lastFilled.current !== connectedAddress) {
-      lastFilled.current = connectedAddress;
-      setWalletAddress(connectedAddress);
-    }
-  }, [isConnected, connectedAddress, phrase, wordCount]);
+    if (walletAddress.trim() !== '') return;
+    setWalletAddress(connectedAddress);
+  }, [isConnected, connectedAddress, walletAddress]);
 
   useEffect(() => {
-    if (!backupConfirmed || wordCount < 12) {
-      setAddrAvailability('idle');
+    const raw = walletAddress.trim();
+    const norm = raw.toLowerCase();
+    if (!raw) {
+      setAddressAvail('idle');
       return;
     }
-    let derived: string;
-    try {
-      derived = mnemonicToAccount(phrase.trim()).address.toLowerCase();
-    } catch {
-      setAddrAvailability('invalid_phrase');
+    if (norm.length < 42) {
+      setAddressAvail('idle');
       return;
     }
-    if (walletAddress.trim().toLowerCase() !== derived) {
-      setAddrAvailability('idle');
+    if (norm.length !== 42 || !/^0x[0-9a-f]{40}$/i.test(norm)) {
+      setAddressAvail('invalid_fmt');
       return;
     }
+    setAddressAvail('checking');
     const t = setTimeout(async () => {
-      setAddrAvailability('checking');
       try {
-        const { data } = await authAPI.checkWalletAvailable(derived);
-        setAddrAvailability(data.available ? 'available' : 'taken');
+        const { data } = await authAPI.checkWalletAvailable(norm);
+        setAddressAvail(data.available ? 'available' : 'taken');
       } catch {
-        setAddrAvailability('error');
+        setAddressAvail('error');
       }
     }, 550);
     return () => clearTimeout(t);
-  }, [backupConfirmed, phrase, wordCount, walletAddress]);
+  }, [walletAddress]);
 
   const handleGeneratePhrase = () => {
     const mnemonic = generateMnemonic(english);
-    const acc = mnemonicToAccount(mnemonic);
     setPhrase(mnemonic);
-    setWalletAddress(acc.address);
     setBackupConfirmed(false);
     Alert.alert(
       'Save your phrase',
-      'Write these 12 words on paper and store them safely. Anyone with this phrase controls this wallet.',
+      'Your BEP-20 address field is not changed. Paste the recovery phrase from the same Trust Wallet, MetaMask, or Binance account as the address above.\n\n' +
+        'If you created a new phrase only on this phone, tap “Use address from this phrase” so the address matches.',
       [{ text: 'OK' }]
     );
+  };
+
+  const applyDerivedAddress = () => {
+    if (!derivedFromPhrase) return;
+    setWalletAddress(derivedFromPhrase);
   };
 
   const handleSubmit = async () => {
@@ -123,30 +124,39 @@ export default function RegisterConnectWalletScreen({ navigation, route }: any) 
       return;
     }
 
-    if (walletAddress.trim().toLowerCase() !== addr) {
+    const pasted = walletAddress.trim().toLowerCase();
+    if (pasted !== addr) {
       Alert.alert(
         'Address mismatch',
-        'The BEP-20 field must match the address from your 12-word phrase. Paste the phrase again or tap Generate.'
+        'The 12 words must belong to the same BEP-20 address you pasted above (Trust / MetaMask / Binance). Fix the phrase or tap “Use address from this phrase”.'
+      );
+      return;
+    }
+
+    if (addressAvail === 'taken') {
+      Alert.alert(
+        'Address already in use',
+        'Another CLB account already uses this address. Use a different wallet or sign in with “I already have a wallet”.'
       );
       return;
     }
 
     setLoading(true);
     try {
-      const check = await authAPI.checkWalletAvailable(addr);
+      const check = await authAPI.checkWalletAvailable(pasted);
       if (!check.data.available) {
         Alert.alert(
-          'Wallet already registered',
-          'This address already has a CLB account. Use “I already have a wallet” with your phrase and PIN, or generate a new phrase.',
-          [{ text: 'OK' }]
+          'Address already in use',
+          'This BEP-20 address is already registered. Choose another address or use “I already have a wallet”.'
         );
-        setAddrAvailability('taken');
+        setAddressAvail('taken');
         return;
       }
 
-      const res = await authAPI.devLogin(addr, {
+      const res = await authAPI.devLogin(pasted, {
         email: email || undefined,
         recoveryPhrase,
+        ...(accountPassword ? { accountPassword } : {}),
       });
       const { token, user } = res.data;
       await setAuth(token, {
@@ -200,8 +210,9 @@ export default function RegisterConnectWalletScreen({ navigation, route }: any) 
             <Image source={LOGO} style={styles.logo} resizeMode="contain" />
             <Text style={styles.title}>Link your wallet</Text>
             <Text style={styles.subtitle}>
-              After you generate or paste your 12 words, we always use the address from that phrase. Connecting
-              another wallet will not replace it unless it is the same address.
+              Step 2: Paste only your BEP-20 address from Trust Wallet, MetaMask, or Binance (we never generate this
+              address). We check right away if another user already uses it. Then add your 12-word phrase — Generate
+              only creates words, not your address.
             </Text>
           </LinearGradient>
 
@@ -235,6 +246,9 @@ export default function RegisterConnectWalletScreen({ navigation, route }: any) 
               </View>
               <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
             </TouchableOpacity>
+            <Text style={styles.wcHint}>
+              Connect wallet only fills the address field when it is empty — it never replaces a pasted BEP-20.
+            </Text>
 
             <View style={styles.inputGroup}>
               <Text style={styles.label}>BEP-20 address</Text>
@@ -245,7 +259,7 @@ export default function RegisterConnectWalletScreen({ navigation, route }: any) 
                 <TextInput
                   value={walletAddress}
                   onChangeText={setWalletAddress}
-                  placeholder="0x…"
+                  placeholder="Paste BEP-20 (Trust / MetaMask / Binance)"
                   placeholderTextColor={Colors.textMuted}
                   style={styles.input}
                   autoCapitalize="none"
@@ -253,6 +267,29 @@ export default function RegisterConnectWalletScreen({ navigation, route }: any) 
                 />
               </View>
             </View>
+
+            {walletAddress.trim().length > 0 && addressAvail !== 'idle' && (
+              <View
+                style={[
+                  styles.availBanner,
+                  addressAvail === 'available' && styles.availOk,
+                  addressAvail === 'taken' && styles.availBad,
+                  (addressAvail === 'checking' || addressAvail === 'error' || addressAvail === 'invalid_fmt') &&
+                    styles.availNeutral,
+                ]}
+              >
+                {addressAvail === 'checking' && (
+                  <ActivityIndicator size="small" color={Colors.primary} style={{ marginRight: 8 }} />
+                )}
+                <Text style={styles.availText}>
+                  {addressAvail === 'checking' && 'Checking if this address is already registered…'}
+                  {addressAvail === 'available' && 'This address is free — no other account uses it yet. Add your 12 words from this same wallet.'}
+                  {addressAvail === 'taken' && 'This address is already in use. Use another BEP-20 wallet or sign in with “I already have a wallet”.'}
+                  {addressAvail === 'invalid_fmt' && 'Enter a valid BEP-20 address: 0x plus 40 hexadecimal characters.'}
+                  {addressAvail === 'error' && 'Could not check online. You can still try Continue — we verify again on submit.'}
+                </Text>
+              </View>
+            )}
 
             <View style={styles.phraseCard}>
               <View style={styles.phraseHeader}>
@@ -266,8 +303,8 @@ export default function RegisterConnectWalletScreen({ navigation, route }: any) 
                 </TouchableOpacity>
               </View>
               <Text style={styles.phraseHint}>
-                Must match the address above. Tap generate for a new phrase on this phone, or paste from your
-                existing wallet.
+                Use the recovery phrase from the same app you copied the address from. Generate words here only if
+                you want a new phrase — then use “Use address from this phrase” so the fields match.
               </Text>
               <TextInput
                 value={phrase}
@@ -295,6 +332,39 @@ export default function RegisterConnectWalletScreen({ navigation, route }: any) 
               </View>
             </View>
 
+            {wordCount >= 12 && !derivedFromPhrase && (
+              <View style={[styles.availBanner, styles.availBad]}>
+                <Text style={styles.availText}>
+                  These 12+ words are not a valid recovery phrase. Check spelling and word order.
+                </Text>
+              </View>
+            )}
+
+            {derivedFromPhrase && (
+              <View style={styles.derivedRow}>
+                {walletAddress.trim().toLowerCase() === derivedFromPhrase ? (
+                  <View style={styles.derivedMatchRow}>
+                    <Ionicons name="checkmark-circle" size={16} color="#00D6A1" />
+                    <Text style={styles.derivedMatch}>Address matches this phrase.</Text>
+                  </View>
+                ) : (
+                  <>
+                    <Text style={styles.derivedMismatch}>
+                      This phrase belongs to{' '}
+                      <Text style={styles.derivedMono}>
+                        {derivedFromPhrase.slice(0, 8)}…{derivedFromPhrase.slice(-6)}
+                      </Text>
+                      . Your BEP-20 field is different — paste the matching address or apply the one from this phrase.
+                    </Text>
+                    <TouchableOpacity style={styles.applyDerivedBtn} onPress={applyDerivedAddress} activeOpacity={0.85}>
+                      <Ionicons name="copy-outline" size={16} color={Colors.primary} />
+                      <Text style={styles.applyDerivedText}>Use address from this phrase</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
+              </View>
+            )}
+
             <TouchableOpacity
               style={styles.checkRow}
               onPress={() => setBackupConfirmed(!backupConfirmed)}
@@ -310,40 +380,21 @@ export default function RegisterConnectWalletScreen({ navigation, route }: any) 
               </Text>
             </TouchableOpacity>
 
-            {addrAvailability !== 'idle' && (
-              <View
-                style={[
-                  styles.availBanner,
-                  addrAvailability === 'available' && styles.availOk,
-                  addrAvailability === 'taken' && styles.availBad,
-                  (addrAvailability === 'checking' ||
-                    addrAvailability === 'invalid_phrase' ||
-                    addrAvailability === 'error') &&
-                    styles.availNeutral,
-                ]}
-              >
-                {addrAvailability === 'checking' && (
-                  <ActivityIndicator size="small" color={Colors.primary} style={{ marginRight: 8 }} />
-                )}
-                <Text style={styles.availText}>
-                  {addrAvailability === 'checking' && 'Checking if this address is free…'}
-                  {addrAvailability === 'available' &&
-                    'This address is available — you can continue to set your PIN.'}
-                  {addrAvailability === 'taken' &&
-                    'This address is already in use. Generate a new phrase or use “I already have a wallet”.'}
-                  {addrAvailability === 'invalid_phrase' &&
-                    'These words are not a valid recovery phrase. Fix spelling or order.'}
-                  {addrAvailability === 'error' &&
-                    'Could not verify availability online. You can still try Continue — we will check again.'}
-                </Text>
-              </View>
-            )}
-
             <Button
               label="Continue to PIN"
               onPress={handleSubmit}
               loading={loading}
-              disabled={addrAvailability === 'taken' || addrAvailability === 'invalid_phrase'}
+              disabled={
+                loading ||
+                addressAvail === 'taken' ||
+                addressAvail === 'invalid_fmt' ||
+                addressAvail === 'checking' ||
+                !backupConfirmed ||
+                wordCount < 12 ||
+                !derivedFromPhrase ||
+                walletAddress.trim().toLowerCase() !== derivedFromPhrase ||
+                (addressAvail !== 'available' && addressAvail !== 'error')
+              }
               fullWidth
             />
 
@@ -378,6 +429,13 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   content: { padding: Spacing.lg, gap: Spacing.md },
+  wcHint: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: Colors.textMuted,
+    lineHeight: 16,
+    marginTop: -4,
+  },
   emailPill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -489,6 +547,31 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     marginTop: 4,
   },
+  derivedRow: {
+    padding: Spacing.md,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.bgCard,
+    gap: Spacing.sm,
+  },
+  derivedMatchRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  derivedMatch: { fontSize: 12, fontWeight: '700', color: '#00D6A1', flex: 1 },
+  derivedMismatch: { fontSize: 12, fontWeight: '600', color: Colors.textSecondary, lineHeight: 18 },
+  derivedMono: { fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace', color: Colors.textPrimary },
+  applyDerivedBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    alignSelf: 'flex-start',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: 'rgba(240,185,11,0.45)',
+    backgroundColor: 'rgba(240,185,11,0.08)',
+  },
+  applyDerivedText: { fontSize: 13, fontWeight: '800', color: Colors.primary },
   availBanner: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -46,7 +46,7 @@ export const authAPI = {
     api.get(`/api/auth/nonce/${walletAddress}`),
   verify: (walletAddress: string, signature: string) =>
     api.post('/api/auth/verify', { walletAddress, signature }),
-  devLogin: (walletAddress: string, opts?: { email?: string; recoveryPhrase?: string }) =>
+  devLogin: (walletAddress: string, opts?: { email?: string; recoveryPhrase?: string; accountPassword?: string }) =>
     api.post('/api/auth/dev-login', { walletAddress, ...opts }),
   /** Read-only: true if no CLB account exists for this address (create-wallet flow before PIN). */
   checkWalletAvailable: (walletAddress: string) =>
