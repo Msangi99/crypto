@@ -3,9 +3,8 @@
 # Dependencies (reinstalled on build server)
 node_modules/
 
-# Generated native projects (EAS builds these from scratch)
+# Generated native projects
 ios/
-android/
 
 # Expo local cache
 .expo/
