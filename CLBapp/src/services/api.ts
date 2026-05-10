@@ -72,6 +72,14 @@ export const authAPI = {
     api.post('/api/auth/secret-key/generate'),
   importAccount: (secretKey: string, pin?: string) =>
     api.post('/api/auth/import', { secretKey, ...(pin ? { pin } : {}) }),
+  /** Restore by BEP-20 + phrase OR account password (from registration) + PIN when set */
+  recoverAccount: (body: {
+    walletAddress: string;
+    method: 'phrase' | 'password';
+    phrase?: string;
+    accountPassword?: string;
+    pin?: string;
+  }) => api.post('/api/auth/recover', body),
 };
 
 // ─── User Dashboard ────────────────────────────────────────

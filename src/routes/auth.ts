@@ -970,4 +970,157 @@ export default async function authRoutes(fastify: FastifyInstance) {
       };
     }
   );
+
+  // POST /auth/recover — restore by BEP-20 + (12-word phrase XOR account password) + PIN when set
+  fastify.post<{
+    Body: {
+      walletAddress: string;
+      method: 'phrase' | 'password';
+      phrase?: string;
+      accountPassword?: string;
+      pin?: string;
+    };
+  }>(
+    '/recover',
+    {
+      schema: {
+        tags: ['Auth'],
+        summary: 'Recover CLB account by address + phrase or account password',
+        description:
+          'Requires the wallet BEP-20 used at registration. Use method=phrase with 12+ words, or method=password with the account password set during email signup. PIN required when the account has PIN set.',
+        body: {
+          type: 'object',
+          required: ['walletAddress', 'method'],
+          properties: {
+            walletAddress: { type: 'string' },
+            method: { type: 'string', enum: ['phrase', 'password'] },
+            phrase: { type: 'string' },
+            accountPassword: { type: 'string' },
+            pin: { type: 'string' },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const { walletAddress, method, phrase, accountPassword, pin } = request.body;
+      const normalized = walletAddress.trim().toLowerCase();
+      if (!normalized.startsWith('0x') || normalized.length !== 42 || !/^0x[0-9a-f]{40}$/.test(normalized)) {
+        return reply.status(400).send({ success: false, error: 'Enter a valid BEP-20 address' });
+      }
+
+      const user = await prisma.user.findFirst({
+        where: { walletAddress: { equals: normalized, mode: 'insensitive' } },
+        select: {
+          id: true,
+          walletAddress: true,
+          secretKey: true,
+          secretKeyIv: true,
+          passwordHash: true,
+          pinHash: true,
+          pinSalt: true,
+          role: true,
+          biometricEnabled: true,
+          createdAt: true,
+        },
+      });
+
+      if (!user) {
+        return reply.status(404).send({ success: false, error: 'No CLB account found for this address' });
+      }
+
+      if (method === 'phrase') {
+        const normalizedPhrase = normRecoveryPhrase(phrase ?? '');
+        const wc = normalizedPhrase.split(' ').filter(Boolean).length;
+        if (wc < 12) {
+          return reply.status(400).send({ success: false, error: 'Enter all 12 words of your recovery phrase.' });
+        }
+        if (!user.secretKey || !user.secretKeyIv) {
+          return reply.status(400).send({ success: false, error: 'This account has no recovery phrase on file.' });
+        }
+        let decrypted: string;
+        try {
+          decrypted = decryptSecretKey(user.secretKey, user.secretKeyIv);
+        } catch {
+          return reply.status(500).send({ success: false, error: 'Could not verify recovery data' });
+        }
+        if (normRecoveryPhrase(decrypted) !== normalizedPhrase) {
+          return reply.status(401).send({ success: false, error: 'Recovery phrase does not match this wallet address' });
+        }
+        try {
+          const derived = ethers.HDNodeWallet.fromPhrase(normalizedPhrase).address.toLowerCase();
+          if (derived !== user.walletAddress.toLowerCase()) {
+            return reply.status(400).send({ success: false, error: 'Phrase does not match this address' });
+          }
+        } catch {
+          return reply.status(400).send({ success: false, error: 'Invalid recovery phrase' });
+        }
+      } else if (method === 'password') {
+        const pw = accountPassword?.trim() ?? '';
+        if (pw.length < 8) {
+          return reply.status(400).send({ success: false, error: 'Enter your account password (8+ characters)' });
+        }
+        if (!user.passwordHash) {
+          return reply.status(400).send({
+            success: false,
+            code: 'NO_ACCOUNT_PASSWORD',
+            error:
+              'No account password is stored for this wallet. Use recovery phrase instead, or register again with email + password.',
+          });
+        }
+        const match = await bcrypt.compare(pw, user.passwordHash);
+        if (!match) {
+          return reply.status(401).send({ success: false, error: 'Wrong account password for this address' });
+        }
+      } else {
+        return reply.status(400).send({ success: false, error: 'method must be phrase or password' });
+      }
+
+      if (user.pinHash && user.pinSalt) {
+        if (!pin || pin.length !== 6 || !/^\d+$/.test(pin)) {
+          return reply.status(400).send({
+            success: false,
+            code: 'PIN_REQUIRED',
+            error: 'This account has a PIN. Enter your 6-digit PIN from registration.',
+          });
+        }
+        const pinHash = crypto.createHash('sha256').update(pin + user.pinSalt).digest('hex');
+        if (pinHash !== user.pinHash) {
+          return reply.status(401).send({ success: false, error: 'Wrong PIN' });
+        }
+      }
+
+      const updatedUser = await prisma.user.update({
+        where: { id: user.id },
+        data: { tokenVersion: { increment: 1 }, nonce: crypto.randomUUID() },
+      });
+
+      const token = fastify.jwt.sign(
+        {
+          id: user.id,
+          walletAddress: user.walletAddress,
+          role: user.role,
+          tokenVersion: updatedUser.tokenVersion,
+        },
+        { expiresIn: '7d' }
+      );
+
+      const hasPin = !!user.pinHash;
+
+      return {
+        success: true,
+        token,
+        user: {
+          id: user.id,
+          walletAddress: user.walletAddress,
+          role: user.role,
+          pinSetup: hasPin,
+          biometricEnabled: user.biometricEnabled ?? false,
+          createdAt: user.createdAt,
+        },
+        message: hasPin
+          ? 'Account restored. Unlock with your PIN on the next screen if prompted.'
+          : 'Account restored. Set up a PIN for this device.',
+      };
+    }
+  );
 }

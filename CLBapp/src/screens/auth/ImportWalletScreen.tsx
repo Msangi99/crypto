@@ -1,7 +1,14 @@
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, TextInput, Alert,
-  KeyboardAvoidingView, Platform, ScrollView,
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  TextInput,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,52 +16,109 @@ import { Colors, Spacing, Radius } from '../../constants/theme';
 import { authAPI } from '../../services/api';
 import { useAuthStore } from '../../store/authStore';
 
+function isValidBep20(input: string): boolean {
+  const n = input.trim().toLowerCase();
+  return n.length === 42 && /^0x[0-9a-f]{40}$/i.test(n);
+}
+
+type RecoverMethod = 'phrase' | 'password';
+
 export default function ImportWalletScreen({ navigation }: any) {
   const { setAuth } = useAuthStore();
+  const [walletAddress, setWalletAddress] = useState('');
+  const [method, setMethod] = useState<RecoverMethod>('phrase');
   const [seedInput, setSeedInput] = useState('');
+  const [passwordInput, setPasswordInput] = useState('');
   const [pinInput, setPinInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPhrase, setShowPhrase] = useState(false);
+  const [showPw, setShowPw] = useState(false);
+  const [phraseOnly, setPhraseOnly] = useState(false);
 
   const wordCount = seedInput.trim().split(/\s+/).filter(Boolean).length;
-  const isValid = wordCount >= 12;
+  const addrOk = isValidBep20(walletAddress);
+  const phraseOk = wordCount >= 12;
+  const pwOk = passwordInput.trim().length >= 8;
   const pinOk = pinInput.length === 6 && /^\d+$/.test(pinInput);
   const pinToSend = pinOk ? pinInput : undefined;
 
-  const handleImport = async () => {
-    const phrase = seedInput.trim().toLowerCase();
-    if (!phrase || phrase.split(/\s+/).length < 12) {
-      Alert.alert('Invalid Phrase', 'Please enter your 12-word recovery phrase.');
+  const handleRecover = async () => {
+    if (phraseOnly) {
+      await doImportPhrase();
       return;
     }
-    if (pinInput.length > 0 && pinInput.length < 6) {
-      Alert.alert('PIN', 'Enter all 6 digits, or clear the field if you never set a PIN.');
+    if (!addrOk) {
+      Alert.alert('Anwari', 'Ingiza anwari halali ya BEP-20 (0x + herufi 40).');
+      return;
+    }
+    if (method === 'phrase' && !phraseOk) {
+      Alert.alert('Maneno 12', 'Ingiza maneno yote 12 ya recovery.');
+      return;
+    }
+    if (method === 'password' && !pwOk) {
+      Alert.alert('Nenosiri', 'Ingiza nenosiri la akaunti uliolifanya wakati wa usajili (angalau herufi 8).');
       return;
     }
 
     setLoading(true);
     try {
-      const res = await authAPI.importAccount(phrase, pinToSend);
+      const res = await authAPI.recoverAccount({
+        walletAddress: walletAddress.trim(),
+        method,
+        ...(method === 'phrase' ? { phrase: seedInput.trim().toLowerCase() } : { accountPassword: passwordInput }),
+        ...(pinToSend ? { pin: pinToSend } : {}),
+      });
       const { token, user } = res.data;
       await setAuth(token, { ...user, pinSetup: user.pinSetup ?? false });
-
       if (!user.pinSetup) {
-        Alert.alert('Welcome Back', 'Account restored. Please set up a PIN for this device.');
+        Alert.alert('Karibu tena', 'Akaunti imerejeshwa. Weka PIN kwa kifaa hiki.');
       }
     } catch (err: any) {
       if (err?.response?.data?.code === 'PIN_REQUIRED') {
-        Alert.alert(
-          'PIN required',
-          'This account has a PIN. Enter the same 6-digit PIN you set during registration.'
-        );
+        Alert.alert('PIN inahitajika', err?.response?.data?.error || 'Ingiza tarakimu 6 za PIN za usajili.');
+      } else if (err?.response?.data?.code === 'NO_ACCOUNT_PASSWORD') {
+        Alert.alert('Nenosiri la akaunti', err?.response?.data?.error || 'Tumia njia ya maneno 12.');
+        setMethod('phrase');
       } else {
-        const msg = err?.response?.data?.error || err?.message || 'Import failed.';
-        Alert.alert('Import Failed', msg);
+        const msg = err?.response?.data?.error || err?.message || 'Imeshindikana.';
+        Alert.alert('Restore', msg);
       }
     } finally {
       setLoading(false);
     }
   };
+
+  const doImportPhrase = async () => {
+    const phrase = seedInput.trim().toLowerCase();
+    if (!phraseOk) {
+      Alert.alert('Maneno 12', 'Ingiza maneno yote 12.');
+      return;
+    }
+    if (pinInput.length > 0 && pinInput.length < 6) {
+      Alert.alert('PIN', 'Weka tarakimu 6 zote, au acha tupu ikiwa hukumaliza PIN.');
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await authAPI.importAccount(phrase, pinToSend);
+      const { token, user } = res.data;
+      await setAuth(token, { ...user, pinSetup: user.pinSetup ?? false });
+      if (!user.pinSetup) {
+        Alert.alert('Karibu tena', 'Weka PIN kwa kifaa hiki.');
+      }
+    } catch (err: any) {
+      if (err?.response?.data?.code === 'PIN_REQUIRED') {
+        Alert.alert('PIN inahitajika', 'Ingiza PIN za usajili.');
+      } else {
+        Alert.alert('Restore', err?.response?.data?.error || err?.message || 'Imeshindikana.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const canRecover =
+    phraseOnly ? phraseOk : addrOk && (method === 'phrase' ? phraseOk : pwOk);
 
   return (
     <View style={styles.container}>
@@ -68,64 +132,131 @@ export default function ImportWalletScreen({ navigation }: any) {
             contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled"
           >
-            {/* Header */}
             <View style={styles.header}>
               <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
                 <Ionicons name="arrow-back" size={24} color={Colors.textPrimary} />
               </TouchableOpacity>
-              <Text style={styles.headerTitle}>Restore account</Text>
+              <Text style={styles.headerTitle}>Rejesha akaunti</Text>
               <View style={{ width: 32 }} />
             </View>
 
-            {/* Icon */}
-            <View style={styles.iconContainer}>
-              <View style={styles.iconBg}>
-                <Ionicons name="key" size={32} color={Colors.primary} />
-              </View>
-            </View>
-
-            <Text style={styles.title}>Enter Recovery Phrase</Text>
+            <Text style={styles.title}>Nina wallet tayari</Text>
             <Text style={styles.subtitle}>
-              Enter your 12-word phrase. If you already set a PIN on this account, enter the same 6-digit PIN.
+              Chaguo kuu: anwari yako ya BEP-20, kisha <Text style={styles.bold}>maneno 12</Text> au{' '}
+              <Text style={styles.bold}>nenosiri la akaunti</Text> (lile uliolifanya baada ya email), halafu PIN
+              uliyoipanga CLB. Nenosiri na PIN zimhifadhiwa kwa usajili salama (hash).
             </Text>
 
-            {/* Input */}
-            <View style={styles.inputCard}>
-              <View style={styles.inputHeader}>
-                <Text style={styles.inputLabel}>Recovery Phrase</Text>
-                <TouchableOpacity onPress={() => setShowPhrase(!showPhrase)}>
-                  <Ionicons
-                    name={showPhrase ? 'eye-off-outline' : 'eye-outline'}
-                    size={20}
-                    color={Colors.textMuted}
+            {!phraseOnly && (
+              <>
+                <View style={styles.inputCard}>
+                  <Text style={styles.inputLabel}>Anwari ya BEP-20 (Trust / Meta / Binance)</Text>
+                  <TextInput
+                    style={styles.singleInput}
+                    value={walletAddress}
+                    onChangeText={setWalletAddress}
+                    placeholder="0x…"
+                    placeholderTextColor={Colors.textMuted + '80'}
+                    autoCapitalize="none"
+                    autoCorrect={false}
                   />
-                </TouchableOpacity>
+                </View>
+
+                <View style={styles.toggleRow}>
+                  <TouchableOpacity
+                    style={[styles.toggleBtn, method === 'phrase' && styles.toggleBtnOn]}
+                    onPress={() => setMethod('phrase')}
+                  >
+                    <Text style={[styles.toggleText, method === 'phrase' && styles.toggleTextOn]}>Maneno 12</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.toggleBtn, method === 'password' && styles.toggleBtnOn]}
+                    onPress={() => setMethod('password')}
+                  >
+                    <Text style={[styles.toggleText, method === 'password' && styles.toggleTextOn]}>
+                      Nenosiri la akaunti
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+
+            {phraseOnly ? (
+              <View style={styles.inputCard}>
+                <View style={styles.inputHeader}>
+                  <Text style={styles.inputLabel}>Recovery phrase (12+)</Text>
+                  <TouchableOpacity onPress={() => setShowPhrase(!showPhrase)}>
+                    <Ionicons
+                      name={showPhrase ? 'eye-off-outline' : 'eye-outline'}
+                      size={20}
+                      color={Colors.textMuted}
+                    />
+                  </TouchableOpacity>
+                </View>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="word1 word2 … word12"
+                  placeholderTextColor={Colors.textMuted + '60'}
+                  value={seedInput}
+                  onChangeText={setSeedInput}
+                  multiline
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  secureTextEntry={!showPhrase}
+                  textAlignVertical="top"
+                />
               </View>
-              <TextInput
-                style={styles.textInput}
-                placeholder="abandon ability able about above absent absorb abstract absurd abuse access accident"
-                placeholderTextColor={Colors.textMuted + '60'}
-                value={seedInput}
-                onChangeText={setSeedInput}
-                multiline
-                numberOfLines={4}
-                autoCapitalize="none"
-                autoCorrect={false}
-                secureTextEntry={!showPhrase}
-                textAlignVertical="top"
-              />
-              <View style={styles.inputFooter}>
-                <Text style={[styles.wordCount, isValid && styles.wordCountValid]}>
-                  {wordCount}/12 words
-                </Text>
-                {isValid && (
-                  <Ionicons name="checkmark-circle" size={18} color="#00D6A1" />
-                )}
+            ) : method === 'phrase' ? (
+              <View style={styles.inputCard}>
+                <View style={styles.inputHeader}>
+                  <Text style={styles.inputLabel}>Maneno 12 (yanalingana na anwari hapo juu)</Text>
+                  <TouchableOpacity onPress={() => setShowPhrase(!showPhrase)}>
+                    <Ionicons
+                      name={showPhrase ? 'eye-off-outline' : 'eye-outline'}
+                      size={20}
+                      color={Colors.textMuted}
+                    />
+                  </TouchableOpacity>
+                </View>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="word1 word2 … word12"
+                  placeholderTextColor={Colors.textMuted + '60'}
+                  value={seedInput}
+                  onChangeText={setSeedInput}
+                  multiline
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  secureTextEntry={!showPhrase}
+                  textAlignVertical="top"
+                />
+                <View style={styles.inputFooter}>
+                  <Text style={[styles.wordCount, phraseOk && styles.wordCountValid]}>{wordCount}/12+</Text>
+                </View>
               </View>
-            </View>
+            ) : (
+              <View style={styles.inputCard}>
+                <Text style={styles.inputLabel}>Nenosiri la akaunti (baada ya email, usajili)</Text>
+                <View style={styles.pwRow}>
+                  <TextInput
+                    style={styles.pwInput}
+                    value={passwordInput}
+                    onChangeText={setPasswordInput}
+                    placeholder="Angalau herufi 8"
+                    placeholderTextColor={Colors.textMuted + '80'}
+                    secureTextEntry={!showPw}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                  <TouchableOpacity onPress={() => setShowPw(!showPw)} style={styles.eyeHit}>
+                    <Ionicons name={showPw ? 'eye-off-outline' : 'eye-outline'} size={22} color={Colors.textMuted} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
 
             <View style={styles.inputCard}>
-              <Text style={styles.inputLabel}>6-digit PIN</Text>
+              <Text style={styles.inputLabel}>PIN ya CLB (tarakimu 6)</Text>
               <TextInput
                 style={styles.pinInput}
                 placeholder="••••••"
@@ -136,36 +267,51 @@ export default function ImportWalletScreen({ navigation }: any) {
                 maxLength={6}
                 secureTextEntry
               />
-              <Text style={styles.pinHint}>Leave blank only if you never finished PIN setup on this account.</Text>
-            </View>
-
-            {/* Security note */}
-            <View style={styles.securityNote}>
-              <Ionicons name="shield-checkmark" size={16} color={Colors.primary} />
-              <Text style={styles.securityText}>
-                Phrase and PIN are sent over HTTPS only to verify it is really you. Never share them with anyone.
+              <Text style={styles.pinHint}>
+                Ikiwa akaunti ina PIN, lazima uingize hapa. Ikiwa bado hukumaliza PIN wakati wa usajili, acha tupu
+                (inaweza kushindwa — jaribu maneno 12).
               </Text>
             </View>
 
-            {/* Import button */}
             <TouchableOpacity
-              onPress={handleImport}
-              disabled={!isValid || loading}
+              onPress={() => {
+                setPhraseOnly(!phraseOnly);
+                setWalletAddress('');
+                setPasswordInput('');
+              }}
+              style={styles.linkRow}
+            >
+              <Text style={styles.linkText}>
+                {phraseOnly ? 'Rudi: anwari + maneno / nenosiri' : 'Nina maneno 12 pekee (bila anwari) — njia ya zamani'}
+              </Text>
+            </TouchableOpacity>
+
+            <View style={styles.securityNote}>
+              <Ionicons name="shield-checkmark" size={16} color={Colors.primary} />
+              <Text style={styles.securityText}>
+                Data inatumwa kwa HTTPS. PIN na nenosiri zimhifadhiwa kama hash kwenye server — si maandishi wazi.
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              onPress={phraseOnly ? doImportPhrase : handleRecover}
+              disabled={!canRecover || loading}
               activeOpacity={0.85}
               style={{ marginTop: Spacing.lg }}
             >
               <LinearGradient
-                colors={isValid ? Colors.gradientPrimary : ['#333', '#222']}
-                start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                colors={canRecover ? Colors.gradientPrimary : ['#333', '#222']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
                 style={styles.importBtn}
               >
                 {loading ? (
-                  <Text style={styles.importBtnText}>Restoring...</Text>
+                  <Text style={styles.importBtnText}>Inachakata…</Text>
                 ) : (
                   <>
-                    <Ionicons name="download" size={18} color={isValid ? '#000' : Colors.textMuted} />
-                    <Text style={[styles.importBtnText, !isValid && { color: Colors.textMuted }]}>
-                      Restore Wallet
+                    <Ionicons name="download" size={18} color={canRecover ? '#000' : Colors.textMuted} />
+                    <Text style={[styles.importBtnText, !canRecover && { color: Colors.textMuted }]}>
+                      Rejesha akaunti
                     </Text>
                   </>
                 )}
@@ -184,58 +330,96 @@ const styles = StyleSheet.create({
   scrollContent: { paddingHorizontal: Spacing.lg, paddingBottom: 60 },
 
   header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingTop: 56, paddingBottom: Spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 56,
+    paddingBottom: Spacing.md,
   },
   backBtn: { padding: 4 },
   headerTitle: { fontSize: 20, fontWeight: '800', color: Colors.textPrimary },
 
-  iconContainer: { alignItems: 'center', marginVertical: Spacing.lg },
-  iconBg: {
-    width: 70, height: 70, borderRadius: 22,
-    backgroundColor: 'rgba(240,185,11,0.1)', alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1, borderColor: 'rgba(240,185,11,0.2)',
-  },
-
-  title: { fontSize: 24, fontWeight: '900', color: Colors.textPrimary, textAlign: 'center' },
+  title: { fontSize: 22, fontWeight: '900', color: Colors.textPrimary, textAlign: 'center' },
   subtitle: {
-    fontSize: 14, fontWeight: '500', color: Colors.textMuted,
-    textAlign: 'center', lineHeight: 20, marginTop: 8, marginBottom: Spacing.xl,
+    fontSize: 13,
+    fontWeight: '500',
+    color: Colors.textMuted,
+    textAlign: 'center',
+    lineHeight: 19,
+    marginTop: 8,
+    marginBottom: Spacing.lg,
   },
+  bold: { fontWeight: '800', color: Colors.textSecondary },
 
   inputCard: {
-    backgroundColor: Colors.bgCard, borderRadius: Radius.lg,
-    borderWidth: 1, borderColor: Colors.border, padding: Spacing.md,
+    backgroundColor: Colors.bgCard,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
   },
   inputHeader: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: Spacing.sm,
   },
   inputLabel: { fontSize: 13, fontWeight: '700', color: Colors.textSecondary },
+  singleInput: {
+    fontSize: 14,
+    color: Colors.textPrimary,
+    paddingVertical: 12,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
   textInput: {
-    fontSize: 16, fontWeight: '600', color: Colors.textPrimary,
-    minHeight: 100, padding: 0, lineHeight: 24,
+    fontSize: 15,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+    minHeight: 100,
+    lineHeight: 22,
   },
   inputFooter: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    marginTop: Spacing.sm, paddingTop: Spacing.sm,
-    borderTopWidth: 1, borderTopColor: Colors.border,
+    marginTop: Spacing.sm,
+    paddingTop: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
   },
   wordCount: { fontSize: 12, fontWeight: '700', color: Colors.textMuted },
   wordCountValid: { color: '#00D6A1' },
 
-  securityNote: {
-    flexDirection: 'row', gap: 10, padding: Spacing.md, marginTop: Spacing.lg,
-    backgroundColor: 'rgba(240,185,11,0.05)', borderRadius: Radius.lg,
-    borderWidth: 1, borderColor: 'rgba(240,185,11,0.1)',
+  toggleRow: { flexDirection: 'row', gap: 8, marginBottom: Spacing.md },
+  toggleBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    alignItems: 'center',
+    backgroundColor: Colors.bgCard,
   },
-  securityText: { flex: 1, fontSize: 12, fontWeight: '500', color: Colors.textMuted, lineHeight: 18 },
+  toggleBtnOn: {
+    borderColor: Colors.primary,
+    backgroundColor: 'rgba(240,185,11,0.12)',
+  },
+  toggleText: { fontSize: 13, fontWeight: '700', color: Colors.textMuted },
+  toggleTextOn: { color: Colors.textPrimary },
 
-  importBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    paddingVertical: 18, gap: 10, borderRadius: Radius.lg,
+  pwRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: Radius.md,
+    paddingHorizontal: Spacing.sm,
   },
-  importBtnText: { fontSize: 16, fontWeight: '900', color: '#000' },
+  pwInput: {
+    flex: 1,
+    paddingVertical: 14,
+    fontSize: 15,
+    color: Colors.textPrimary,
+  },
+  eyeHit: { padding: 8 },
 
   pinInput: {
     fontSize: 22,
@@ -245,5 +429,29 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     textAlign: 'center',
   },
-  pinHint: { fontSize: 11, color: Colors.textMuted, marginTop: 8 },
+  pinHint: { fontSize: 11, color: Colors.textMuted, marginTop: 8, lineHeight: 16 },
+
+  linkRow: { marginBottom: Spacing.md },
+  linkText: { fontSize: 12, fontWeight: '700', color: Colors.primary, textAlign: 'center' },
+
+  securityNote: {
+    flexDirection: 'row',
+    gap: 10,
+    padding: Spacing.md,
+    backgroundColor: 'rgba(240,185,11,0.05)',
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(240,185,11,0.1)',
+  },
+  securityText: { flex: 1, fontSize: 12, fontWeight: '500', color: Colors.textMuted, lineHeight: 18 },
+
+  importBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 18,
+    gap: 10,
+    borderRadius: Radius.lg,
+  },
+  importBtnText: { fontSize: 16, fontWeight: '900', color: '#000' },
 });
