@@ -148,6 +148,7 @@ export default function HomeScreen({ navigation }: any) {
       const amount = Number(l.collateralAmount || 0);
       const entryPrice = Number(l.collateralPriceUsd || 0);
       const valueUsd = Number(l.collateralValueUsd || 0);
+      const entryFeeUsd = Number(l.entryFeeUsd || 0); // Entry fee paid (e.g., $300)
       // Calculate leverage: valueUsd = amount * entryPrice * leverage
       const notionalValue = amount * entryPrice;
       const leverage = notionalValue > 0 ? Math.round(valueUsd / notionalValue) : 1;
@@ -156,6 +157,7 @@ export default function HomeScreen({ navigation }: any) {
         amount,
         valueUsd,
         entryPrice,
+        entryFeeUsd,
         leverage: leverage > 1 ? leverage : 10, // Default 10x if calculation fails
         isLeveraged: true,
       };
@@ -163,7 +165,7 @@ export default function HomeScreen({ navigation }: any) {
   }, [loans]);
 
   const swappedHoldings = useMemo(() => {
-    const map = new Map<string, { symbol: string; amount: number; valueUsd: number; entryPrice?: number; leverage?: number; isLeveraged?: boolean }>();
+    const map = new Map<string, { symbol: string; amount: number; valueUsd: number; entryPrice?: number; entryFeeUsd?: number; leverage?: number; isLeveraged?: boolean }>();
     // Add portfolio positions
     for (const pos of livePositions) {
       const sym = (pos.symbol || 'BNB').toUpperCase();
@@ -189,10 +191,8 @@ export default function HomeScreen({ navigation }: any) {
     () => swappedHoldings.reduce((s, r) => s + r.valueUsd, 0),
     [swappedHoldings]
   );
-  const ledgerSwapUsd = creditBalances?.swapHoldingsUsd ?? 0;
-  /** Swapped tab = sum of listed crypto rows when we have any; otherwise server swap ledger. */
-  const swappedTabUsd =
-    swappedHoldings.length > 0 ? swappedFromPositionsUsd : ledgerSwapUsd;
+  // Swapped tab shows leveraged positions (from loans) ONLY - no old swapHoldingsUsd fallback
+  const swappedTabUsd = swappedFromPositionsUsd;
 
   const tabAmount =
     balanceTab === 'deposit'
@@ -401,19 +401,6 @@ export default function HomeScreen({ navigation }: any) {
             swappedHoldings.map((row) => (
               <SwappedAssetRow key={row.symbol} row={row} />
             ))
-          ) : ledgerSwapUsd > 0 ? (
-            <View style={styles.actRow}>
-              <View style={[styles.actIconBg, { backgroundColor: 'rgba(240,185,11,0.12)' }]}>
-                <Ionicons name="swap-horizontal" size={20} color={Colors.primary} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.actType}>Swapped Balance</Text>
-                <Text style={styles.actTime}>Ledger position</Text>
-              </View>
-              <Text style={[styles.actAmount, { color: Colors.textPrimary }]}>
-                ${ledgerSwapUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </Text>
-            </View>
           ) : loans.filter((l: any) => (l.status || '').toUpperCase() === 'PENDING').length > 0 ? (
             <View style={styles.emptyState}>
               <Ionicons name="time-outline" size={32} color={Colors.primary} />
@@ -549,7 +536,7 @@ function MarketChipSkeleton({ label }: { label: string }) {
   );
 }
 
-function SwappedAssetRow({ row }: { row: { symbol: string; amount: number; valueUsd: number; entryPrice?: number; leverage?: number; isLeveraged?: boolean } }) {
+function SwappedAssetRow({ row }: { row: { symbol: string; amount: number; valueUsd: number; entryPrice?: number; entryFeeUsd?: number; leverage?: number; isLeveraged?: boolean } }) {
   const icon = (SWAP_COIN_ICONS[row.symbol] || 'cube-outline') as any;
   return (
     <View style={[styles.actRow, row.isLeveraged && styles.leveragedRow]}>
@@ -569,6 +556,9 @@ function SwappedAssetRow({ row }: { row: { symbol: string; amount: number; value
           {row.amount >= 0.0001 ? row.amount.toFixed(6) : row.amount.toFixed(8)} {row.symbol}
           {row.entryPrice ? ` @ $${row.entryPrice.toLocaleString()}` : ''}
         </Text>
+        {row.isLeveraged && row.entryFeeUsd ? (
+          <Text style={styles.entryFeeTag}>Entry: ${row.entryFeeUsd.toLocaleString()}</Text>
+        ) : null}
       </View>
       <View style={{ alignItems: 'flex-end' }}>
         <Text style={[styles.actAmount, { color: Colors.textPrimary }]}>
@@ -828,6 +818,11 @@ const styles = StyleSheet.create({
     color: '#00D6A1',
     marginTop: 2,
     fontWeight: '600',
+  },
+  entryFeeTag: {
+    fontSize: 11,
+    color: Colors.textMuted,
+    marginTop: 2,
   },
   liveBadgeSmall: {
     flexDirection: 'row',

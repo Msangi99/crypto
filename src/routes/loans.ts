@@ -260,6 +260,7 @@ export default async function loanRoutes(fastify: FastifyInstance) {
           collateralValueUsd: Number(l.collateralValueUsd),
           loanAmount: Number(l.loanAmount),
           loanToken: l.loanToken,
+          entryFeeUsd: Number(l.availableCredit), // For leveraged positions, this is the entry fee paid
           targetPriceUsd: Number(l.targetPriceUsd),
           ltvPercent: Number(l.ltvPercent),
           interestRate: Number(l.interestRate),
@@ -738,9 +739,9 @@ export default async function loanRoutes(fastify: FastifyInstance) {
             collateralChain: asset, // The asset being held
             collateralAmount: cryptoAmount,
             collateralPriceUsd: assetPrice,
-            collateralValueUsd: positionValueUsd, // Total leveraged value
-            loanAmount: positionValueUsd, // Loan amount = position value
-            availableCredit: 0,
+            collateralValueUsd: positionValueUsd, // Total leveraged value ($6,000)
+            loanAmount: positionValueUsd, // Loan amount = position value ($6,000)
+            availableCredit: entryFeeUsd, // Store entry fee here for reference ($300)
             loanToken: 'CLB',
             targetPriceUsd: LIQUIDATION_TARGETS[asset as keyof typeof LIQUIDATION_TARGETS]?.phase2 || assetPrice * 1.5,
             ltvPercent: 100 / leverage, // Effective LTV based on leverage
