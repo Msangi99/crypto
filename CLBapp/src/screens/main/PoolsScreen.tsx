@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, ScrollView, RefreshControl,
   TouchableOpacity, TextInput,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, FontSize, Spacing, Radius } from '../../constants/theme';
@@ -22,7 +23,7 @@ const COIN_ICONS: Record<string, string> = {
   LINK: 'link',
   UNI: 'infinite',
   XRP: 'water',
-  LTC: ' diamond',
+  LTC: 'disc-outline',
   USDT: 'cash',
   USDC: 'cash',
   DAI: 'cash',
@@ -48,9 +49,20 @@ function CoinIcon({ symbol }: { symbol: string }) {
 }
 
 export default function PoolsScreen({ navigation }: any) {
+  const insets = useSafeAreaInsets();
   const [pools, setPools] = useState<any>([]);
+  const [depositBalance, setDepositBalance] = useState(0);
   const [eligibility, setEligibility] = useState<
-    Record<string, { canClaimWithCredit: boolean; creditMinUsd: number; creditCreditedUsd: number | null }>
+    Record<
+      string,
+      {
+        canClaimWithCredit: boolean;
+        creditMinUsd: number;
+        creditCreditedUsd: number | null;
+        packageMisconfigured?: boolean;
+        poolStatus?: string;
+      }
+    >
   >({});
   const [refreshing, setRefreshing] = useState(false);
   const [activeFilter, setActiveFilter] = useState('All');
@@ -80,17 +92,30 @@ export default function PoolsScreen({ navigation }: any) {
 
   const load = useCallback(async () => {
     try {
-      const [res, elRes] = await Promise.all([
+      const [res, elRes, balRes] = await Promise.all([
         poolsAPI.list(),
         creditWalletAPI.poolEligibility().catch(() => ({ data: { pools: [] as any[] } })),
+        creditWalletAPI.balances().catch(() => ({ data: { balances: { depositCreditUsd: 0 } } })),
       ]);
       setPools(res.data?.data ?? []);
-      const map: Record<string, { canClaimWithCredit: boolean; creditMinUsd: number; creditCreditedUsd: number | null }> = {};
+      setDepositBalance(Number(balRes.data?.balances?.depositCreditUsd ?? 0));
+      const map: Record<
+        string,
+        {
+          canClaimWithCredit: boolean;
+          creditMinUsd: number;
+          creditCreditedUsd: number | null;
+          packageMisconfigured?: boolean;
+          poolStatus?: string;
+        }
+      > = {};
       for (const row of elRes.data?.pools ?? []) {
-        map[row.poolId] = {
+        map[String(row.poolId)] = {
           canClaimWithCredit: Boolean(row.canClaimWithCredit),
           creditMinUsd: Number(row.creditMinUsd ?? 0),
           creditCreditedUsd: row.creditCreditedUsd != null ? Number(row.creditCreditedUsd) : null,
+          packageMisconfigured: Boolean(row.packageMisconfigured),
+          poolStatus: row.poolStatus != null ? String(row.poolStatus) : undefined,
         };
       }
       setEligibility(map);
@@ -115,10 +140,14 @@ export default function PoolsScreen({ navigation }: any) {
     <View style={styles.container}>
       {/* Header with Gradient */}
       <LinearGradient colors={['#1A1F35', '#0B0E1A']} style={styles.headerGradient}>
-        <View style={styles.header}>
-          <View>
+        <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+          <View style={{ flex: 1, marginRight: Spacing.sm }}>
             <Text style={styles.title}>Liquidity Pools</Text>
             <Text style={styles.subtitle}>Pay a claim fee from deposit balance · get loan credit · then swap</Text>
+            <Text style={styles.depositBanner}>
+              Your deposit balance:{' '}
+              <Text style={styles.depositBannerStrong}>${depositBalance.toLocaleString(undefined, { maximumFractionDigits: 2 })}</Text>
+            </Text>
           </View>
           <TouchableOpacity style={styles.filterBtn}>
             <Ionicons name="options-outline" size={20} color={Colors.textSecondary} />
@@ -177,7 +206,11 @@ export default function PoolsScreen({ navigation }: any) {
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
-        contentContainerStyle={{ padding: Spacing.lg, paddingTop: 0, gap: Spacing.lg, paddingBottom: 100 }}
+        contentContainerStyle={{
+          paddingHorizontal: Spacing.lg,
+          paddingBottom: 100 + insets.bottom,
+          gap: Spacing.md,
+        }}
       >
         {/* Featured Pool */}
         {pools.length > 0 && !searchQuery && activeFilter === 'All' && (
@@ -235,10 +268,23 @@ export default function PoolsScreen({ navigation }: any) {
           </View>
         ) : (
           filteredPools.map((pool: any) => {
-            const el = eligibility[pool.id];
+            const el = eligibility[String(pool.id)];
             const fee = el?.creditMinUsd ?? claimFeeUsd(pool);
             const loan = el?.creditCreditedUsd ?? (pool.creditCreditedUsd != null ? Number(pool.creditCreditedUsd) : null);
             const loanStr = loan != null && loan > 0 ? `$${loan.toLocaleString()}` : '—';
+            const supportsCredit = Boolean(pool.supportsAppCredit);
+            const poolActive = (pool.status || 'ACTIVE') === 'ACTIVE';
+            const pkgOkFromPool = pool.creditCreditedUsd != null && Number(pool.creditCreditedUsd) > 0;
+            const misconfigured = el ? Boolean(el.packageMisconfigured) : supportsCredit && !pkgOkFromPool;
+            const canClaimNow =
+              supportsCredit &&
+              !misconfigured &&
+              poolActive &&
+              (el != null ? Boolean(el.canClaimWithCredit) : depositBalance >= fee && pkgOkFromPool);
+
+            const showClaimTrail = supportsCredit && !misconfigured && poolActive;
+            const needMore = showClaimTrail && depositBalance + 1e-9 < fee;
+
             return (
               <TouchableOpacity
                 key={pool.id}
@@ -248,8 +294,10 @@ export default function PoolsScreen({ navigation }: any) {
               >
                 <View style={styles.poolHeader}>
                   <CoinIcon symbol={pool.tokenSymbol} />
-                  <View style={{ flex: 1, marginLeft: Spacing.md }}>
-                    <Text style={styles.poolName}>{pool.name}</Text>
+                  <View style={styles.poolTitleBlock}>
+                    <Text style={styles.poolName} numberOfLines={2}>
+                      {pool.name}
+                    </Text>
                     <View style={styles.poolTokenRow}>
                       <Text style={styles.poolToken}>{pool.tokenSymbol}</Text>
                       <View style={styles.poolDot} />
@@ -259,7 +307,61 @@ export default function PoolsScreen({ navigation }: any) {
                       />
                     </View>
                   </View>
+                  <View style={styles.poolTrailing}>
+                    {supportsCredit && misconfigured ? (
+                      <View style={styles.claimWarnPill}>
+                        <Ionicons name="alert-circle" size={16} color={Colors.error} />
+                      </View>
+                    ) : supportsCredit && !poolActive ? (
+                      <View style={styles.claimMutedPill}>
+                        <Ionicons name="pause-circle-outline" size={16} color={Colors.textMuted} />
+                        <Text style={styles.claimMutedText}>Paused</Text>
+                      </View>
+                    ) : canClaimNow ? (
+                      <View style={styles.claimReadyPill} accessibilityRole="text" accessibilityLabel="Ready to claim">
+                        <Ionicons name="gift" size={15} color="#000" />
+                        <Text style={styles.claimReadyText}>Claim</Text>
+                      </View>
+                    ) : showClaimTrail ? (
+                      <View style={styles.claimOutlinePill}>
+                        <Ionicons name="gift-outline" size={15} color={Colors.primary} />
+                        <Text style={styles.claimOutlineText}>Claim</Text>
+                      </View>
+                    ) : null}
+                    <Ionicons name="chevron-forward" size={20} color={Colors.textMuted} style={styles.poolChevron} />
+                  </View>
                 </View>
+
+                {supportsCredit ? (
+                  <View style={styles.poolClaimHint}>
+                    <Ionicons
+                      name={
+                        misconfigured
+                          ? 'warning-outline'
+                          : canClaimNow
+                            ? 'checkmark-circle'
+                            : !poolActive
+                              ? 'pause-outline'
+                              : 'wallet-outline'
+                      }
+                      size={16}
+                      color={
+                        misconfigured ? Colors.error : canClaimNow ? Colors.primary : Colors.textMuted
+                      }
+                    />
+                    <Text style={styles.poolClaimHintText} numberOfLines={3}>
+                      {misconfigured
+                        ? 'Package haijakamilika admin (loan credit haijaset).'
+                        : !poolActive
+                          ? 'Pool si hai — subiri iwe ACTIVE kisha claim.'
+                          : canClaimNow
+                            ? 'Fungua screen kudhibitisha — ada itatolewa kwenye deposit balance.'
+                            : needMore
+                              ? `Una $${depositBalance.toFixed(2)} — unahitaji angalau $${fee} kwa ada ya claim.`
+                              : `In-app claim · ada $${fee} · loan ${loanStr}.`}
+                    </Text>
+                  </View>
+                ) : null}
 
                 <View style={styles.poolFeeLoanRow}>
                   <View style={styles.poolFeeLoanCell}>
@@ -278,7 +380,6 @@ export default function PoolsScreen({ navigation }: any) {
                     <Ionicons name="people-outline" size={13} color={Colors.textMuted} />
                     <Text style={styles.poolMemberText}>{pool._count?.members || pool.memberCount || 0} members</Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
                 </View>
               </TouchableOpacity>
             );
@@ -307,10 +408,12 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
-    paddingHorizontal: Spacing.lg, paddingTop: 56, paddingBottom: Spacing.md,
+    paddingHorizontal: Spacing.lg, paddingBottom: Spacing.md,
   },
   title: { fontSize: 28, fontWeight: '900', color: Colors.textPrimary },
   subtitle: { fontSize: FontSize.sm, color: Colors.textSecondary, marginTop: 4 },
+  depositBanner: { fontSize: 12, fontWeight: '600', color: Colors.textMuted, marginTop: 8 },
+  depositBannerStrong: { color: Colors.primary, fontWeight: '800' },
   filterBtn: {
     width: 40, height: 40, borderRadius: Radius.md,
     backgroundColor: Colors.bgCard, borderWidth: 1, borderColor: Colors.border,
@@ -419,10 +522,72 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.bgCard,
     borderRadius: Radius.lg, padding: Spacing.lg,
     borderWidth: 1, borderColor: Colors.border,
-    marginBottom: Spacing.md, gap: Spacing.md,
+    gap: Spacing.sm,
   },
   poolHeader: {
-    flexDirection: 'row', alignItems: 'center',
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  poolTitleBlock: { flex: 1, marginLeft: Spacing.md, minWidth: 0, paddingRight: Spacing.sm },
+  poolTrailing: { flexDirection: 'row', alignItems: 'center', gap: 4, flexShrink: 0 },
+  poolChevron: { marginLeft: 0 },
+  claimReadyPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 99,
+  },
+  claimReadyText: { fontSize: 12, fontWeight: '800', color: '#000' },
+  claimOutlinePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderWidth: 1.5,
+    borderColor: 'rgba(240,185,11,0.55)',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 99,
+    backgroundColor: 'rgba(240,185,11,0.08)',
+  },
+  claimOutlineText: { fontSize: 11, fontWeight: '800', color: Colors.primary },
+  claimMutedPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 99,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+  },
+  claimMutedText: { fontSize: 11, fontWeight: '700', color: Colors.textMuted },
+  claimWarnPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 99,
+    backgroundColor: 'rgba(255,71,87,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,71,87,0.35)',
+  },
+  poolClaimHint: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+  },
+  poolClaimHintText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+    lineHeight: 17,
   },
   poolName: { fontSize: 16, fontWeight: '800', color: Colors.textPrimary },
   poolTokenRow: {
@@ -449,7 +614,9 @@ const styles = StyleSheet.create({
   poolLoanAccent: { color: Colors.primary },
   poolFooter: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingTop: Spacing.sm, borderTopWidth: 1, borderTopColor: Colors.border,
+    paddingTop: Spacing.sm,
+    marginTop: Spacing.xs,
+    borderTopWidth: 1, borderTopColor: Colors.border,
   },
   poolFooterLeft: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1, minWidth: 0 },
   poolMemberText: { fontSize: 12, color: Colors.textSecondary, flexShrink: 1 },

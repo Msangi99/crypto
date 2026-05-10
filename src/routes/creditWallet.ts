@@ -210,10 +210,11 @@ export default async function creditWalletRoutes(fastify: FastifyInstance) {
       const creditAvail = user ? new Prisma.Decimal(user.depositCreditUsd.toString()) : new Prisma.Decimal(0);
 
       const pools = await prisma.pool.findMany({
-        where: { status: 'ACTIVE', supportsAppCredit: true },
+        where: { supportsAppCredit: true },
         select: {
           id: true,
           name: true,
+          status: true,
           minDeposit: true,
           creditMinUsd: true,
           creditCreditedUsd: true,
@@ -228,10 +229,12 @@ export default async function creditWalletRoutes(fastify: FastifyInstance) {
         const loanConfigured =
           loanRaw != null && new Prisma.Decimal(loanRaw.toString()).gt(0);
         const loanCreditUsd = loanConfigured ? num(loanRaw) : null;
-        const canClaim = loanConfigured && creditAvail.gte(minN);
+        const poolActive = p.status === 'ACTIVE';
+        const canClaim = poolActive && loanConfigured && creditAvail.gte(minN);
         return {
           poolId: p.id,
           name: p.name,
+          poolStatus: p.status,
           supportsAppCredit: p.supportsAppCredit,
           /** Claim fee (USD) from deposit balance */
           creditMinUsd: num(min),

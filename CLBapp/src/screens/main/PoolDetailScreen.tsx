@@ -1,8 +1,10 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState, useCallback, useLayoutEffect } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Alert, ActivityIndicator,
+  Alert, ActivityIndicator, RefreshControl,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, FontSize, Spacing, Radius } from '../../constants/theme';
@@ -26,35 +28,72 @@ function CoinIcon({ symbol }: { symbol: string }) {
   );
 }
 
+function samePoolId(a: unknown, b: unknown) {
+  return String(a) === String(b);
+}
+
 export default function PoolDetailScreen({ route, navigation }: any) {
   const { poolId } = route.params;
+  const insets = useSafeAreaInsets();
   const [pool, setPool] = useState<any>(null);
   const [depositCredit, setDepositCredit] = useState(0);
   const [canClaim, setCanClaim] = useState(false);
   const [packageMisconfigured, setPackageMisconfigured] = useState(false);
   const [claiming, setClaiming] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     try {
+      const id = String(poolId);
       const [poolRes, balRes, elRes] = await Promise.all([
-        poolsAPI.detail(poolId),
+        poolsAPI.detail(id),
         creditWalletAPI.balances().catch(() => null),
         creditWalletAPI.poolEligibility().catch(() => null),
       ]);
-      setPool(poolRes.data?.pool);
-      setDepositCredit(Number(balRes?.data?.balances?.depositCreditUsd ?? 0));
-      const row = elRes?.data?.pools?.find((p: any) => p.poolId === poolId);
-      setCanClaim(Boolean(row?.canClaimWithCredit));
-      setPackageMisconfigured(Boolean(row?.packageMisconfigured));
+      const poolData = poolRes.data?.pool;
+      setPool(poolData);
+      const depBal = Number(balRes?.data?.balances?.depositCreditUsd ?? 0);
+      setDepositCredit(depBal);
+      const row = elRes?.data?.pools?.find((p: any) => samePoolId(p.poolId, poolId));
+      const feeUsd = Number(poolData?.creditMinUsd ?? poolData?.minDeposit ?? 0);
+      const loanOk =
+        poolData?.creditCreditedUsd != null && Number(poolData.creditCreditedUsd) > 0;
+      const supportsPool = Boolean(poolData?.supportsAppCredit);
+      const pkgBad =
+        supportsPool && (row ? Boolean(row.packageMisconfigured) : !loanOk);
+      setPackageMisconfigured(pkgBad);
+      const apiSaysClaim = Boolean(row?.canClaimWithCredit);
+      const localClaim =
+        supportsPool &&
+        (poolData?.status || 'ACTIVE') === 'ACTIVE' &&
+        loanOk &&
+        !pkgBad &&
+        depBal + 1e-9 >= feeUsd;
+      setCanClaim(apiSaysClaim || localClaim);
     } catch (e) {
       console.error(e);
       Alert.alert('Error', 'Failed to load pool');
     }
   }, [poolId]);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useLayoutEffect(() => {
+    setPool(null);
+  }, [poolId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load]),
+  );
+
+  const onPullRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await load();
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const handleClaim = () => {
     if (!canClaim || packageMisconfigured) {
@@ -75,7 +114,7 @@ export default function PoolDetailScreen({ route, navigation }: any) {
           onPress: async () => {
             setClaiming(true);
             try {
-              await poolsAPI.claimCredit(poolId);
+              await poolsAPI.claimCredit(String(poolId));
               Alert.alert('Success', 'Loan credit added to your account.');
               await load();
             } catch (e: any) {
@@ -108,12 +147,19 @@ export default function PoolDetailScreen({ route, navigation }: any) {
     pool.creditCreditedUsd != null ? Number(pool.creditCreditedUsd) : null;
   const members = pool._count?.members ?? pool.memberCount ?? 0;
   const needDeposit = supports && depositCredit < claimFee;
+  const claimReady = supports && !packageMisconfigured && canClaim && !needDeposit;
 
   return (
     <View style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 140 }}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onPullRefresh} tintColor={Colors.primary} />
+        }
+        contentContainerStyle={{ paddingBottom: 160 + insets.bottom }}
+      >
         <LinearGradient colors={['#1A1F35', '#0B0E1A']} style={styles.headerGradient}>
-          <View style={styles.header}>
+          <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
             <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
               <Ionicons name="arrow-back" size={24} color={Colors.textPrimary} />
             </TouchableOpacity>
@@ -181,6 +227,32 @@ export default function PoolDetailScreen({ route, navigation }: any) {
           </View>
         </LinearGradient>
 
+        {supports ? (
+          <View style={styles.statusStrip}>
+            <View style={styles.statusStripIconWrap}>
+              <Ionicons
+                name={packageMisconfigured ? 'alert-circle' : claimReady ? 'checkmark-circle' : 'wallet'}
+                size={22}
+                color={packageMisconfigured ? Colors.error : claimReady ? '#22c55e' : Colors.primary}
+              />
+            </View>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={styles.statusStripTitle}>Your account on this pack</Text>
+              <Text style={styles.statusStripBody}>
+                {packageMisconfigured
+                  ? 'This pack is missing loan credit in admin settings — claim is blocked.'
+                  : claimReady
+                    ? `Ready to claim — $${depositCredit.toFixed(2)} deposit balance · fee $${claimFee}.`
+                    : needDeposit
+                      ? `Deposit balance $${depositCredit.toFixed(2)} — add funds to reach $${claimFee} fee.`
+                      : canClaim
+                        ? 'You can claim from this screen (see button below).'
+                        : `Deposit $${depositCredit.toFixed(2)} — waiting for eligibility sync; pull down to refresh.`}
+              </Text>
+            </View>
+          </View>
+        ) : null}
+
         <View style={styles.body}>
           {supports ? (
             <>
@@ -231,7 +303,14 @@ export default function PoolDetailScreen({ route, navigation }: any) {
       </ScrollView>
 
       {supports ? (
-        <View style={styles.footer}>
+        <View
+          style={[
+            styles.footer,
+            {
+              paddingBottom: Math.max(insets.bottom, 16) + 12,
+            },
+          ]}
+        >
           {needDeposit ? (
             <TouchableOpacity style={styles.btnPrimary} onPress={goDeposit} activeOpacity={0.9}>
               <Ionicons name="add-circle-outline" size={22} color="#000" />
@@ -279,7 +358,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.lg,
-    paddingTop: 56,
     paddingBottom: Spacing.md,
   },
   backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
@@ -382,13 +460,49 @@ const styles = StyleSheet.create({
   },
   warningText: { flex: 1, fontSize: 12, color: Colors.textSecondary, lineHeight: 18 },
 
+  statusStrip: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.md,
+    marginHorizontal: Spacing.lg,
+    marginTop: Spacing.md,
+    padding: Spacing.md,
+    backgroundColor: Colors.bgCard,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  statusStripIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statusStripTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: Colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  statusStripBody: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+    lineHeight: 20,
+  },
+
   footer: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
+    zIndex: 20,
+    elevation: 12,
     paddingHorizontal: Spacing.lg,
-    paddingBottom: 28,
     paddingTop: Spacing.md,
     backgroundColor: Colors.bg,
     borderTopWidth: 1,
