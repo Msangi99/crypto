@@ -204,6 +204,22 @@ export const loansAPI = {
   list: () => api.get('/api/loans'),
   detail: (id: string) => api.get(`/api/loans/${id}`),
   tiers: () => api.get('/api/loans/tiers'),
+  // Use loan credit to enter leveraged pool (e.g., $1000 credit → 10x BTC position)
+  enterPoolCredit: (data: { asset: 'BTC' | 'ETH' | 'BNB'; entryFeeUsd: number }) =>
+    api.post<{
+      success: boolean;
+      message: string;
+      loan: {
+        id: string;
+        asset: string;
+        entryFeeUsd: number;
+        leverage: number;
+        positionValueUsd: number;
+        cryptoAmount: number;
+        status: string;
+      };
+      remainingCredit: number;
+    }>('/api/loans/enter-pool-credit', data),
 };
 
 export type MiningPackageDto = {

@@ -3,6 +3,7 @@ import prisma from '../config/db';
 import { authMiddleware } from '../middleware/auth';
 import { tokenService } from '../services/tokenService';
 import { creditLineService } from '../services/creditLineService';
+import { priceService } from '../services/priceService';
 
 // CLB Token tiers based on collateral value
 const TOKEN_TIERS: Record<string, { minUsd: number; token: string; ltv: number; interest: number }> = {
@@ -642,6 +643,165 @@ export default async function loanRoutes(fastify: FastifyInstance) {
       return {
         success: true,
         creditLines,
+      };
+    }
+  );
+
+  // ═══════════════════════════════════════════════════════════════
+  // ═══ LEVERAGED POOL ENTRY WITH LOAN CREDIT ═══════════════════════
+  // ═══════════════════════════════════════════════════════════════
+
+  // Tier → Leverage map (from design doc: $100→10x, $200→15x ... $1000→60x)
+  const POOL_TIER_LEVERAGE: Record<number, number> = {
+    100: 10, 200: 15, 300: 20, 400: 25, 500: 30,
+    600: 35, 700: 40, 800: 45, 900: 50, 1000: 60,
+  };
+
+  function getPoolTierLeverage(entryFeeUsd: number): number {
+    const tiers = Object.keys(POOL_TIER_LEVERAGE).map(Number).sort((a, b) => b - a);
+    for (const tier of tiers) {
+      if (entryFeeUsd >= tier) return POOL_TIER_LEVERAGE[tier];
+    }
+    return 10; // default minimum leverage
+  }
+
+  // Liquidation targets from design doc
+  const LIQUIDATION_TARGETS = {
+    BTC: { phase1: 150_000, phase2: 200_000 },
+    ETH: { phase1: 15_000, phase2: 20_000 },
+  };
+
+  // ─── POST /loans/enter-pool-credit — Use loan credit as pool entry fee ─
+  fastify.post<{
+    Body: {
+      asset: 'BTC' | 'ETH' | 'BNB';
+      entryFeeUsd: number;
+    };
+  }>(
+    '/enter-pool-credit',
+    { preHandler: [authMiddleware] },
+    async (request: FastifyRequest<{ Body: { asset: 'BTC' | 'ETH' | 'BNB'; entryFeeUsd: number } }>, reply: FastifyReply) => {
+      const userId = request.userId!;
+      const { asset, entryFeeUsd } = request.body;
+
+      if (!asset || !['BTC', 'ETH', 'BNB'].includes(asset)) {
+        return reply.status(400).send({ success: false, error: 'Asset must be BTC, ETH, or BNB' });
+      }
+      if (!entryFeeUsd || entryFeeUsd < 100) {
+        return reply.status(400).send({ success: false, error: 'Minimum entry fee is $100' });
+      }
+
+      // Get user's loan credit balance
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { claimedPoolCreditUsd: true, walletAddress: true },
+      });
+
+      if (!user) {
+        return reply.status(404).send({ success: false, error: 'User not found' });
+      }
+
+      const creditBalance = Number(user.claimedPoolCreditUsd);
+      if (creditBalance < entryFeeUsd) {
+        return reply.status(400).send({
+          success: false,
+          error: `Insufficient loan credit. You have $${creditBalance.toFixed(2)} but need $${entryFeeUsd}`,
+        });
+      }
+
+      // Get current price
+      const prices = await priceService.getPrices();
+      const assetPrice = prices[asset]?.usd || 0;
+      if (assetPrice <= 0) {
+        return reply.status(503).send({ success: false, error: 'Price feed unavailable' });
+      }
+
+      // Calculate leverage and position
+      const leverage = getPoolTierLeverage(entryFeeUsd);
+      const positionValueUsd = entryFeeUsd * leverage;
+      const cryptoAmount = positionValueUsd / assetPrice;
+
+      // Use entry fee as "collateral value" and position value as "loan amount"
+      // This is a special loan type where user pays with loan credit instead of crypto
+      const result = await prisma.$transaction(async (tx) => {
+        // Deduct from loan credit
+        await tx.user.update({
+          where: { id: userId },
+          data: { claimedPoolCreditUsd: { decrement: entryFeeUsd } },
+        });
+
+        // Create the leveraged position loan
+        const loan = await tx.loan.create({
+          data: {
+            userId,
+            loanType: 'FIXED_LOAN',
+            collateralChain: asset, // The asset being held
+            collateralAmount: cryptoAmount,
+            collateralPriceUsd: assetPrice,
+            collateralValueUsd: positionValueUsd, // Total leveraged value
+            loanAmount: positionValueUsd, // Loan amount = position value
+            availableCredit: 0,
+            loanToken: 'CLB',
+            targetPriceUsd: LIQUIDATION_TARGETS[asset as keyof typeof LIQUIDATION_TARGETS]?.phase2 || assetPrice * 1.5,
+            ltvPercent: 100 / leverage, // Effective LTV based on leverage
+            interestRate: 0, // No interest for pool entries
+            liquidationPriceUsd: assetPrice * 0.5, // 50% price drop = liquidation
+            status: 'ACTIVE', // Immediately active, no need for deposit
+            settledAt: null,
+          },
+        });
+
+        // Record as transaction
+        await tx.transaction.create({
+          data: {
+            userId,
+            type: 'LOAN',
+            amount: entryFeeUsd,
+            status: 'SUCCESS',
+            metadata: {
+              loanId: loan.id,
+              asset,
+              entryFeeUsd,
+              leverage,
+              positionValueUsd,
+              cryptoAmount,
+              source: 'LOAN_CREDIT_POOL_ENTRY',
+            },
+          },
+        });
+
+        return { loan, leverage, positionValueUsd, cryptoAmount };
+      });
+
+      // Notify user
+      await prisma.notification.create({
+        data: {
+          userId,
+          type: 'LOAN',
+          title: 'Leveraged Position Opened!',
+          body: `You entered a ${result.leverage}x leveraged ${asset} position worth $${result.positionValueUsd.toFixed(2)} using $${entryFeeUsd} loan credit.`,
+          data: {
+            loanId: result.loan.id,
+            asset,
+            leverage: result.leverage,
+            cryptoAmount: result.cryptoAmount,
+          },
+        },
+      });
+
+      return {
+        success: true,
+        message: `Successfully opened ${result.leverage}x leveraged ${asset} position`,
+        loan: {
+          id: result.loan.id,
+          asset,
+          entryFeeUsd,
+          leverage: result.leverage,
+          positionValueUsd: result.positionValueUsd,
+          cryptoAmount: result.cryptoAmount,
+          status: 'ACTIVE',
+        },
+        remainingCredit: creditBalance - entryFeeUsd,
       };
     }
   );
