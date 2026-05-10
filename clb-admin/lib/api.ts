@@ -231,6 +231,8 @@ export const api = {
         miningSubscription?: unknown;
         tokenBalances?: unknown[];
         creditDraws?: unknown[];
+        referredBy?: unknown;
+        referralCode?: string | null;
       };
     }>(`/api/admin/users/${id}`),
   updateAdminUser: (

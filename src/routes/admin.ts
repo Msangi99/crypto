@@ -254,15 +254,46 @@ export default async function adminRoutes(fastify: FastifyInstance) {
         where: { id: request.params.id },
         include: {
           poolMemberships: { include: { pool: true } },
-          transactions: { orderBy: { createdAt: 'desc' }, take: 20 },
-          deposits: { orderBy: { createdAt: 'desc' }, take: 20 },
-          referrals: true,
+          transactions: { orderBy: { createdAt: 'desc' }, take: 100 },
+          deposits: {
+            orderBy: { createdAt: 'desc' },
+            take: 100,
+            include: { pool: { select: { id: true, name: true, tokenSymbol: true } } },
+          },
+          referrals: {
+            orderBy: { createdAt: 'desc' },
+            take: 80,
+            include: {
+              referred: {
+                select: {
+                  id: true,
+                  walletAddress: true,
+                  username: true,
+                  email: true,
+                  createdAt: true,
+                },
+              },
+            },
+          },
+          referredBy: {
+            include: {
+              referrer: {
+                select: {
+                  id: true,
+                  walletAddress: true,
+                  username: true,
+                  email: true,
+                  referralCode: true,
+                },
+              },
+            },
+          },
           loans: { orderBy: { updatedAt: 'desc' }, take: 40 },
           miningSubscription: { include: { package: true } },
           tokenBalances: true,
           creditDraws: {
             orderBy: { createdAt: 'desc' },
-            take: 30,
+            take: 50,
             include: { loan: { select: { id: true, loanType: true, status: true } } },
           },
         },

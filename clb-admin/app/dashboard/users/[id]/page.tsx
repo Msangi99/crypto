@@ -19,6 +19,9 @@ import {
   User,
   Cpu,
   Coins,
+  Gift,
+  Inbox,
+  LayoutList,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -35,6 +38,21 @@ function num(v: unknown): number {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
 }
+
+function scrollToSection(id: string) {
+  document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+const SECTION_LINKS: { id: string; label: string }[] = [
+  { id: "overview", label: "Overview" },
+  { id: "balances", label: "Balances" },
+  { id: "pools", label: "Pools" },
+  { id: "mining", label: "Mining" },
+  { id: "loans", label: "Loans" },
+  { id: "tokens", label: "Tokens" },
+  { id: "referrals", label: "Referrals" },
+  { id: "activity", label: "Activity" },
+];
 
 type PoolMember = {
   id: string;
@@ -326,6 +344,16 @@ export default function AdminUserDetailPage() {
     setDepositStr(String(Math.max(0, cur + delta)));
   };
 
+  const bumpLoanStr = (delta: number) => {
+    const cur = parseUsd(loanStr) ?? 0;
+    setLoanStr(String(Math.max(0, cur + delta)));
+  };
+
+  const bumpSwapStr = (delta: number) => {
+    const cur = parseUsd(swapStr) ?? 0;
+    setSwapStr(String(Math.max(0, cur + delta)));
+  };
+
   const saveCredits = async () => {
     const d = parseUsd(depositStr);
     const l = parseUsd(loanStr);
@@ -426,9 +454,14 @@ export default function AdminUserDetailPage() {
   const creditDraws = (user.creditDraws as Record<string, unknown>[] | undefined) ?? [];
   const miningSub = user.miningSubscription as Record<string, unknown> | undefined;
   const miningPkg = miningSub?.package as Record<string, unknown> | undefined;
+  const deposits = (user.deposits as Record<string, unknown>[] | undefined) ?? [];
+  const referralRows = (user.referrals as Record<string, unknown>[] | undefined) ?? [];
+  const uplineRow = user.referredBy as Record<string, unknown> | null | undefined;
+  const uplineUser = uplineRow?.referrer as Record<string, unknown> | undefined;
+  const activeLoans = loans.filter((l) => String(l.status) === "ACTIVE").length;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-16">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <Link
@@ -437,10 +470,10 @@ export default function AdminUserDetailPage() {
           >
             <ArrowLeft className="w-4 h-4" /> All users
           </Link>
-          <h2 className="text-2xl font-bold text-white tracking-tight">Manage user</h2>
-          <p className="text-sm text-[#888] mt-1">
-            Balances, pool minimums, mining engine, on-chain-style loans, and token balances — edit
-            what you need; sensitive fields are hidden from this API.
+          <h2 className="text-2xl font-bold text-white tracking-tight">User hub — full overview</h2>
+          <p className="text-sm text-[#888] mt-1 max-w-2xl">
+            Ukurasa mmoja: salio (deposit / loan / swap), mining, mikopo, pools, referrals, amana na
+            shughuli. Badilisha na uhifadhi sehemu husika.
           </p>
         </div>
         <Button
@@ -454,7 +487,22 @@ export default function AdminUserDetailPage() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="sticky top-0 z-20 -mx-1 flex flex-wrap gap-1.5 border-b border-[#2A2A2A] bg-[#0a0a0a]/95 py-2.5 px-1 backdrop-blur-sm">
+        <LayoutList className="w-4 h-4 text-[#666] self-center mr-1 hidden sm:block" />
+        {SECTION_LINKS.map((s) => (
+          <button
+            key={s.id}
+            type="button"
+            onClick={() => scrollToSection(s.id)}
+            className="rounded-md border border-transparent px-2.5 py-1 text-[11px] font-medium text-[#aaa] hover:border-[#333] hover:bg-[#1A1A1A] hover:text-[#F0B90B]"
+          >
+            {s.label}
+          </button>
+        ))}
+      </div>
+
+      <section id="overview" className="scroll-mt-36 space-y-4">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <div className="lg:col-span-5 space-y-6">
           <Card className="bg-[#1A1A1A] border-[#2A2A2A] overflow-hidden">
             <CardHeader className="pb-2 border-b border-[#2A2A2A]">
@@ -589,7 +637,66 @@ export default function AdminUserDetailPage() {
           </Card>
         </div>
 
-        <div className="lg:col-span-7 space-y-6">
+        <div className="lg:col-span-7 space-y-4">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-[#666]">Snapshot</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {[
+              { label: "Deposit credit", value: `$${num(user.depositCreditUsd).toLocaleString()}`, tone: "text-[#FCD535]" },
+              { label: "Loan / pool credit", value: `$${num(user.claimedPoolCreditUsd).toLocaleString()}`, tone: "text-emerald-400" },
+              { label: "Swap", value: `$${num(user.swapHoldingsUsd).toLocaleString()}`, tone: "text-violet-300" },
+              { label: "Pools", value: String(memberships.length), tone: "text-white" },
+              { label: "Loans (active)", value: `${activeLoans} / ${loans.length}`, tone: "text-white" },
+              { label: "Referrals out", value: String(referralRows.length), tone: "text-white" },
+            ].map((s) => (
+              <div
+                key={s.label}
+                className="rounded-xl border border-[#2A2A2A] bg-[#0D0D0D] px-3 py-2.5"
+              >
+                <div className="text-[10px] text-[#666] leading-tight">{s.label}</div>
+                <div className={`text-sm font-mono font-semibold ${s.tone}`}>{s.value}</div>
+              </div>
+            ))}
+          </div>
+          <div className="rounded-xl border border-[#2A2A2A] bg-[#0D0D0D] px-3 py-2.5 text-xs space-y-1">
+            <div className="text-[#666]">Mining</div>
+            <div className="text-white">
+              {miningSub && miningPkg ? (
+                <span>
+                  <span className="text-[#F0B90B]">{String(miningPkg.name)}</span>
+                  <span className="text-[#666]"> · </span>
+                  {num(miningPkg.tokensPerPeriod)} {String(miningPkg.tokenSymbol)} /{" "}
+                  {String(miningPkg.periodLength)} {String(miningPkg.periodUnit)}
+                </span>
+              ) : (
+                <span className="text-[#666]">Hakuna subscription</span>
+              )}
+            </div>
+          </div>
+          {(user.referralCode as string | null | undefined) ? (
+            <div className="rounded-xl border border-[#2A2A2A] bg-[#0D0D0D] px-3 py-2 text-xs">
+              <span className="text-[#666]">Referral code (yake): </span>
+              <span className="font-mono text-[#F0B90B]">{String(user.referralCode)}</span>
+            </div>
+          ) : null}
+          {uplineUser ? (
+            <div className="rounded-xl border border-[#F0B90B]/20 bg-[#F0B90B]/5 px-3 py-2 text-xs space-y-0.5">
+              <div className="text-[#888]">Aliye alika (upline)</div>
+              <div className="font-mono text-white text-[11px] break-all">
+                {String(uplineUser.walletAddress)}
+              </div>
+              <div className="text-[#999]">
+                {(uplineUser.username as string) || "—"} · code{" "}
+                <span className="text-[#F0B90B]">{String(uplineRow?.code ?? "—")}</span>
+              </div>
+            </div>
+          ) : (
+            <div className="text-[11px] text-[#555]">Hakuna rekodi ya referral ya kujoin.</div>
+          )}
+        </div>
+        </div>
+      </section>
+
+      <section id="balances" className="scroll-mt-36 space-y-6">
           <Card className="bg-linear-to-br from-[#1A1A1A] to-[#141414] border-[#2A2A2A]">
             <CardHeader>
               <CardTitle className="text-white text-base flex items-center gap-2">
@@ -650,6 +757,32 @@ export default function AdminUserDetailPage() {
                     onChange={(e) => setLoanStr(e.target.value)}
                     className="bg-[#0D0D0D] border-[#2A2A2A] text-white font-mono"
                   />
+                  <div className="flex flex-wrap gap-1">
+                    {[10, 100, 500].map((step) => (
+                      <span key={`l-${step}`} className="flex gap-0.5">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-7 px-2 text-[10px] border-[#333] text-[#ccc]"
+                          onClick={() => bumpLoanStr(step)}
+                        >
+                          <Plus className="w-3 h-3 mr-0.5" />
+                          {step}
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-7 px-2 text-[10px] border-[#333] text-[#ccc]"
+                          onClick={() => bumpLoanStr(-step)}
+                        >
+                          <Minus className="w-3 h-3 mr-0.5" />
+                          {step}
+                        </Button>
+                      </span>
+                    ))}
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label className="text-[#aaa] text-xs flex items-center gap-1">
@@ -661,6 +794,32 @@ export default function AdminUserDetailPage() {
                     onChange={(e) => setSwapStr(e.target.value)}
                     className="bg-[#0D0D0D] border-[#2A2A2A] text-white font-mono"
                   />
+                  <div className="flex flex-wrap gap-1">
+                    {[10, 100, 500].map((step) => (
+                      <span key={`s-${step}`} className="flex gap-0.5">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-7 px-2 text-[10px] border-[#333] text-[#ccc]"
+                          onClick={() => bumpSwapStr(step)}
+                        >
+                          <Plus className="w-3 h-3 mr-0.5" />
+                          {step}
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-7 px-2 text-[10px] border-[#333] text-[#ccc]"
+                          onClick={() => bumpSwapStr(-step)}
+                        >
+                          <Minus className="w-3 h-3 mr-0.5" />
+                          {step}
+                        </Button>
+                      </span>
+                    ))}
+                  </div>
                 </div>
               </div>
               <Button
@@ -677,7 +836,9 @@ export default function AdminUserDetailPage() {
               </Button>
             </CardContent>
           </Card>
+      </section>
 
+      <section id="pools" className="scroll-mt-36 space-y-6">
           <Card className="bg-[#1A1A1A] border-[#2A2A2A]">
             <CardHeader className="pb-2">
               <CardTitle className="text-white text-sm flex items-center gap-2">
@@ -752,7 +913,9 @@ export default function AdminUserDetailPage() {
               )}
             </CardContent>
           </Card>
+      </section>
 
+      <section id="mining" className="scroll-mt-36 space-y-6">
           <Card className="bg-[#1A1A1A] border-[#2A2A2A]">
             <CardHeader className="pb-2">
               <CardTitle className="text-white text-sm flex items-center gap-2">
@@ -821,7 +984,9 @@ export default function AdminUserDetailPage() {
               </Button>
             </CardContent>
           </Card>
+      </section>
 
+      <section id="loans" className="scroll-mt-36 space-y-6">
           <Card className="bg-[#1A1A1A] border-[#2A2A2A]">
             <CardHeader className="pb-2">
               <CardTitle className="text-white text-sm flex items-center gap-2">
@@ -843,7 +1008,9 @@ export default function AdminUserDetailPage() {
               )}
             </CardContent>
           </Card>
+      </section>
 
+      <section id="tokens" className="scroll-mt-36 space-y-6">
           <Card className="bg-[#1A1A1A] border-[#2A2A2A]">
             <CardHeader className="pb-2">
               <CardTitle className="text-white text-sm flex items-center gap-2">
@@ -877,6 +1044,120 @@ export default function AdminUserDetailPage() {
                         </TableCell>
                       </TableRow>
                     ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+      </section>
+
+      <section id="referrals" className="scroll-mt-36 space-y-6">
+          <Card className="bg-[#1A1A1A] border-[#2A2A2A]">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-white text-sm flex items-center gap-2">
+                <Gift className="w-4 h-4 text-[#F0B90B]" />
+                Referrals
+              </CardTitle>
+              <CardDescription className="text-[#666] text-xs">
+                Watu aliowaalika (downline) na thawabu ya code. Upline iko kwenye Overview.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="overflow-x-auto">
+              {referralRows.length === 0 ? (
+                <p className="text-sm text-[#666]">Hajawa na referrals bado.</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-[#2A2A2A] hover:bg-transparent">
+                      <TableHead className="text-[#888]">Code</TableHead>
+                      <TableHead className="text-[#888]">Status</TableHead>
+                      <TableHead className="text-[#888] text-right">Reward</TableHead>
+                      <TableHead className="text-[#888]">Referred wallet</TableHead>
+                      <TableHead className="text-[#888]">Joined</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {referralRows.map((r) => {
+                      const refUser = r.referred as Record<string, unknown> | undefined;
+                      return (
+                        <TableRow key={String(r.id)} className="border-[#2A2A2A]">
+                          <TableCell className="font-mono text-xs text-[#F0B90B]">
+                            {String(r.code)}
+                          </TableCell>
+                          <TableCell className="text-xs text-[#ccc]">{String(r.status)}</TableCell>
+                          <TableCell className="text-right font-mono text-xs">
+                            {num(r.reward)}
+                          </TableCell>
+                          <TableCell className="font-mono text-[10px] text-white max-w-[160px] truncate">
+                            {refUser ? String(refUser.walletAddress) : "—"}
+                          </TableCell>
+                          <TableCell className="text-[10px] text-[#666] whitespace-nowrap">
+                            {refUser?.createdAt
+                              ? new Date(String(refUser.createdAt)).toLocaleDateString()
+                              : "—"}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+      </section>
+
+      <section id="activity" className="scroll-mt-36 space-y-6">
+          <Card className="bg-[#1A1A1A] border-[#2A2A2A]">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-white text-sm flex items-center gap-2">
+                <Inbox className="w-4 h-4 text-sky-400" />
+                Deposits (recent {deposits.length})
+              </CardTitle>
+              <CardDescription className="text-[#666] text-xs">
+                Hadi rekodi 100 za mwisho kutoka API.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="overflow-x-auto">
+              {deposits.length === 0 ? (
+                <p className="text-sm text-[#666]">Hakuna amana kwenye rekodi.</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-[#2A2A2A] hover:bg-transparent">
+                      <TableHead className="text-[#888]">Amount</TableHead>
+                      <TableHead className="text-[#888]">USD</TableHead>
+                      <TableHead className="text-[#888]">Chain</TableHead>
+                      <TableHead className="text-[#888]">Status</TableHead>
+                      <TableHead className="text-[#888]">Pool</TableHead>
+                      <TableHead className="text-[#888]">Tx</TableHead>
+                      <TableHead className="text-[#888]">Date</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {deposits.map((d) => {
+                      const pool = d.pool as { name?: string; tokenSymbol?: string } | null | undefined;
+                      return (
+                        <TableRow key={String(d.id)} className="border-[#2A2A2A]">
+                          <TableCell className="font-mono text-xs text-white">
+                            {num(d.amount)}
+                          </TableCell>
+                          <TableCell className="font-mono text-xs text-[#ccc]">
+                            {d.amountUsd != null ? num(d.amountUsd) : "—"}
+                          </TableCell>
+                          <TableCell className="text-xs">{String(d.chain)}</TableCell>
+                          <TableCell className="text-xs">{String(d.status)}</TableCell>
+                          <TableCell className="text-[10px] text-[#888] max-w-[120px] truncate">
+                            {pool ? `${pool.name}` : "—"}
+                          </TableCell>
+                          <TableCell className="font-mono text-[9px] text-[#666] max-w-[72px] truncate">
+                            {d.txHash ? String(d.txHash).slice(0, 10) + "…" : "—"}
+                          </TableCell>
+                          <TableCell className="text-[10px] text-[#666] whitespace-nowrap">
+                            {new Date(String(d.createdAt)).toLocaleString()}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               )}
@@ -998,8 +1279,7 @@ export default function AdminUserDetailPage() {
               )}
             </CardContent>
           </Card>
-        </div>
-      </div>
+      </section>
     </div>
   );
 }

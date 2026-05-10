@@ -9,7 +9,6 @@ import {
   Shield,
   UserCheck,
   UserX,
-  Pencil,
   Trash2,
   ChevronLeft,
   ChevronRight,
@@ -21,8 +20,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { StatsCard } from "@/components/stats-card";
 import { api } from "@/lib/api";
@@ -60,9 +57,6 @@ export default function UsersPage() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [totalUsers, setTotalUsers] = useState(0);
-  const [editUser, setEditUser] = useState<User | null>(null);
-  const [editForm, setEditForm] = useState({ username: "", email: "", role: "USER" });
-  const [saving, setSaving] = useState(false);
   const [viewUser, setViewUser] = useState<User | null>(null);
   /** Prevents double-submit; tracks which row + action is in flight */
   const [pendingAction, setPendingAction] = useState<
@@ -88,26 +82,6 @@ export default function UsersPage() {
     loadUsers();
   }, [loadUsers]);
 
-  const handleEdit = (user: User) => {
-    setEditUser(user);
-    setEditForm({ username: user.username || "", email: user.email || "", role: user.role });
-  };
-
-  const handleSave = async () => {
-    if (!editUser) return;
-    setSaving(true);
-    try {
-      await api.updateAdminUser(editUser.id, editForm);
-      toast.success("User updated!");
-      setEditUser(null);
-      loadUsers();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to update user");
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const handleToggleActive = async (user: User) => {
     setPendingAction({ userId: user.id, kind: "toggle" });
     try {
@@ -129,7 +103,6 @@ export default function UsersPage() {
       await api.deleteAdminUser(user.id);
       toast.success("User deleted");
       setViewUser((v) => (v?.id === user.id ? null : v));
-      setEditUser((e) => (e?.id === user.id ? null : e));
       loadUsers();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to delete user");
@@ -147,7 +120,9 @@ export default function UsersPage() {
       <div>
         <h2 className="text-2xl font-bold text-white tracking-tight">User Management</h2>
         <p className="text-sm text-[#888] mt-1">
-          View balances, open full management for credits, and edit roles
+          Bonyeza ikoni ya jeshi (⚙) kwa{" "}
+          <strong className="text-[#ccc] font-medium">ukurasa kamili</strong> — muhtasari, deposit /
+          loan / mining, referrals, shughuli zote.
         </p>
       </div>
 
@@ -258,8 +233,8 @@ export default function UsersPage() {
                           <div className="flex items-center justify-end gap-0.5 flex-wrap">
                             <Link
                               href={`/dashboard/users/${user.id}`}
-                              className={`p-1.5 rounded-md hover:bg-[#F0B90B]/15 text-[#F0B90B] ${pendingAction ? "pointer-events-none opacity-50" : ""}`}
-                              title="Manage user & balances"
+                              className={`p-1.5 rounded-md hover:bg-[#F0B90B]/15 text-[#F0B90B] ring-1 ring-transparent hover:ring-[#F0B90B]/30 ${pendingAction ? "pointer-events-none opacity-50" : ""}`}
+                              title="Ukurasa kamili — overview, balances, loans, mining, referrals, activity"
                               aria-disabled={!!pendingAction}
                             >
                               <Settings2 className="w-3.5 h-3.5" />
@@ -272,15 +247,6 @@ export default function UsersPage() {
                               title="Quick view"
                             >
                               <Eye className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              disabled={!!pendingAction}
-                              onClick={() => handleEdit(user)}
-                              className="p-1.5 rounded-md hover:bg-[#2A2A2A] text-[#999] hover:text-white disabled:opacity-40 disabled:pointer-events-none"
-                              title="Edit"
-                            >
-                              <Pencil className="w-3.5 h-3.5" />
                             </button>
                             <button
                               type="button"
@@ -355,7 +321,7 @@ export default function UsersPage() {
       >
         <DialogContent className="bg-[#1A1A1A] border-[#2A2A2A] text-white sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>User details</DialogTitle>
+            <DialogTitle>Muhtasari mfupi</DialogTitle>
           </DialogHeader>
           {viewUser && (
             <div className="space-y-3 mt-2">
@@ -389,61 +355,6 @@ export default function UsersPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog
-        open={!!editUser}
-        onOpenChange={(open) => {
-          if (!open) setEditUser(null);
-        }}
-      >
-        <DialogContent className="bg-[#1A1A1A] border-[#2A2A2A] text-white sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Edit user</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 mt-2">
-            <div className="space-y-2">
-              <Label>Username</Label>
-              <Input
-                value={editForm.username}
-                onChange={(e) => setEditForm({ ...editForm, username: e.target.value })}
-                className="bg-[#0D0D0D] border-[#2A2A2A]"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Email</Label>
-              <Input
-                type="email"
-                value={editForm.email}
-                onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                className="bg-[#0D0D0D] border-[#2A2A2A]"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Role</Label>
-              <select
-                value={editForm.role}
-                onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}
-                className="w-full h-10 rounded-md border border-[#2A2A2A] bg-[#0D0D0D] px-3 text-sm text-white"
-              >
-                <option value="USER">USER</option>
-                <option value="ADMIN">ADMIN</option>
-                <option value="MODERATOR">MODERATOR</option>
-              </select>
-            </div>
-            <Button
-              onClick={handleSave}
-              disabled={saving}
-              className="w-full bg-[#F0B90B] text-[#0D0D0D] hover:bg-[#FCD535] font-semibold"
-            >
-              {saving ? (
-                <Loader2 className="w-4 h-4 animate-spin mr-2" />
-              ) : (
-                <Pencil className="w-4 h-4 mr-2" />
-              )}
-              Save changes
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
