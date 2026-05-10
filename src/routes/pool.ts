@@ -3,6 +3,12 @@ import prisma from '../config/db';
 import { authMiddleware } from '../middleware/auth';
 import { contractService } from '../services/contractService';
 import { Prisma } from '@prisma/client';
+import {
+  validatePoolCreditPackage,
+  validatePoolCreditAfterPatch,
+  claimFeeUsd,
+  loanCreditUsdOrThrow,
+} from '../services/poolPackageConfig';
 
 // Swagger schemas
 const schemas = {
@@ -91,6 +97,13 @@ const schemas = {
         apy: { type: 'number', default: 0 },
         contractAddress: { type: 'string', nullable: true },
         endDate: { type: 'string', format: 'date-time', nullable: true },
+        supportsAppCredit: { type: 'boolean', description: 'Claim from in-app USDT deposit balance' },
+        creditMinUsd: { type: 'number', nullable: true, description: 'Claim fee (USD) from deposit balance' },
+        creditCreditedUsd: {
+          type: 'number',
+          nullable: true,
+          description: 'Loan balance (USD) credited after claim — required if supportsAppCredit',
+        },
       },
       required: ['name'],
     },
@@ -295,6 +308,9 @@ export default async function poolRoutes(fastify: FastifyInstance) {
       apy?: number;
       contractAddress?: string;
       endDate?: string;
+      supportsAppCredit?: boolean;
+      creditMinUsd?: number | null;
+      creditCreditedUsd?: number | null;
     };
   }>(
     '/',
@@ -309,6 +325,9 @@ export default async function poolRoutes(fastify: FastifyInstance) {
         apy?: number;
         contractAddress?: string;
         endDate?: string;
+        supportsAppCredit?: boolean;
+        creditMinUsd?: number | null;
+        creditCreditedUsd?: number | null;
       };
     }>, reply: FastifyReply) => {
       // Check admin role
@@ -317,18 +336,48 @@ export default async function poolRoutes(fastify: FastifyInstance) {
         return reply.status(403).send({ success: false, error: 'Admin access required' });
       }
 
-      const { name, description, tokenSymbol, minDeposit, maxDeposit, apy, contractAddress, endDate } = request.body;
+      const {
+        name,
+        description,
+        tokenSymbol,
+        minDeposit,
+        maxDeposit,
+        apy,
+        contractAddress,
+        endDate,
+        supportsAppCredit,
+        creditMinUsd,
+        creditCreditedUsd,
+      } = request.body;
+
+      const v = validatePoolCreditPackage({
+        supportsAppCredit: Boolean(supportsAppCredit),
+        creditMinUsd,
+        creditCreditedUsd,
+        minDeposit: minDeposit ?? 0,
+      });
+      if (!v.ok) {
+        return reply.status(400).send({ success: false, error: v.error });
+      }
 
       const pool = await prisma.pool.create({
         data: {
           name,
           description,
           tokenSymbol: tokenSymbol || 'BNB',
-          minDeposit: minDeposit || 0,
+          minDeposit: minDeposit ?? 0,
           maxDeposit,
-          apy: apy || 0,
+          apy: apy ?? 0,
           contractAddress,
           endDate: endDate ? new Date(endDate) : undefined,
+          supportsAppCredit: Boolean(supportsAppCredit),
+          ...(Boolean(supportsAppCredit) && {
+            creditMinUsd:
+              creditMinUsd != null && creditMinUsd > 0
+                ? new Prisma.Decimal(creditMinUsd)
+                : undefined,
+            creditCreditedUsd: new Prisma.Decimal(creditCreditedUsd!),
+          }),
         },
       });
 
@@ -374,6 +423,16 @@ export default async function poolRoutes(fastify: FastifyInstance) {
         creditMinUsd,
         creditCreditedUsd,
       } = request.body;
+
+      const mergedCheck = validatePoolCreditAfterPatch(existing, {
+        supportsAppCredit,
+        creditMinUsd,
+        creditCreditedUsd,
+        minDeposit,
+      });
+      if (!mergedCheck.ok) {
+        return reply.status(400).send({ success: false, error: mergedCheck.error });
+      }
 
       const pool = await prisma.pool.update({
         where: { id: request.params.id },
@@ -529,10 +588,22 @@ export default async function poolRoutes(fastify: FastifyInstance) {
         });
       }
 
-      const creditMin = new Prisma.Decimal((pool.creditMinUsd ?? pool.minDeposit).toString());
-      const creditGive = new Prisma.Decimal(
-        (pool.creditCreditedUsd ?? pool.creditMinUsd ?? pool.minDeposit).toString()
-      );
+      let creditGive: Prisma.Decimal;
+      try {
+        creditGive = loanCreditUsdOrThrow(pool);
+      } catch (e) {
+        const code = e instanceof Error ? e.message : '';
+        if (code === 'POOL_MISSING_LOAN_CREDIT' || code === 'POOL_INVALID_LOAN_CREDIT') {
+          return reply.status(503).send({
+            success: false,
+            error:
+              'Pool package is misconfigured: admin must set creditCreditedUsd (loan USD credited after claim, e.g. 1000).',
+          });
+        }
+        throw e;
+      }
+
+      const creditMin = claimFeeUsd(pool);
 
       try {
         const out = await prisma.$transaction(async (tx) => {

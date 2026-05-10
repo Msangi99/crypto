@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, RefreshControl,
   TouchableOpacity, Dimensions, Image, Animated,
@@ -14,6 +14,24 @@ import { useLivePrices } from '../../hooks/useLivePrices';
 const { width } = Dimensions.get('window');
 const LOGO = require('../../../assets/logo.png');
 
+const SWAP_COIN_ICONS: Record<string, string> = {
+  BTC: 'logo-bitcoin',
+  ETH: 'logo-ethereum',
+  BNB: 'cube',
+  SOL: 'flash',
+  ADA: 'card',
+  DOGE: 'paw',
+  DOT: 'ellipse',
+  MATIC: 'layers',
+  AVAX: 'snow',
+  LINK: 'link',
+  UNI: 'infinite',
+  XRP: 'water',
+  LTC: 'diamond',
+  USDT: 'cash',
+  USDC: 'cash',
+};
+
 export default function HomeScreen({ navigation }: any) {
   const { user } = useAuthStore();
   const [dashboard, setDashboard] = useState<any>(null);
@@ -27,7 +45,7 @@ export default function HomeScreen({ navigation }: any) {
     claimedPoolCreditUsd: number;
     swapHoldingsUsd: number;
   } | null>(null);
-  const [balanceTab, setBalanceTab] = useState<'deposit' | 'loan' | 'swap'>('deposit');
+  const [balanceTab, setBalanceTab] = useState<'deposit' | 'loan' | 'swap'>('swap');
 
   const load = useCallback(async () => {
     try {
@@ -93,12 +111,34 @@ export default function HomeScreen({ navigation }: any) {
   const pnl = totalValue - totalInvested;
   const pnlPct = totalInvested > 0 ? ((pnl / totalInvested) * 100).toFixed(2) : '0.00';
 
+  /** Aggregated “swapped hold” per asset (from pool / loan → crypto positions). */
+  const swappedHoldings = useMemo(() => {
+    const map = new Map<string, { symbol: string; amount: number; valueUsd: number }>();
+    for (const pos of livePositions) {
+      const sym = (pos.symbol || 'BNB').toUpperCase();
+      const row = map.get(sym) || { symbol: sym, amount: 0, valueUsd: 0 };
+      row.amount += Number(pos.amountBought ?? 0);
+      row.valueUsd += Number(pos.currentValue ?? 0);
+      map.set(sym, row);
+    }
+    return Array.from(map.values()).sort((a, b) => b.valueUsd - a.valueUsd);
+  }, [livePositions]);
+
+  const swappedFromPositionsUsd = useMemo(
+    () => swappedHoldings.reduce((s, r) => s + r.valueUsd, 0),
+    [swappedHoldings]
+  );
+  const ledgerSwapUsd = creditBalances?.swapHoldingsUsd ?? 0;
+  /** Swapped tab = sum of listed crypto rows when we have any; otherwise server swap ledger. */
+  const swappedTabUsd =
+    swappedHoldings.length > 0 ? swappedFromPositionsUsd : ledgerSwapUsd;
+
   const tabAmount =
     balanceTab === 'deposit'
       ? creditBalances?.depositCreditUsd ?? 0
       : balanceTab === 'loan'
         ? creditBalances?.claimedPoolCreditUsd ?? 0
-        : creditBalances?.swapHoldingsUsd ?? 0;
+        : swappedTabUsd;
   const tabLabel =
     balanceTab === 'deposit' ? 'Deposit balance' : balanceTab === 'loan' ? 'Loan balance' : 'Swapped hold';
 
@@ -137,9 +177,9 @@ export default function HomeScreen({ navigation }: any) {
             <View style={styles.balanceTabs}>
               {(
                 [
-                  { key: 'deposit' as const, short: 'Deposit', full: 'Deposit balance' },
-                  { key: 'loan' as const, short: 'Loan', full: 'Loan balance' },
                   { key: 'swap' as const, short: 'Swapped', full: 'Swapped hold' },
+                  { key: 'loan' as const, short: 'Loan', full: 'Loan balance' },
+                  { key: 'deposit' as const, short: 'Deposit', full: 'Deposit balance' },
                 ]
               ).map((t) => (
                 <TouchableOpacity
@@ -245,20 +285,39 @@ export default function HomeScreen({ navigation }: any) {
           </ScrollView>
         </View>
 
-        {/* My Pool Holdings */}
+        {/* Swapped crypto (aggregated per coin from leveraged / pool positions) */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>My Pools</Text>
+            <Text style={styles.sectionTitle}>Swapped crypto</Text>
             <TouchableOpacity onPress={() => navigation.navigate('Portfolio')}>
-              <Text style={styles.seeAll}>See All</Text>
+              <Text style={styles.seeAll}>See all</Text>
             </TouchableOpacity>
           </View>
-          {livePositions.length > 0 ? livePositions.slice(0, 4).map((pos: any, i: number) => (
-            <PoolHoldingRow key={pos.poolId ?? i} item={pos} />
-          )) : (
+          <Text style={styles.swappedSub}>
+            Holdings after loan → swap (BTC, ETH, BNB, …). Total matches your Swapped balance above.
+          </Text>
+          {swappedHoldings.length > 0 ? (
+            swappedHoldings.map((row) => (
+              <SwappedAssetRow key={row.symbol} row={row} />
+            ))
+          ) : ledgerSwapUsd > 0 ? (
+            <View style={styles.actRow}>
+              <View style={[styles.actIconBg, { backgroundColor: 'rgba(240,185,11,0.12)' }]}>
+                <Ionicons name="swap-horizontal" size={20} color={Colors.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.actType}>Swapped hold (ledger)</Text>
+                <Text style={styles.actTime}>From app balance sync</Text>
+              </View>
+              <Text style={[styles.actAmount, { color: Colors.textPrimary }]}>
+                ${ledgerSwapUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </Text>
+            </View>
+          ) : (
             <View style={styles.emptyState}>
-              <Ionicons name="briefcase-outline" size={32} color={Colors.textMuted} />
-              <Text style={styles.emptyText}>No pools joined yet</Text>
+              <Ionicons name="swap-horizontal-outline" size={32} color={Colors.textMuted} />
+              <Text style={styles.emptyText}>No swapped crypto yet</Text>
+              <Text style={styles.emptyHint}>Open a pool / loan and swap into coins to see them here.</Text>
             </View>
           )}
         </View>
@@ -377,20 +436,21 @@ function MarketChipSkeleton({ label }: { label: string }) {
   );
 }
 
-function PoolHoldingRow({ item }: { item: any }) {
+function SwappedAssetRow({ row }: { row: { symbol: string; amount: number; valueUsd: number } }) {
+  const icon = (SWAP_COIN_ICONS[row.symbol] || 'cube-outline') as any;
   return (
     <View style={styles.actRow}>
       <View style={[styles.actIconBg, { backgroundColor: 'rgba(240,185,11,0.12)' }]}>
-        <Ionicons name="pie-chart-outline" size={20} color={Colors.primary} />
+        <Ionicons name={icon} size={20} color={Colors.primary} />
       </View>
       <View style={{ flex: 1 }}>
-        <Text style={styles.actType}>{item.symbol ?? 'COIN'}</Text>
+        <Text style={styles.actType}>{row.symbol}</Text>
         <Text style={styles.actTime}>
-          Bought: {(item.amountBought ?? 0).toFixed(6)} {item.symbol ?? ''}
+          {row.amount >= 0.0001 ? row.amount.toFixed(6) : row.amount.toFixed(8)} {row.symbol}
         </Text>
       </View>
       <Text style={[styles.actAmount, { color: Colors.textPrimary }]}>
-        ${(item.currentValue ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        ${row.valueUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
       </Text>
     </View>
   );
@@ -511,8 +571,14 @@ const styles = StyleSheet.create({
 
   // Section
   section: { paddingHorizontal: Spacing.lg, marginBottom: Spacing.lg },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.md },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.sm },
   sectionTitle: { fontSize: 18, fontWeight: '800', color: Colors.textPrimary },
+  swappedSub: {
+    fontSize: 12,
+    color: Colors.textMuted,
+    lineHeight: 17,
+    marginBottom: Spacing.md,
+  },
   seeAll: { fontSize: 13, fontWeight: '700', color: Colors.primary },
   liveTitleWrap: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   liveBadge: {
@@ -549,7 +615,8 @@ const styles = StyleSheet.create({
   actTime: { fontSize: 12, color: Colors.textMuted },
   actAmount: { fontSize: 13, fontWeight: '700' },
   emptyState: { alignItems: 'center', gap: 8, padding: Spacing.xl },
-  emptyText: { fontSize: 13, color: Colors.textMuted },
+  emptyText: { fontSize: 13, color: Colors.textMuted, textAlign: 'center' },
+  emptyHint: { fontSize: 12, color: Colors.textMuted, opacity: 0.85, textAlign: 'center', marginTop: 4, paddingHorizontal: Spacing.md },
 
   // Referral promo
   referralCard: {

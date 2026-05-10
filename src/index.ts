@@ -204,6 +204,7 @@ const buildApp = async () => {
         prices: '/api/prices',
         transactions: '/api/transactions',
         admin: '/api/admin',
+        adminPoolPackages: '/api/admin/pool-packages',
         user: '/api/user',
         loans: '/api/loans',
         tokens: '/api/tokens',

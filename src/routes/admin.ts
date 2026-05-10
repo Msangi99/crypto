@@ -119,6 +119,12 @@ const adminSchemas = {
       },
     },
   },
+  listPoolPackages: {
+    tags: ['Admin'],
+    summary: 'List pool packages',
+    description:
+      'Full pool rows for admin (dashboard). There is no fixed pool count — create/edit via POST/PUT /api/pools as admin. Fields: claim fee (creditMinUsd or minDeposit), loan credit (creditCreditedUsd).',
+  },
 };
 
 export default async function adminRoutes(fastify: FastifyInstance) {
@@ -458,6 +464,27 @@ export default async function adminRoutes(fastify: FastifyInstance) {
           usdtBep20Address: settings.usdtBep20Address,
         },
       };
+    }
+  );
+
+  // ─── GET /admin/pool-packages — all pools for package editor ─────
+  fastify.get(
+    '/pool-packages',
+    { schema: adminSchemas.listPoolPackages, preHandler: [adminMiddleware] },
+    async () => {
+      const rows = await prisma.pool.findMany({
+        orderBy: { updatedAt: 'desc' },
+      });
+      const pools = rows.map((p) => ({
+        ...p,
+        minDeposit: Number(p.minDeposit),
+        maxDeposit: p.maxDeposit != null ? Number(p.maxDeposit) : null,
+        apy: Number(p.apy),
+        totalStaked: Number(p.totalStaked),
+        creditMinUsd: p.creditMinUsd != null ? Number(p.creditMinUsd) : null,
+        creditCreditedUsd: p.creditCreditedUsd != null ? Number(p.creditCreditedUsd) : null,
+      }));
+      return { success: true, count: pools.length, pools };
     }
   );
 

@@ -78,11 +78,11 @@ model Pool {
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 
-  /// When true, user can "Claim" this pool using in-app USDT credit (depositCreditUsd) instead of on-chain pool tx.
+  /// When true, user can claim this package from in-app deposit credit (no fixed pool count — admin creates as many as needed).
   supportsAppCredit   Boolean  @default(false)
-  /// Minimum USD credit required to claim (defaults to minDeposit if null).
+  /// Claim fee in USD deducted from depositCreditUsd (e.g. 100). If null, minDeposit is used as the fee.
   creditMinUsd        Decimal? @db.Decimal(36, 18)
-  /// USD credited to claimedPoolCreditUsd after a successful app-credit claim (defaults to credit min if null).
+  /// Loan line credited to claimedPoolCreditUsd after claim (e.g. 1000 when fee is 100). Required when supportsAppCredit is true.
   creditCreditedUsd   Decimal? @db.Decimal(36, 18)
 
   // Relations

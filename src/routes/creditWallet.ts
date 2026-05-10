@@ -224,13 +224,20 @@ export default async function creditWalletRoutes(fastify: FastifyInstance) {
       const rows = pools.map((p) => {
         const min = p.creditMinUsd ?? p.minDeposit;
         const minN = new Prisma.Decimal(min.toString());
-        const canClaim = creditAvail.gte(minN);
+        const loanRaw = p.creditCreditedUsd;
+        const loanConfigured =
+          loanRaw != null && new Prisma.Decimal(loanRaw.toString()).gt(0);
+        const loanCreditUsd = loanConfigured ? num(loanRaw) : null;
+        const canClaim = loanConfigured && creditAvail.gte(minN);
         return {
           poolId: p.id,
           name: p.name,
           supportsAppCredit: p.supportsAppCredit,
+          /** Claim fee (USD) from deposit balance */
           creditMinUsd: num(min),
-          creditCreditedUsd: num(p.creditCreditedUsd ?? p.creditMinUsd ?? p.minDeposit),
+          /** Loan balance (USD) after claim — null if admin did not set creditCreditedUsd */
+          creditCreditedUsd: loanCreditUsd,
+          packageMisconfigured: !loanConfigured,
           canClaimWithCredit: canClaim,
         };
       });
