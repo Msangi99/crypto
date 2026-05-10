@@ -30,7 +30,8 @@ const schemas = {
   poolEligibility: {
     tags: ['Credit Wallet'],
     summary: 'Pool claim eligibility (app credit)',
-    description: 'Which pools support credit claim and whether the user can claim each pool now.',
+    description:
+      'Which pools support credit claim and whether the user can claim each pool now. Claim fee can be paid from deposit credit and/or existing loan (claimed pool) credit combined.',
   },
 };
 
@@ -205,9 +206,11 @@ export default async function creditWalletRoutes(fastify: FastifyInstance) {
     async (request: FastifyRequest) => {
       const user = await prisma.user.findUnique({
         where: { id: request.userId! },
-        select: { depositCreditUsd: true },
+        select: { depositCreditUsd: true, claimedPoolCreditUsd: true },
       });
-      const creditAvail = user ? new Prisma.Decimal(user.depositCreditUsd.toString()) : new Prisma.Decimal(0);
+      const depositAvail = user ? new Prisma.Decimal(user.depositCreditUsd.toString()) : new Prisma.Decimal(0);
+      const loanAvail = user ? new Prisma.Decimal(user.claimedPoolCreditUsd.toString()) : new Prisma.Decimal(0);
+      const creditAvail = depositAvail.add(loanAvail);
 
       const pools = await prisma.pool.findMany({
         where: { supportsAppCredit: true },
@@ -236,7 +239,7 @@ export default async function creditWalletRoutes(fastify: FastifyInstance) {
           name: p.name,
           poolStatus: p.status,
           supportsAppCredit: p.supportsAppCredit,
-          /** Claim fee (USD) from deposit balance */
+          /** Claim fee (USD) — payable from deposit + loan credit combined */
           creditMinUsd: num(min),
           /** Loan balance (USD) after claim — null if admin did not set creditCreditedUsd */
           creditCreditedUsd: loanCreditUsd,
@@ -247,7 +250,9 @@ export default async function creditWalletRoutes(fastify: FastifyInstance) {
 
       return {
         success: true,
-        depositCreditUsd: num(creditAvail),
+        depositCreditUsd: num(depositAvail),
+        claimedPoolCreditUsd: num(loanAvail),
+        claimFeeSpendableUsd: num(creditAvail),
         pools: rows,
       };
     }

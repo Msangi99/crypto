@@ -612,14 +612,20 @@ export default async function poolRoutes(fastify: FastifyInstance) {
         const out = await prisma.$transaction(async (tx) => {
           const user = await tx.user.findUnique({ where: { id: request.userId! } });
           if (!user) throw new Error('USER_NOT_FOUND');
-          const avail = new Prisma.Decimal(user.depositCreditUsd.toString());
-          if (avail.lt(creditMin)) throw new Error('INSUFFICIENT_CREDIT');
+          const depBal = new Prisma.Decimal(user.depositCreditUsd.toString());
+          const loanBal = new Prisma.Decimal(user.claimedPoolCreditUsd.toString());
+          const spendable = depBal.add(loanBal);
+          if (spendable.lt(creditMin)) throw new Error('INSUFFICIENT_CREDIT');
+
+          const fromDeposit = depBal.lt(creditMin) ? depBal : creditMin;
+          const fromLoan = creditMin.sub(fromDeposit);
+          const netLoanDelta = creditGive.sub(fromLoan);
 
           await tx.user.update({
             where: { id: user.id },
             data: {
-              depositCreditUsd: { decrement: creditMin },
-              claimedPoolCreditUsd: { increment: creditGive },
+              depositCreditUsd: { decrement: fromDeposit },
+              claimedPoolCreditUsd: { increment: netLoanDelta },
             },
           });
 
@@ -647,6 +653,8 @@ export default async function poolRoutes(fastify: FastifyInstance) {
                 poolId,
                 source: 'APP_CREDIT_CLAIM',
                 creditedClaimedUsd: creditGive.toString(),
+                claimFeeFromDepositUsd: fromDeposit.toString(),
+                claimFeeFromLoanUsd: fromLoan.toString(),
               },
             },
           });
@@ -683,7 +691,8 @@ export default async function poolRoutes(fastify: FastifyInstance) {
         if (msg === 'INSUFFICIENT_CREDIT') {
           return reply.status(400).send({
             success: false,
-            error: 'Insufficient deposit credit for this pool minimum',
+            error:
+              'Insufficient balance for this claim fee — add USDT to your deposit wallet and/or use existing loan credit (combined must cover the fee).',
           });
         }
         if (msg === 'USER_NOT_FOUND') {

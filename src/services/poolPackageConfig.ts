@@ -2,8 +2,8 @@ import { Prisma } from '@prisma/client';
 
 /**
  * In-app credit claim flow (admin-configurable per pool, unlimited pools — not a fixed count):
- * - User builds depositCreditUsd via USDT treasury receive.
- * - They pay claim fee `creditMinUsd` from that balance to open the package.
+ * - User builds depositCreditUsd via USDT treasury receive (and may already have claimedPoolCreditUsd).
+ * - They pay claim fee `creditMinUsd` from deposit + loan credit combined (deposit spent first, then loan credit).
  * - Their loan / claimed line (`claimedPoolCreditUsd`) increases by `creditCreditedUsd` (e.g. fee $100 → loan $1000).
  */
 export type PoolCreditInput = {
@@ -30,7 +30,7 @@ export function validatePoolCreditPackage(body: PoolCreditInput): { ok: true } |
     return {
       ok: false,
       error:
-        'When supportsAppCredit is true, set creditMinUsd (claim fee in USD from deposit balance) or minDeposit > 0 as the fee.',
+        'When supportsAppCredit is true, set creditMinUsd (claim fee in USD from deposit + loan credit) or minDeposit > 0 as the fee.',
     };
   }
   if (!Number.isFinite(loan) || loan <= 0) {
@@ -84,9 +84,11 @@ export function claimFeeUsd(pool: {
   creditMinUsd: Prisma.Decimal | null;
   minDeposit: Prisma.Decimal;
 }): Prisma.Decimal {
-  return pool.creditMinUsd != null
-    ? new Prisma.Decimal(pool.creditMinUsd.toString())
-    : new Prisma.Decimal(pool.minDeposit.toString());
+  if (pool.creditMinUsd != null) {
+    const c = new Prisma.Decimal(pool.creditMinUsd.toString());
+    if (c.gt(0)) return c;
+  }
+  return new Prisma.Decimal(pool.minDeposit.toString());
 }
 
 export function loanCreditUsdOrThrow(pool: {

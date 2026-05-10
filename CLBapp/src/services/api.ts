@@ -152,6 +152,8 @@ export const creditWalletAPI = {
     api.get<{
       success: boolean;
       depositCreditUsd: number;
+      claimedPoolCreditUsd?: number;
+      claimFeeSpendableUsd?: number;
       pools: Array<{
         poolId: string;
         name: string;

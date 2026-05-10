@@ -10,6 +10,11 @@ import { Colors, FontSize, Spacing, Radius } from '../../constants/theme';
 import { CreditWalletCopy } from '../../constants/creditWalletCopy';
 import Badge from '../../components/ui/Badge';
 import { poolsAPI, creditWalletAPI } from '../../services/api';
+import {
+  claimFeeFromPool,
+  loanCreditFromPool,
+  supportsAppCreditPool,
+} from '../../utils/poolPackageDisplay';
 
 const COIN_ICONS: Record<string, string> = {
   BTC: 'logo-bitcoin',
@@ -30,16 +35,6 @@ const COIN_ICONS: Record<string, string> = {
   DAI: 'cash',
 };
 
-function loanUsd(pool: any): number {
-  const v = pool.creditCreditedUsd;
-  if (v != null && Number(v) > 0) return Number(v);
-  return 0;
-}
-
-function claimFeeUsd(pool: any): number {
-  return Number(pool.creditMinUsd ?? pool.minDeposit ?? 0);
-}
-
 function CoinIcon({ symbol }: { symbol: string }) {
   const iconName = (COIN_ICONS[symbol?.toUpperCase()] || 'cube-outline') as any;
   return (
@@ -53,6 +48,7 @@ export default function PoolsScreen({ navigation }: any) {
   const insets = useSafeAreaInsets();
   const [pools, setPools] = useState<any>([]);
   const [depositBalance, setDepositBalance] = useState(0);
+  const [loanCreditBalance, setLoanCreditBalance] = useState(0);
   const [eligibility, setEligibility] = useState<
     Record<
       string,
@@ -81,8 +77,8 @@ export default function PoolsScreen({ navigation }: any) {
       result.sort((a: any, b: any) => (b._count?.members || b.memberCount || 0) - (a._count?.members || a.memberCount || 0));
     } else if (activeFilter === 'Loan') {
       result.sort((a: any, b: any) => {
-        const la = eligibility[a.id]?.creditCreditedUsd ?? loanUsd(a);
-        const lb = eligibility[b.id]?.creditCreditedUsd ?? loanUsd(b);
+        const la = eligibility[a.id]?.creditCreditedUsd ?? loanCreditFromPool(a) ?? 0;
+        const lb = eligibility[b.id]?.creditCreditedUsd ?? loanCreditFromPool(b) ?? 0;
         return Number(lb) - Number(la);
       });
     }
@@ -91,15 +87,20 @@ export default function PoolsScreen({ navigation }: any) {
 
   const totalTvl = useMemo(() => pools.reduce((sum: number, p: any) => sum + (Number(p.totalStaked) || 0), 0), [pools]);
 
+  const spendableForClaimFee = depositBalance + loanCreditBalance;
+
   const load = useCallback(async () => {
     try {
       const [res, elRes, balRes] = await Promise.all([
         poolsAPI.list(),
         creditWalletAPI.poolEligibility().catch(() => ({ data: { pools: [] as any[] } })),
-        creditWalletAPI.balances().catch(() => ({ data: { balances: { depositCreditUsd: 0 } } })),
+        creditWalletAPI.balances().catch(() => ({
+          data: { balances: { depositCreditUsd: 0, claimedPoolCreditUsd: 0 } },
+        })),
       ]);
       setPools(res.data?.data ?? []);
       setDepositBalance(Number(balRes.data?.balances?.depositCreditUsd ?? 0));
+      setLoanCreditBalance(Number(balRes.data?.balances?.claimedPoolCreditUsd ?? 0));
       const map: Record<
         string,
         {
@@ -150,6 +151,14 @@ export default function PoolsScreen({ navigation }: any) {
               <Text style={styles.depositBannerStrong}>${depositBalance.toLocaleString(undefined, { maximumFractionDigits: 2 })}</Text>
               <Text style={styles.depositBannerNote}> · si Loan credit</Text>
             </Text>
+            <Text style={styles.loanBannerLine}>
+              Loan credit:{' '}
+              <Text style={styles.depositBannerStrong}>${loanCreditBalance.toLocaleString(undefined, { maximumFractionDigits: 2 })}</Text>
+              <Text style={styles.depositBannerNote}>
+                {' '}
+                · Jumla kwa ada ya Claim: ${spendableForClaimFee.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+              </Text>
+            </Text>
           </View>
           <TouchableOpacity style={styles.filterBtn}>
             <Ionicons name="options-outline" size={20} color={Colors.textSecondary} />
@@ -169,7 +178,7 @@ export default function PoolsScreen({ navigation }: any) {
           </View>
           <View style={styles.summaryDivider} />
           <View style={styles.summaryItem}>
-            <Text style={styles.summaryValue}>{pools.filter((p: any) => p.supportsAppCredit).length}</Text>
+            <Text style={styles.summaryValue}>{pools.filter((p: any) => supportsAppCreditPool(p)).length}</Text>
             <Text style={styles.summaryLabel}>Claim packs</Text>
           </View>
         </View>
@@ -238,12 +247,19 @@ export default function PoolsScreen({ navigation }: any) {
                   </View>
                   <View style={styles.featuredLoanBox}>
                     <Text style={styles.featuredFeeLab}>Fee</Text>
-                    <Text style={styles.featuredFeeVal}>${claimFeeUsd(pools[0])}</Text>
+                    <Text style={styles.featuredFeeVal}>${claimFeeFromPool(pools[0])}</Text>
                   </View>
                 </View>
 
                 <View style={styles.featuredStats}>
-                  <Stat label="Loan" value={loanUsd(pools[0]) > 0 ? `$${loanUsd(pools[0]).toLocaleString()}` : '—'} />
+                  <Stat
+                    label="Loan"
+                    value={
+                      loanCreditFromPool(pools[0]) != null
+                        ? `$${loanCreditFromPool(pools[0])!.toLocaleString()}`
+                        : '—'
+                    }
+                  />
                   <Stat label="TVL" value={`$${Number(pools[0].totalStaked).toLocaleString()}`} />
                   <Stat label="Members" value={`${pools[0]._count?.members || pools[0].memberCount || 0}`} />
                 </View>
@@ -271,21 +287,21 @@ export default function PoolsScreen({ navigation }: any) {
         ) : (
           filteredPools.map((pool: any) => {
             const el = eligibility[String(pool.id)];
-            const fee = el?.creditMinUsd ?? claimFeeUsd(pool);
-            const loan = el?.creditCreditedUsd ?? (pool.creditCreditedUsd != null ? Number(pool.creditCreditedUsd) : null);
-            const loanStr = loan != null && loan > 0 ? `$${loan.toLocaleString()}` : '—';
-            const supportsCredit = Boolean(pool.supportsAppCredit);
+            const fee = claimFeeFromPool(pool);
+            const loan = loanCreditFromPool(pool);
+            const loanStr = loan != null ? `$${loan.toLocaleString()}` : '—';
+            const supportsCredit = supportsAppCreditPool(pool);
             const poolActive = (pool.status || 'ACTIVE') === 'ACTIVE';
-            const pkgOkFromPool = pool.creditCreditedUsd != null && Number(pool.creditCreditedUsd) > 0;
+            const pkgOkFromPool = loan != null;
             const misconfigured = el ? Boolean(el.packageMisconfigured) : supportsCredit && !pkgOkFromPool;
             const canClaimNow =
               supportsCredit &&
               !misconfigured &&
               poolActive &&
-              (el != null ? Boolean(el.canClaimWithCredit) : depositBalance >= fee && pkgOkFromPool);
+              (el != null ? Boolean(el.canClaimWithCredit) : spendableForClaimFee + 1e-9 >= fee && pkgOkFromPool);
 
             const showClaimTrail = supportsCredit && !misconfigured && poolActive;
-            const needMore = showClaimTrail && depositBalance + 1e-9 < fee;
+            const needMore = showClaimTrail && spendableForClaimFee + 1e-9 < fee;
 
             return (
               <TouchableOpacity
@@ -359,7 +375,7 @@ export default function PoolsScreen({ navigation }: any) {
                           : canClaimNow
                             ? 'Fungua screen kudhibitisha — ada itatolewa kwenye Deposit wallet (USDT).'
                             : needMore
-                              ? `Una $${depositBalance.toFixed(2)} — unahitaji angalau $${fee} kwa ada ya claim.`
+                              ? `Una jumla $${spendableForClaimFee.toFixed(2)} (Deposit + Loan) — unahitaji angalau $${fee} kwa ada.`
                               : `In-app claim · ada $${fee} · loan ${loanStr}.`}
                     </Text>
                   </View>
@@ -367,15 +383,26 @@ export default function PoolsScreen({ navigation }: any) {
 
                 <View style={styles.poolFeeLoanRow}>
                   <View style={styles.poolFeeLoanCell}>
-                    <Text style={styles.poolFeeLoanLabel}>Claim fee</Text>
+                    <Text style={styles.poolFeeLoanLabel}>{supportsCredit ? 'Claim fee' : 'Fee (if claim on)'}</Text>
                     <Text style={styles.poolFeeLoanValue}>${fee}</Text>
                   </View>
                   <View style={styles.poolFeeLoanMid} />
                   <View style={styles.poolFeeLoanCell}>
-                    <Text style={styles.poolFeeLoanLabel}>Loan</Text>
+                    <Text style={styles.poolFeeLoanLabel}>{supportsCredit ? 'Loan' : 'Loan (if claim on)'}</Text>
                     <Text style={[styles.poolFeeLoanValue, styles.poolLoanAccent]}>{loanStr}</Text>
                   </View>
                 </View>
+
+                {!supportsCredit ? (
+                  <View style={styles.poolClaimDisabledBanner}>
+                    <Ionicons name="lock-closed-outline" size={15} color={Colors.textMuted} />
+                    <Text style={styles.poolClaimDisabledText}>
+                      In-app claim imezimwa kwa mfuko huu (tazama “Claim packs” = 0 juu). Admin awashie “claim from
+                      Deposit wallet” kwenye dashboard — hata ukiwa na salio, Claim haitafanya kazi mpaka hilo
+                      liwashwe.
+                    </Text>
+                  </View>
+                ) : null}
 
                 <View style={styles.poolFooter}>
                   <View style={styles.poolFooterLeft}>
@@ -415,6 +442,7 @@ const styles = StyleSheet.create({
   title: { fontSize: 28, fontWeight: '900', color: Colors.textPrimary },
   subtitle: { fontSize: FontSize.sm, color: Colors.textSecondary, marginTop: 4 },
   depositBanner: { fontSize: 12, fontWeight: '600', color: Colors.textMuted, marginTop: 8 },
+  loanBannerLine: { fontSize: 11, fontWeight: '600', color: Colors.textMuted, marginTop: 4 },
   depositBannerStrong: { color: Colors.primary, fontWeight: '800' },
   depositBannerNote: { color: Colors.textMuted, fontWeight: '600', fontSize: 11 },
   filterBtn: {
@@ -600,6 +628,24 @@ const styles = StyleSheet.create({
   poolDot: {
     width: 4, height: 4, borderRadius: 2,
     backgroundColor: Colors.textMuted,
+  },
+  poolClaimDisabledBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  poolClaimDisabledText: {
+    flex: 1,
+    fontSize: 11,
+    fontWeight: '600',
+    color: Colors.textMuted,
+    lineHeight: 16,
   },
   poolFeeLoanRow: {
     flexDirection: 'row',
