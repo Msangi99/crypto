@@ -288,7 +288,9 @@ export default function PackagesPage() {
         <div>
           <h2 className="text-2xl font-bold text-white tracking-tight">Investment Packages</h2>
           <p className="text-sm text-[#888] mt-1 max-w-xl">
-            Create unlimited pool packages. Enable in-app claim so users spend deposit balance (claim fee) and receive loan credit (e.g. $100 → $1,000) before swapping to crypto.
+            Create unlimited pool packages. Enable in-app claim so users spend deposit balance (claim fee) and receive loan credit (e.g. $100 → $1,000) before swapping to crypto. The CLB mobile app must call the same API as this admin (admin{" "}
+            <code className="text-[#ccc]">NEXT_PUBLIC_API_URL</code>, app{" "}
+            <code className="text-[#ccc]">EXPO_PUBLIC_API_URL</code>) or toggles here will not match what users see.
           </p>
         </div>
         <div className="flex items-center gap-2">

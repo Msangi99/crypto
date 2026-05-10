@@ -1,7 +1,13 @@
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 
-const BASE_URL = 'https://api.cryptoloanboost.com';
+/**
+ * Must match the API where you edit pools in admin.
+ * - Admin uses `NEXT_PUBLIC_API_URL` (see clb-admin/lib/api.ts), default localhost:3000.
+ * - Set in CLBapp: `EXPO_PUBLIC_API_URL=https://your-api` in `.env` then restart Expo (`npx expo start -c`).
+ * - If unset, production API is used (changes on localhost admin will not show here).
+ */
+const BASE_URL = (process.env.EXPO_PUBLIC_API_URL || 'https://api.cryptoloanboost.com').replace(/\/$/, '');
 
 export const api = axios.create({
   baseURL: BASE_URL,

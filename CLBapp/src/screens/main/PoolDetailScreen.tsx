@@ -19,7 +19,7 @@ import {
 
 const COIN_ICONS: Record<string, string> = {
   BTC: 'logo-bitcoin',
-  ETH: 'logo-ethereum',
+  ETH: 'cube-outline',
   BNB: 'cube',
   BTCB: 'logo-bitcoin',
   USDT: 'cash',
@@ -118,8 +118,8 @@ export default function PoolDetailScreen({ route, navigation }: any) {
   const claimFee = claimFeeFromPool(pool);
   const loanCredit = loanCreditFromPool(pool);
   const members = pool._count?.members ?? pool.memberCount ?? 0;
-  const spendableForFee = depositCredit + userLoanCreditUsd;
-  const needMoreFunds = supports && spendableForFee + 1e-9 < claimFee;
+  const depositForClaimFee = depositCredit;
+  const needMoreFunds = supports && depositForClaimFee + 1e-9 < claimFee;
   const claimReady = supports && !packageMisconfigured && canClaim && !needMoreFunds;
 
   const goDeposit = () => {
@@ -159,30 +159,6 @@ export default function PoolDetailScreen({ route, navigation }: any) {
     );
   };
 
-<<<<<<< Updated upstream
-=======
-  const goDeposit = () => {
-    navigation.navigate('DepositReceive');
-  };
-
-  if (!pool) {
-    return (
-      <View style={[styles.container, styles.centered]}>
-        <ActivityIndicator color={Colors.primary} size="large" />
-        <Text style={styles.loadingText}>Loading pool…</Text>
-      </View>
-    );
-  }
-
-  const supports = supportsAppCreditPool(pool);
-  const claimFee = claimFeeFromPool(pool);
-  const loanCredit = loanCreditFromPool(pool);
-  const members = pool._count?.members ?? pool.memberCount ?? 0;
-  const depositForClaimFee = depositCredit;
-  const needMoreFunds = supports && depositForClaimFee + 1e-9 < claimFee;
-  const claimReady = supports && !packageMisconfigured && canClaim && !needMoreFunds;
-
->>>>>>> Stashed changes
   return (
     <View style={styles.container}>
       <ScrollView
