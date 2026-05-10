@@ -46,8 +46,12 @@ async function request<T>(
   });
 
   if (!res.ok) {
-    const error = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error(error.error || `API Error: ${res.status}`);
+    const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    const msg =
+      (typeof body.error === "string" && body.error) ||
+      (typeof body.message === "string" && body.message) ||
+      res.statusText;
+    throw new Error(msg || `API Error: ${res.status}`);
   }
 
   return res.json();
@@ -189,9 +193,118 @@ export const api = {
       method: "DELETE",
     }),
 
-  // Admin
+  // Admin — users
   getAdminUsers: (page = 1, limit = 15, search = "") =>
-    request<{ users: Array<{ id: string; walletAddress: string; username: string | null; email: string | null; role: string; isActive: boolean; createdAt: string }>; total: number }>(`/api/admin/users?page=${page}&limit=${limit}&search=${search}`),
+    request<{
+      users: Array<{
+        id: string;
+        walletAddress: string;
+        username: string | null;
+        email: string | null;
+        role: string;
+        isActive: boolean;
+        createdAt: string;
+        depositCreditUsd: number;
+        claimedPoolCreditUsd: number;
+        swapHoldingsUsd: number;
+      }>;
+      total: number;
+    }>(`/api/admin/users?page=${page}&limit=${limit}&search=${encodeURIComponent(search)}`),
+  getAdminUser: (id: string) =>
+    request<{
+      success: boolean;
+      user: Record<string, unknown> & {
+        id: string;
+        walletAddress: string;
+        username: string | null;
+        email: string | null;
+        role: string;
+        isActive: boolean;
+        createdAt: string;
+        depositCreditUsd?: unknown;
+        claimedPoolCreditUsd?: unknown;
+        swapHoldingsUsd?: unknown;
+        poolMemberships?: unknown[];
+        transactions?: unknown[];
+        deposits?: unknown[];
+        loans?: unknown[];
+        miningSubscription?: unknown;
+        tokenBalances?: unknown[];
+        creditDraws?: unknown[];
+      };
+    }>(`/api/admin/users/${id}`),
+  updateAdminUser: (
+    id: string,
+    data: { username?: string; email?: string; role?: string; isActive?: boolean }
+  ) =>
+    request<{ success: boolean; user: Record<string, unknown> }>(`/api/admin/users/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+  patchAdminUserCredits: (
+    id: string,
+    data: {
+      depositCreditUsd?: number;
+      claimedPoolCreditUsd?: number;
+      swapHoldingsUsd?: number;
+    }
+  ) =>
+    request<{
+      success: boolean;
+      balances: {
+        depositCreditUsd: number;
+        claimedPoolCreditUsd: number;
+        swapHoldingsUsd: number;
+      };
+      user: { id: string; walletAddress: string; username: string | null; email: string | null };
+    }>(`/api/admin/users/${id}/credit-balances`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  deleteAdminUser: (id: string) =>
+    request<{ success: boolean; message: string }>(`/api/admin/users/${id}`, {
+      method: "DELETE",
+    }),
+  updateAdminUserLoan: (
+    userId: string,
+    loanId: string,
+    data: {
+      loanAmount?: number;
+      drawnAmount?: number;
+      availableCredit?: number;
+      interestRate?: number;
+      ltvPercent?: number;
+      status?: string;
+    }
+  ) =>
+    request<{
+      success: boolean;
+      loan: {
+        id: string;
+        loanType: string;
+        status: string;
+        collateralChain: string;
+        loanAmount: number;
+        drawnAmount: number;
+        availableCredit: number;
+        interestRate: number;
+        ltvPercent: number;
+      };
+    }>(`/api/admin/users/${userId}/loans/${loanId}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+  upsertAdminUserMining: (
+    userId: string,
+    data: { packageId?: string; payoutAddress?: string }
+  ) =>
+    request<{ success: boolean; subscription: Record<string, unknown> | null }>(
+      `/api/admin/users/${userId}/mining-subscription`,
+      {
+        method: "PUT",
+        body: JSON.stringify(data),
+      }
+    ),
   getAdminInvestments: (page = 1, limit = 20) =>
     request<{ investments: Array<{ id: string; userId: string; poolId: string; joinedAt: string; share: number; user: { id: string; walletAddress: string; username: string | null }; pool: { id: string; name: string; tokenSymbol: string; apy: number; status: string } }>; total: number }>(`/api/admin/investments?page=${page}&limit=${limit}`),
   getAdminTransactions: (page = 1, limit = 20, type?: string, status?: string) => {

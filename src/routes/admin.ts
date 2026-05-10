@@ -1,5 +1,5 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { Prisma } from '@prisma/client';
+import { Prisma, LoanStatus } from '@prisma/client';
 import prisma from '../config/db';
 import { authMiddleware } from '../middleware/auth';
 import { liquidationService } from '../services/liquidationService';
@@ -125,6 +125,68 @@ const adminSchemas = {
     description:
       'Full pool rows for admin (dashboard). There is no fixed pool count — create/edit via POST/PUT /api/pools as admin. Fields: claim fee (creditMinUsd or minDeposit), loan credit (creditCreditedUsd).',
   },
+  patchUserCredits: {
+    tags: ['Admin'],
+    summary: 'Set user in-app credit balances',
+    description:
+      'Sets deposit / loan / swap-hold USD balances (absolute values). Logs an audit row on transactions. At least one field required.',
+    params: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] },
+    body: {
+      type: 'object',
+      properties: {
+        depositCreditUsd: { type: 'number', description: 'In-app deposit credit (USD)' },
+        claimedPoolCreditUsd: { type: 'number', description: 'Loan / claimed pool credit (USD)' },
+        swapHoldingsUsd: { type: 'number', description: 'Swap holdings (USD)' },
+      },
+    },
+  },
+  updateUserLoan: {
+    tags: ['Admin'],
+    summary: 'Update a user loan',
+    description:
+      'Adjust loan line amounts, LTV, interest, or status. At least one field required. Loan must belong to the user.',
+    params: {
+      type: 'object',
+      properties: { userId: { type: 'string' }, loanId: { type: 'string' } },
+      required: ['userId', 'loanId'],
+    },
+    body: {
+      type: 'object',
+      properties: {
+        loanAmount: { type: 'number' },
+        drawnAmount: { type: 'number' },
+        availableCredit: { type: 'number' },
+        interestRate: { type: 'number' },
+        ltvPercent: { type: 'number' },
+        status: {
+          type: 'string',
+          enum: [
+            'PENDING',
+            'ACTIVE',
+            'SETTLED',
+            'LIQUIDATED',
+            'CANCELLED',
+            'REPAID',
+            'MARGIN_CALL',
+          ],
+        },
+      },
+    },
+  },
+  upsertUserMining: {
+    tags: ['Admin'],
+    summary: 'Create or update mining subscription',
+    description:
+      'Assign mining package (engine) and payout address. To create a new subscription both packageId and payoutAddress are required.',
+    params: { type: 'object', properties: { userId: { type: 'string' } }, required: ['userId'] },
+    body: {
+      type: 'object',
+      properties: {
+        packageId: { type: 'string' },
+        payoutAddress: { type: 'string' },
+      },
+    },
+  },
 };
 
 export default async function adminRoutes(fastify: FastifyInstance) {
@@ -150,7 +212,7 @@ export default async function adminRoutes(fastify: FastifyInstance) {
           }
         : {};
 
-      const [users, total] = await Promise.all([
+      const [rows, total] = await Promise.all([
         prisma.user.findMany({
           where,
           skip,
@@ -164,10 +226,20 @@ export default async function adminRoutes(fastify: FastifyInstance) {
             role: true,
             isActive: true,
             createdAt: true,
+            depositCreditUsd: true,
+            claimedPoolCreditUsd: true,
+            swapHoldingsUsd: true,
           },
         }),
         prisma.user.count({ where }),
       ]);
+
+      const users = rows.map((u) => ({
+        ...u,
+        depositCreditUsd: Number(u.depositCreditUsd),
+        claimedPoolCreditUsd: Number(u.claimedPoolCreditUsd),
+        swapHoldingsUsd: Number(u.swapHoldingsUsd),
+      }));
 
       return { users, total, page, limit };
     }
@@ -185,6 +257,14 @@ export default async function adminRoutes(fastify: FastifyInstance) {
           transactions: { orderBy: { createdAt: 'desc' }, take: 20 },
           deposits: { orderBy: { createdAt: 'desc' }, take: 20 },
           referrals: true,
+          loans: { orderBy: { updatedAt: 'desc' }, take: 40 },
+          miningSubscription: { include: { package: true } },
+          tokenBalances: true,
+          creditDraws: {
+            orderBy: { createdAt: 'desc' },
+            take: 30,
+            include: { loan: { select: { id: true, loanType: true, status: true } } },
+          },
         },
       });
 
@@ -192,7 +272,15 @@ export default async function adminRoutes(fastify: FastifyInstance) {
         return reply.status(404).send({ success: false, error: 'User not found' });
       }
 
-      const { passwordHash, nonce, ...safeUser } = user;
+      const {
+        passwordHash,
+        nonce,
+        pinHash,
+        pinSalt,
+        secretKey,
+        secretKeyIv,
+        ...safeUser
+      } = user;
       return { success: true, user: safeUser };
     }
   );
@@ -212,26 +300,363 @@ export default async function adminRoutes(fastify: FastifyInstance) {
         return reply.status(404).send({ success: false, error: 'User not found' });
       }
 
-      const user = await prisma.user.update({
-        where: { id: request.params.id },
-        data: {
-          ...(username !== undefined && { username }),
-          ...(email !== undefined && { email }),
-          ...(role !== undefined && { role: role as 'USER' | 'ADMIN' | 'MODERATOR' }),
-          ...(isActive !== undefined && { isActive }),
-        },
-        select: {
-          id: true,
-          walletAddress: true,
-          username: true,
-          email: true,
-          role: true,
-          isActive: true,
-          createdAt: true,
-        },
+      if (isActive === false && existing.id === request.userId) {
+        return reply.status(400).send({
+          success: false,
+          error: 'You cannot deactivate your own account while signed in',
+        });
+      }
+
+      const normUsername =
+        username === undefined ? undefined : username.trim() === '' ? null : username.trim();
+      const normEmail =
+        email === undefined ? undefined : email.trim() === '' ? null : email.trim();
+
+      try {
+        const user = await prisma.user.update({
+          where: { id: request.params.id },
+          data: {
+            ...(normUsername !== undefined && { username: normUsername }),
+            ...(normEmail !== undefined && { email: normEmail }),
+            ...(role !== undefined && { role: role as 'USER' | 'ADMIN' | 'MODERATOR' }),
+            ...(isActive !== undefined && { isActive }),
+          },
+          select: {
+            id: true,
+            walletAddress: true,
+            username: true,
+            email: true,
+            role: true,
+            isActive: true,
+            createdAt: true,
+          },
+        });
+
+        return { success: true, user };
+      } catch (err: unknown) {
+        if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+          return reply.status(409).send({
+            success: false,
+            error: 'That email is already used by another account',
+          });
+        }
+        throw err;
+      }
+    }
+  );
+
+  // ─── POST /admin/users/:id/credit-balances — set in-app USD credits ─────
+  fastify.post<{
+    Params: { id: string };
+    Body: {
+      depositCreditUsd?: number;
+      claimedPoolCreditUsd?: number;
+      swapHoldingsUsd?: number;
+    };
+  }>(
+    '/users/:id/credit-balances',
+    { schema: adminSchemas.patchUserCredits, preHandler: [adminMiddleware] },
+    async (request, reply) => {
+      const targetId = request.params.id;
+      const b = request.body || {};
+      const hasAny =
+        b.depositCreditUsd !== undefined ||
+        b.claimedPoolCreditUsd !== undefined ||
+        b.swapHoldingsUsd !== undefined;
+      if (!hasAny) {
+        return reply.status(400).send({
+          success: false,
+          error: 'Provide at least one of depositCreditUsd, claimedPoolCreditUsd, swapHoldingsUsd',
+        });
+      }
+
+      const check = (v: number | undefined, name: string): string | null => {
+        if (v === undefined) return null;
+        if (typeof v !== 'number' || !Number.isFinite(v) || v < 0) {
+          return `${name} must be a non-negative finite number`;
+        }
+        return null;
+      };
+      const err =
+        check(b.depositCreditUsd, 'depositCreditUsd') ||
+        check(b.claimedPoolCreditUsd, 'claimedPoolCreditUsd') ||
+        check(b.swapHoldingsUsd, 'swapHoldingsUsd');
+      if (err) {
+        return reply.status(400).send({ success: false, error: err });
+      }
+
+      const existing = await prisma.user.findUnique({ where: { id: targetId } });
+      if (!existing) {
+        return reply.status(404).send({ success: false, error: 'User not found' });
+      }
+
+      const before = {
+        depositCreditUsd: Number(existing.depositCreditUsd),
+        claimedPoolCreditUsd: Number(existing.claimedPoolCreditUsd),
+        swapHoldingsUsd: Number(existing.swapHoldingsUsd),
+      };
+
+      const data: Prisma.UserUpdateInput = {};
+      if (b.depositCreditUsd !== undefined) {
+        data.depositCreditUsd = new Prisma.Decimal(b.depositCreditUsd);
+      }
+      if (b.claimedPoolCreditUsd !== undefined) {
+        data.claimedPoolCreditUsd = new Prisma.Decimal(b.claimedPoolCreditUsd);
+      }
+      if (b.swapHoldingsUsd !== undefined) {
+        data.swapHoldingsUsd = new Prisma.Decimal(b.swapHoldingsUsd);
+      }
+
+      const afterDeposit = b.depositCreditUsd ?? before.depositCreditUsd;
+      const afterClaimed = b.claimedPoolCreditUsd ?? before.claimedPoolCreditUsd;
+      const afterSwap = b.swapHoldingsUsd ?? before.swapHoldingsUsd;
+      const deltaSum =
+        Math.abs(afterDeposit - before.depositCreditUsd) +
+        Math.abs(afterClaimed - before.claimedPoolCreditUsd) +
+        Math.abs(afterSwap - before.swapHoldingsUsd);
+
+      const updated = await prisma.$transaction(async (tx) => {
+        const u = await tx.user.update({
+          where: { id: targetId },
+          data,
+          select: {
+            id: true,
+            walletAddress: true,
+            username: true,
+            email: true,
+            depositCreditUsd: true,
+            claimedPoolCreditUsd: true,
+            swapHoldingsUsd: true,
+          },
+        });
+
+        await tx.transaction.create({
+          data: {
+            userId: targetId,
+            type: 'TRANSFER',
+            amount: new Prisma.Decimal(deltaSum > 0 ? deltaSum : 0),
+            status: 'SUCCESS',
+            metadata: {
+              kind: 'ADMIN_CREDIT_BALANCE',
+              adminUserId: request.userId,
+              before,
+              after: {
+                depositCreditUsd: Number(u.depositCreditUsd),
+                claimedPoolCreditUsd: Number(u.claimedPoolCreditUsd),
+                swapHoldingsUsd: Number(u.swapHoldingsUsd),
+              },
+            },
+          },
+        });
+
+        return u;
       });
 
-      return { success: true, user };
+      return {
+        success: true,
+        balances: {
+          depositCreditUsd: Number(updated.depositCreditUsd),
+          claimedPoolCreditUsd: Number(updated.claimedPoolCreditUsd),
+          swapHoldingsUsd: Number(updated.swapHoldingsUsd),
+        },
+        user: {
+          id: updated.id,
+          walletAddress: updated.walletAddress,
+          username: updated.username,
+          email: updated.email,
+        },
+      };
+    }
+  );
+
+  // ─── PUT /admin/users/:userId/loans/:loanId — admin adjust loan ─────
+  fastify.put<{
+    Params: { userId: string; loanId: string };
+    Body: {
+      loanAmount?: number;
+      drawnAmount?: number;
+      availableCredit?: number;
+      interestRate?: number;
+      ltvPercent?: number;
+      status?: LoanStatus;
+    };
+  }>(
+    '/users/:userId/loans/:loanId',
+    { schema: adminSchemas.updateUserLoan, preHandler: [adminMiddleware] },
+    async (request, reply) => {
+      const { userId, loanId } = request.params;
+      const b = request.body || {};
+      const hasAny =
+        b.loanAmount !== undefined ||
+        b.drawnAmount !== undefined ||
+        b.availableCredit !== undefined ||
+        b.interestRate !== undefined ||
+        b.ltvPercent !== undefined ||
+        b.status !== undefined;
+      if (!hasAny) {
+        return reply.status(400).send({
+          success: false,
+          error: 'Provide at least one field to update',
+        });
+      }
+
+      const nonNeg = (v: number | undefined, name: string): string | null => {
+        if (v === undefined) return null;
+        if (typeof v !== 'number' || !Number.isFinite(v) || v < 0) {
+          return `${name} must be a non-negative finite number`;
+        }
+        return null;
+      };
+      const err =
+        nonNeg(b.loanAmount, 'loanAmount') ||
+        nonNeg(b.drawnAmount, 'drawnAmount') ||
+        nonNeg(b.availableCredit, 'availableCredit') ||
+        nonNeg(b.interestRate, 'interestRate') ||
+        nonNeg(b.ltvPercent, 'ltvPercent');
+      if (err) {
+        return reply.status(400).send({ success: false, error: err });
+      }
+
+      const loan = await prisma.loan.findFirst({
+        where: { id: loanId, userId },
+      });
+      if (!loan) {
+        return reply.status(404).send({ success: false, error: 'Loan not found for this user' });
+      }
+
+      const before = {
+        loanAmount: Number(loan.loanAmount),
+        drawnAmount: Number(loan.drawnAmount),
+        availableCredit: Number(loan.availableCredit),
+        interestRate: Number(loan.interestRate),
+        ltvPercent: Number(loan.ltvPercent),
+        status: loan.status,
+      };
+
+      const data: Prisma.LoanUpdateInput = {};
+      if (b.loanAmount !== undefined) data.loanAmount = new Prisma.Decimal(b.loanAmount);
+      if (b.drawnAmount !== undefined) data.drawnAmount = new Prisma.Decimal(b.drawnAmount);
+      if (b.availableCredit !== undefined) {
+        data.availableCredit = new Prisma.Decimal(b.availableCredit);
+      }
+      if (b.interestRate !== undefined) data.interestRate = new Prisma.Decimal(b.interestRate);
+      if (b.ltvPercent !== undefined) data.ltvPercent = new Prisma.Decimal(b.ltvPercent);
+      if (b.status !== undefined) data.status = b.status;
+
+      const updated = await prisma.$transaction(async (tx) => {
+        const row = await tx.loan.update({
+          where: { id: loanId },
+          data,
+        });
+        await tx.transaction.create({
+          data: {
+            userId,
+            type: 'LOAN',
+            amount: new Prisma.Decimal(0),
+            status: 'SUCCESS',
+            metadata: {
+              kind: 'ADMIN_LOAN_UPDATE',
+              adminUserId: request.userId,
+              loanId,
+              before,
+              after: {
+                loanAmount: Number(row.loanAmount),
+                drawnAmount: Number(row.drawnAmount),
+                availableCredit: Number(row.availableCredit),
+                interestRate: Number(row.interestRate),
+                ltvPercent: Number(row.ltvPercent),
+                status: row.status,
+              },
+            },
+          },
+        });
+        return row;
+      });
+
+      return {
+        success: true,
+        loan: {
+          id: updated.id,
+          loanType: updated.loanType,
+          status: updated.status,
+          collateralChain: updated.collateralChain,
+          loanAmount: Number(updated.loanAmount),
+          drawnAmount: Number(updated.drawnAmount),
+          availableCredit: Number(updated.availableCredit),
+          interestRate: Number(updated.interestRate),
+          ltvPercent: Number(updated.ltvPercent),
+        },
+      };
+    }
+  );
+
+  // ─── PUT /admin/users/:userId/mining-subscription ─────
+  fastify.put<{
+    Params: { userId: string };
+    Body: { packageId?: string; payoutAddress?: string };
+  }>(
+    '/users/:userId/mining-subscription',
+    { schema: adminSchemas.upsertUserMining, preHandler: [adminMiddleware] },
+    async (request, reply) => {
+      const { userId } = request.params;
+      const { packageId, payoutAddress } = request.body || {};
+
+      const userRow = await prisma.user.findUnique({ where: { id: userId } });
+      if (!userRow) {
+        return reply.status(404).send({ success: false, error: 'User not found' });
+      }
+
+      const existing = await prisma.userMiningSubscription.findUnique({
+        where: { userId },
+      });
+
+      if (!existing) {
+        const pid = packageId?.trim();
+        const addr = payoutAddress?.trim();
+        if (!pid || !addr) {
+          return reply.status(400).send({
+            success: false,
+            error: 'packageId and payoutAddress are required to create a mining subscription',
+          });
+        }
+        const pkg = await prisma.clbMiningPackage.findUnique({ where: { id: pid } });
+        if (!pkg) {
+          return reply.status(404).send({ success: false, error: 'Mining package not found' });
+        }
+        await prisma.userMiningSubscription.create({
+          data: { userId, packageId: pid, payoutAddress: addr },
+        });
+      } else {
+        if (packageId === undefined && payoutAddress === undefined) {
+          return reply.status(400).send({
+            success: false,
+            error: 'Provide packageId and/or payoutAddress to update',
+          });
+        }
+        const data: Prisma.UserMiningSubscriptionUpdateInput = {};
+        if (packageId !== undefined) {
+          const pid = packageId.trim();
+          const pkg = await prisma.clbMiningPackage.findUnique({ where: { id: pid } });
+          if (!pkg) {
+            return reply.status(404).send({ success: false, error: 'Mining package not found' });
+          }
+          data.package = { connect: { id: pid } };
+        }
+        if (payoutAddress !== undefined) {
+          data.payoutAddress = payoutAddress.trim();
+        }
+        await prisma.userMiningSubscription.update({
+          where: { userId },
+          data,
+        });
+      }
+
+      const subscription = await prisma.userMiningSubscription.findUnique({
+        where: { userId },
+        include: { package: true },
+      });
+
+      return { success: true, subscription };
     }
   );
 
