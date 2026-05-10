@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, KeyboardAvoidingView,
   Platform, Alert, ScrollView,
@@ -45,7 +45,7 @@ export default function PinSetupScreen() {
   };
 
   // Auto-advance to confirm step when 6 digits entered
-  React.useEffect(() => {
+  useEffect(() => {
     if (step === 'enter' && pin.length === 6) {
       const timer = setTimeout(() => {
         setStep('confirm');
@@ -55,7 +55,7 @@ export default function PinSetupScreen() {
   }, [pin, step]);
 
   // Auto-confirm when 6 confirm digits entered
-  React.useEffect(() => {
+  useEffect(() => {
     if (step === 'confirm' && confirmPin.length === 6 && !loading) {
       const timer = setTimeout(() => {
         handleConfirm();

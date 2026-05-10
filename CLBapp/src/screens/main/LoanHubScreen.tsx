@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl,
 } from 'react-native';
@@ -27,7 +27,7 @@ export default function LoanHubScreen({ navigation }: any) {
     }
   }, []);
 
-  React.useEffect(() => {
+  useEffect(() => {
     const u = navigation.addListener('focus', load);
     load();
     return u;

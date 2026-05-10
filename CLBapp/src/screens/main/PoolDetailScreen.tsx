@@ -106,6 +106,27 @@ export default function PoolDetailScreen({ route, navigation }: any) {
     }
   };
 
+  if (!pool) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <ActivityIndicator color={Colors.primary} size="large" />
+        <Text style={styles.loadingText}>Loading pool…</Text>
+      </View>
+    );
+  }
+
+  const supports = supportsAppCreditPool(pool);
+  const claimFee = claimFeeFromPool(pool);
+  const loanCredit = loanCreditFromPool(pool);
+  const members = pool._count?.members ?? pool.memberCount ?? 0;
+  const spendableForFee = depositCredit + userLoanCreditUsd;
+  const needMoreFunds = supports && spendableForFee + 1e-9 < claimFee;
+  const claimReady = supports && !packageMisconfigured && canClaim && !needMoreFunds;
+
+  const goDeposit = () => {
+    navigation.navigate('DepositReceive');
+  };
+
   const handleClaim = () => {
     if (!canClaim || packageMisconfigured) {
       if (packageMisconfigured) {
@@ -138,27 +159,6 @@ export default function PoolDetailScreen({ route, navigation }: any) {
       ]
     );
   };
-
-  const goDeposit = () => {
-    navigation.navigate('DepositReceive');
-  };
-
-  if (!pool) {
-    return (
-      <View style={[styles.container, styles.centered]}>
-        <ActivityIndicator color={Colors.primary} size="large" />
-        <Text style={styles.loadingText}>Loading pool…</Text>
-      </View>
-    );
-  }
-
-  const supports = supportsAppCreditPool(pool);
-  const claimFee = claimFeeFromPool(pool);
-  const loanCredit = loanCreditFromPool(pool);
-  const members = pool._count?.members ?? pool.memberCount ?? 0;
-  const spendableForFee = depositCredit + userLoanCreditUsd;
-  const needMoreFunds = supports && spendableForFee + 1e-9 < claimFee;
-  const claimReady = supports && !packageMisconfigured && canClaim && !needMoreFunds;
 
   return (
     <View style={styles.container}>
