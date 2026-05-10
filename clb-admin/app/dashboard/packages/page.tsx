@@ -71,6 +71,13 @@ const emptyCreateForm = () => ({
   supportsAppCredit: true,
   creditMinUsd: "100",
   creditCreditedUsd: "1000",
+  // Leveraged pool fields
+  heldAsset: "BTC",           // BTC, ETH, BNB - what user holds with leverage
+  leverageRatio: "10",        // 10x, 20x, 30x, 60x
+  phase1Target: "150000",     // Phase 1 liquidation price (e.g., BTC $150K)
+  phase2Target: "200000",     // Phase 2 liquidation price (e.g., BTC $200K)
+  profitSplit: "85/15",       // User/Platform split
+  entryPrice: "90000",        // Current market entry price
 });
 
 export default function PackagesPage() {
@@ -92,6 +99,13 @@ export default function PackagesPage() {
     supportsAppCredit: true,
     creditMinUsd: "100",
     creditCreditedUsd: "1000",
+    // Leveraged pool fields
+    heldAsset: "BTC",
+    leverageRatio: "10",
+    phase1Target: "150000",
+    phase2Target: "200000",
+    profitSplit: "85/15",
+    entryPrice: "90000",
   });
   const [form, setForm] = useState(emptyCreateForm);
 
@@ -203,6 +217,13 @@ export default function PackagesPage() {
       supportsAppCredit: pkg.supportsAppCredit,
       creditMinUsd: pkg.creditMinUsd != null ? String(pkg.creditMinUsd) : String(pkg.minDeposit),
       creditCreditedUsd: pkg.creditCreditedUsd != null ? String(pkg.creditCreditedUsd) : "",
+      // Leveraged pool fields (from description parsing or defaults)
+      heldAsset: pkg.tokenSymbol === "BTCB" ? "BTC" : pkg.tokenSymbol === "ETH" ? "ETH" : "BNB",
+      leverageRatio: "10",
+      phase1Target: "150000",
+      phase2Target: "200000",
+      profitSplit: "85/15",
+      entryPrice: "90000",
     });
     setEditDialogOpen(true);
   };
@@ -429,6 +450,120 @@ export default function PackagesPage() {
                       )}
                     </div>
                   )}
+                </div>
+
+                {/* Leveraged Pool Configuration */}
+                <div className="rounded-lg border border-[#00C853]/30 bg-[#00C853]/5 p-4 space-y-4">
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4 text-[#00C853]" />
+                    <p className="text-sm font-semibold text-white">Leveraged Pool Configuration</p>
+                  </div>
+                  <p className="text-xs text-[#888]">
+                    Define what crypto users will hold with leverage after claiming this pool.
+                  </p>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Held Asset *</Label>
+                      <Select value={form.heldAsset} onValueChange={(v) => { if (v) setForm({ ...form, heldAsset: v }); }}>
+                        <SelectTrigger className="bg-[#0D0D0D] border-[#2A2A2A]"><SelectValue /></SelectTrigger>
+                        <SelectContent className="bg-[#1A1A1A] border-[#2A2A2A]">
+                          <SelectItem value="BTC">Bitcoin (BTC)</SelectItem>
+                          <SelectItem value="ETH">Ethereum (ETH)</SelectItem>
+                          <SelectItem value="BNB">BNB</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-[10px] text-[#666]">Crypto user will hold with leverage</p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Leverage Ratio *</Label>
+                      <Select value={form.leverageRatio} onValueChange={(v) => { if (v) setForm({ ...form, leverageRatio: v }); }}>
+                        <SelectTrigger className="bg-[#0D0D0D] border-[#2A2A2A]"><SelectValue /></SelectTrigger>
+                        <SelectContent className="bg-[#1A1A1A] border-[#2A2A2A]">
+                          <SelectItem value="10">10× (Starter)</SelectItem>
+                          <SelectItem value="20">20× (Silver)</SelectItem>
+                          <SelectItem value="30">30× (Gold)</SelectItem>
+                          <SelectItem value="60">60× (Platinum)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Phase 1 Target ($)</Label>
+                      <Input
+                        type="number"
+                        value={form.phase1Target}
+                        onChange={(e) => setForm({ ...form, phase1Target: e.target.value })}
+                        className="bg-[#0D0D0D] border-[#2A2A2A]"
+                        placeholder="150000"
+                      />
+                      <p className="text-[10px] text-[#666]">Partial exit price (e.g., BTC $150K)</p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Phase 2 Target ($)</Label>
+                      <Input
+                        type="number"
+                        value={form.phase2Target}
+                        onChange={(e) => setForm({ ...form, phase2Target: e.target.value })}
+                        className="bg-[#0D0D0D] border-[#2A2A2A]"
+                        placeholder="200000"
+                      />
+                      <p className="text-[10px] text-[#666]">Full exit price (e.g., BTC $200K)</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Current Entry Price ($)</Label>
+                      <Input
+                        type="number"
+                        value={form.entryPrice}
+                        onChange={(e) => setForm({ ...form, entryPrice: e.target.value })}
+                        className="bg-[#0D0D0D] border-[#2A2A2A]"
+                        placeholder="90000"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Profit Split</Label>
+                      <Select value={form.profitSplit} onValueChange={(v) => { if (v) setForm({ ...form, profitSplit: v }); }}>
+                        <SelectTrigger className="bg-[#0D0D0D] border-[#2A2A2A]"><SelectValue /></SelectTrigger>
+                        <SelectContent className="bg-[#1A1A1A] border-[#2A2A2A]">
+                          <SelectItem value="85/15">85/15 (User/Platform)</SelectItem>
+                          <SelectItem value="80/20">80/20 (User/Platform)</SelectItem>
+                          <SelectItem value="90/10">90/10 (User/Platform)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {/* Preview calculation */}
+                  <div className="p-3 rounded bg-[#0D0D0D] border border-[#2A2A2A]">
+                    <p className="text-xs text-[#888] mb-2">Position Preview:</p>
+                    <div className="text-xs space-y-1">
+                      <div className="flex justify-between">
+                        <span className="text-[#666]">Entry Fee:</span>
+                        <span className="text-white">${form.creditMinUsd || form.minDeposit} USD</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-[#666]">Loan Credit:</span>
+                        <span className="text-[#F0B90B]">${form.creditCreditedUsd} USD</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-[#666]">Leverage:</span>
+                        <span className="text-[#00C853]">{form.leverageRatio}×</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-[#666]">Will Hold:</span>
+                        <span className="text-white">{((parseFloat(form.creditCreditedUsd || '0') / parseFloat(form.entryPrice || '1'))).toFixed(6)} {form.heldAsset}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-[#666]">Phase 1 @ ${parseInt(form.phase1Target).toLocaleString()}:</span>
+                        <span className="text-[#00C853]">85% profit to user</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="space-y-2">

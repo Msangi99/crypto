@@ -8,7 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, FontSize, Spacing, Radius } from '../../constants/theme';
 import { CreditWalletCopy } from '../../constants/creditWalletCopy';
 import Badge from '../../components/ui/Badge';
-import { userAPI, notificationsAPI, creditWalletAPI } from '../../services/api';
+import { userAPI, notificationsAPI, creditWalletAPI, loansAPI } from '../../services/api';
 import { useAuthStore } from '../../store/authStore';
 import { useLivePrices } from '../../hooks/useLivePrices';
 
@@ -47,15 +47,19 @@ export default function HomeScreen({ navigation }: any) {
     swapHoldingsUsd: number;
   } | null>(null);
   const [balanceTab, setBalanceTab] = useState<'deposit' | 'loan' | 'swap'>('swap');
+  const [loans, setLoans] = useState<any[]>([]);
+  const [currency, setCurrency] = useState<'USD' | 'BTC' | 'ETH' | 'BNB'>('USD');
+  const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
 
   const load = useCallback(async () => {
     try {
-      const [d, m, p, n, cr] = await Promise.all([
+      const [d, m, p, n, cr, ln] = await Promise.all([
         userAPI.dashboard(),
         userAPI.market(),
         userAPI.portfolio(),
         notificationsAPI.unreadCount().catch(() => ({ data: { unreadCount: 0 } })),
         creditWalletAPI.balances().catch(() => null),
+        loansAPI.list().catch(() => ({ data: { loans: [] } })),
       ]);
       setDashboard(d.data);
       setMarket(m.data);
@@ -63,6 +67,7 @@ export default function HomeScreen({ navigation }: any) {
       setUnreadCount(n.data.unreadCount ?? 0);
       if (cr?.data?.balances) setCreditBalances(cr.data.balances);
       else setCreditBalances(null);
+      setLoans(ln.data?.loans || []);
     } catch (e) {
       console.error(e);
     }
@@ -113,8 +118,53 @@ export default function HomeScreen({ navigation }: any) {
   const pnlPct = totalInvested > 0 ? ((pnl / totalInvested) * 100).toFixed(2) : '0.00';
 
   /** Aggregated “swapped hold” per asset (from pool / loan → crypto positions). */
+  // Include leveraged pool entry loans as holdings
+  const leveragedHoldings = useMemo(() => {
+    // Debug: log all loans to see what we have
+    if (loans.length > 0) {
+      console.log('All loans:', loans.map((l: any) => ({
+        id: l.id,
+        status: l.status,
+        chain: l.collateralChain,
+        amount: l.collateralAmount,
+        valueUsd: l.collateralValueUsd,
+      })));
+    }
+    const validLoans = loans.filter((l: any) => {
+      const status = (l.status || '').toUpperCase();
+      const chain = (l.collateralChain || '').toUpperCase();
+      const isActive = status === 'ACTIVE' || status === 'PENDING';
+      const isValidChain = ['BTC', 'ETH', 'BNB'].includes(chain);
+      const hasAmount = Number(l.collateralAmount) > 0;
+      const isValid = isActive && isValidChain && hasAmount;
+      if (!isValid && l.collateralChain) {
+        console.log('Filtered out loan:', { status, chain, isActive, isValidChain, hasAmount });
+      }
+      return isValid;
+    });
+    console.log('Valid leveraged loans:', validLoans.length);
+    return validLoans.map((l: any) => {
+      const symbol = (l.collateralChain || '').toUpperCase();
+      const amount = Number(l.collateralAmount || 0);
+      const entryPrice = Number(l.collateralPriceUsd || 0);
+      const valueUsd = Number(l.collateralValueUsd || 0);
+      // Calculate leverage: valueUsd = amount * entryPrice * leverage
+      const notionalValue = amount * entryPrice;
+      const leverage = notionalValue > 0 ? Math.round(valueUsd / notionalValue) : 1;
+      return {
+        symbol,
+        amount,
+        valueUsd,
+        entryPrice,
+        leverage: leverage > 1 ? leverage : 10, // Default 10x if calculation fails
+        isLeveraged: true,
+      };
+    });
+  }, [loans]);
+
   const swappedHoldings = useMemo(() => {
-    const map = new Map<string, { symbol: string; amount: number; valueUsd: number }>();
+    const map = new Map<string, { symbol: string; amount: number; valueUsd: number; entryPrice?: number; leverage?: number; isLeveraged?: boolean }>();
+    // Add portfolio positions
     for (const pos of livePositions) {
       const sym = (pos.symbol || 'BNB').toUpperCase();
       const row = map.get(sym) || { symbol: sym, amount: 0, valueUsd: 0 };
@@ -122,8 +172,18 @@ export default function HomeScreen({ navigation }: any) {
       row.valueUsd += Number(pos.currentValue ?? 0);
       map.set(sym, row);
     }
+    // Add leveraged positions
+    for (const lev of leveragedHoldings) {
+      const row = map.get(lev.symbol) || { ...lev, amount: 0, valueUsd: 0 };
+      row.amount += lev.amount;
+      row.valueUsd += lev.valueUsd;
+      row.entryPrice = lev.entryPrice;
+      row.leverage = lev.leverage;
+      row.isLeveraged = true;
+      map.set(lev.symbol, row);
+    }
     return Array.from(map.values()).sort((a, b) => b.valueUsd - a.valueUsd);
-  }, [livePositions]);
+  }, [livePositions, leveragedHoldings]);
 
   const swappedFromPositionsUsd = useMemo(
     () => swappedHoldings.reduce((s, r) => s + r.valueUsd, 0),
@@ -201,15 +261,40 @@ export default function HomeScreen({ navigation }: any) {
             </View>
             <View style={styles.balanceTop}>
               <Text style={styles.balanceLabel}>{tabLabel}</Text>
-              <TouchableOpacity onPress={() => setBalanceVisible(!balanceVisible)}>
-                <Ionicons name={balanceVisible ? 'eye-outline' : 'eye-off-outline'} size={20} color={Colors.textMuted} />
-              </TouchableOpacity>
+              <View style={styles.balanceControls}>
+                <TouchableOpacity onPress={() => setShowCurrencyPicker(!showCurrencyPicker)} style={styles.currencyBtn}>
+                  <Text style={styles.currencyText}>{currency}</Text>
+                  <Ionicons name="chevron-down" size={14} color={Colors.primary} />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setBalanceVisible(!balanceVisible)}>
+                  <Ionicons name={balanceVisible ? 'eye-outline' : 'eye-off-outline'} size={20} color={Colors.textMuted} />
+                </TouchableOpacity>
+              </View>
             </View>
             <Text style={styles.balanceValue}>
               {balanceVisible
-                ? `$${tabAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                ? (() => {
+                    const amount = tabAmount;
+                    if (currency === 'USD') return `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                    const rate = livePrices[currency.toLowerCase()]?.price || 1;
+                    const converted = amount / rate;
+                    return `${converted.toFixed(currency === 'BTC' ? 6 : 4)} ${currency}`;
+                  })()
                 : '••••••'}
             </Text>
+            {showCurrencyPicker && (
+              <View style={styles.currencyPicker}>
+                {['USD', 'BTC', 'ETH', 'BNB'].map((c) => (
+                  <TouchableOpacity
+                    key={c}
+                    style={[styles.currencyOption, currency === c && styles.currencyOptionActive]}
+                    onPress={() => { setCurrency(c as any); setShowCurrencyPicker(false); }}
+                  >
+                    <Text style={[styles.currencyOptionText, currency === c && styles.currencyOptionTextActive]}>{c}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
             {balanceVisible && balanceTab === 'deposit' ? (
               <Text style={styles.balanceBucketHint}>{CreditWalletCopy.depositHint}</Text>
             ) : balanceVisible && balanceTab === 'loan' ? (
@@ -298,13 +383,19 @@ export default function HomeScreen({ navigation }: any) {
         {/* Swapped crypto (aggregated per coin from leveraged / pool positions) */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Swapped crypto</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Text style={styles.sectionTitle}>Held Crypto</Text>
+              <View style={styles.liveBadgeSmall}>
+                <View style={styles.liveDotSmall} />
+                <Text style={styles.liveTextSmall}>LIVE</Text>
+              </View>
+            </View>
             <TouchableOpacity onPress={() => navigation.navigate('Portfolio')}>
               <Text style={styles.seeAll}>See all</Text>
             </TouchableOpacity>
           </View>
           <Text style={styles.swappedSub}>
-            Holdings after loan → swap (BTC, ETH, BNB, …). Total matches your Swapped balance above.
+            Platform-held crypto from leveraged positions. Updates in real-time with market prices.
           </Text>
           {swappedHoldings.length > 0 ? (
             swappedHoldings.map((row) => (
@@ -316,18 +407,30 @@ export default function HomeScreen({ navigation }: any) {
                 <Ionicons name="swap-horizontal" size={20} color={Colors.primary} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.actType}>Swapped hold (ledger)</Text>
-                <Text style={styles.actTime}>From app balance sync</Text>
+                <Text style={styles.actType}>Swapped Balance</Text>
+                <Text style={styles.actTime}>Ledger position</Text>
               </View>
               <Text style={[styles.actAmount, { color: Colors.textPrimary }]}>
                 ${ledgerSwapUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </Text>
             </View>
+          ) : loans.filter((l: any) => (l.status || '').toUpperCase() === 'PENDING').length > 0 ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="time-outline" size={32} color={Colors.primary} />
+              <Text style={styles.emptyText}>Loan pending confirmation</Text>
+              <Text style={styles.emptyHint}>You have a loan waiting for deposit confirmation. Complete the deposit to see your held crypto.</Text>
+              <TouchableOpacity style={styles.emptyBtn} onPress={() => navigation.navigate('MyLoans')}>
+                <Text style={styles.emptyBtnText}>View My Loans</Text>
+              </TouchableOpacity>
+            </View>
           ) : (
             <View style={styles.emptyState}>
-              <Ionicons name="swap-horizontal-outline" size={32} color={Colors.textMuted} />
-              <Text style={styles.emptyText}>No swapped crypto yet</Text>
-              <Text style={styles.emptyHint}>Open a pool / loan and swap into coins to see them here.</Text>
+              <Ionicons name="cube-outline" size={32} color={Colors.textMuted} />
+              <Text style={styles.emptyText}>No held crypto yet</Text>
+              <Text style={styles.emptyHint}>Go to "Use Your Loan" and select "Enter Leveraged Pool" to open a BTC/ETH/BNB position.</Text>
+              <TouchableOpacity style={styles.emptyBtn} onPress={() => navigation.navigate('LoanHub')}>
+                <Text style={styles.emptyBtnText}>Open Position</Text>
+              </TouchableOpacity>
             </View>
           )}
         </View>
@@ -446,22 +549,33 @@ function MarketChipSkeleton({ label }: { label: string }) {
   );
 }
 
-function SwappedAssetRow({ row }: { row: { symbol: string; amount: number; valueUsd: number } }) {
+function SwappedAssetRow({ row }: { row: { symbol: string; amount: number; valueUsd: number; entryPrice?: number; leverage?: number; isLeveraged?: boolean } }) {
   const icon = (SWAP_COIN_ICONS[row.symbol] || 'cube-outline') as any;
   return (
-    <View style={styles.actRow}>
-      <View style={[styles.actIconBg, { backgroundColor: 'rgba(240,185,11,0.12)' }]}>
-        <Ionicons name={icon} size={20} color={Colors.primary} />
+    <View style={[styles.actRow, row.isLeveraged && styles.leveragedRow]}>
+      <View style={[styles.actIconBg, { backgroundColor: row.isLeveraged ? 'rgba(0,214,161,0.15)' : 'rgba(240,185,11,0.12)' }]}>
+        <Ionicons name={icon} size={20} color={row.isLeveraged ? '#00D6A1' : Colors.primary} />
       </View>
       <View style={{ flex: 1 }}>
-        <Text style={styles.actType}>{row.symbol}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Text style={styles.actType}>{row.symbol}</Text>
+          {row.isLeveraged && row.leverage && (
+            <View style={styles.leverageBadge}>
+              <Text style={styles.leverageBadgeText}>{row.leverage}x</Text>
+            </View>
+          )}
+        </View>
         <Text style={styles.actTime}>
           {row.amount >= 0.0001 ? row.amount.toFixed(6) : row.amount.toFixed(8)} {row.symbol}
+          {row.entryPrice ? ` @ $${row.entryPrice.toLocaleString()}` : ''}
         </Text>
       </View>
-      <Text style={[styles.actAmount, { color: Colors.textPrimary }]}>
-        ${row.valueUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-      </Text>
+      <View style={{ alignItems: 'flex-end' }}>
+        <Text style={[styles.actAmount, { color: Colors.textPrimary }]}>
+          ${row.valueUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        </Text>
+        {row.isLeveraged && <Text style={styles.holdingTag}>Platform Held</Text>}
+      </View>
     </View>
   );
 }
@@ -656,4 +770,95 @@ const styles = StyleSheet.create({
 
   // Skeletons
   skeleton: { height: 14, width: 80, borderRadius: 6, backgroundColor: Colors.bgElevated },
+
+  // Currency selector
+  balanceControls: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  currencyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: Colors.bgElevated,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  currencyText: { fontSize: 12, fontWeight: '700', color: Colors.primary },
+  currencyPicker: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  currencyOption: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: Colors.bgElevated,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  currencyOptionActive: {
+    backgroundColor: Colors.primary + '20',
+    borderColor: Colors.primary,
+  },
+  currencyOptionText: { fontSize: 12, fontWeight: '700', color: Colors.textMuted },
+  currencyOptionTextActive: { color: Colors.primary },
+
+  // Leveraged holdings styling
+  leveragedRow: {
+    borderLeftWidth: 3,
+    borderLeftColor: '#00D6A1',
+    backgroundColor: 'rgba(0,214,161,0.05)',
+  },
+  leverageBadge: {
+    backgroundColor: '#00D6A1',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  leverageBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#000',
+  },
+  holdingTag: {
+    fontSize: 10,
+    color: '#00D6A1',
+    marginTop: 2,
+    fontWeight: '600',
+  },
+  liveBadgeSmall: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(0,214,161,0.15)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  liveDotSmall: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#00D6A1',
+  },
+  liveTextSmall: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#00D6A1',
+  },
+  emptyBtn: {
+    marginTop: Spacing.md,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    backgroundColor: Colors.primary,
+    borderRadius: Radius.md,
+  },
+  emptyBtnText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#000',
+  },
 });

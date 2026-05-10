@@ -256,6 +256,13 @@ export default async function poolRoutes(fastify: FastifyInstance) {
       supportsAppCredit?: boolean;
       creditMinUsd?: number | null;
       creditCreditedUsd?: number | null;
+      // Leveraged pool fields
+      heldAsset?: string;
+      leverageRatio?: number;
+      phase1Target?: number;
+      phase2Target?: number;
+      profitSplit?: string;
+      entryPrice?: number;
     };
   }>(
     '/',
@@ -273,6 +280,13 @@ export default async function poolRoutes(fastify: FastifyInstance) {
         supportsAppCredit?: boolean;
         creditMinUsd?: number | null;
         creditCreditedUsd?: number | null;
+        // Leveraged pool fields
+        heldAsset?: string;
+        leverageRatio?: number;
+        phase1Target?: number;
+        phase2Target?: number;
+        profitSplit?: string;
+        entryPrice?: number;
       };
     }>, reply: FastifyReply) => {
       // Check admin role
@@ -293,6 +307,13 @@ export default async function poolRoutes(fastify: FastifyInstance) {
         supportsAppCredit,
         creditMinUsd,
         creditCreditedUsd,
+        // Leveraged pool fields
+        heldAsset,
+        leverageRatio,
+        phase1Target,
+        phase2Target,
+        profitSplit,
+        entryPrice,
       } = request.body;
 
       const minDep = minDeposit ?? 0;
@@ -341,6 +362,13 @@ export default async function poolRoutes(fastify: FastifyInstance) {
                 creditMinUsd: null,
                 creditCreditedUsd: null,
               }),
+          // Leveraged pool configuration
+          heldAsset: heldAsset || 'BTC',
+          leverageRatio: leverageRatio || 10,
+          phase1Target: phase1Target != null ? new Prisma.Decimal(phase1Target) : null,
+          phase2Target: phase2Target != null ? new Prisma.Decimal(phase2Target) : null,
+          profitSplit: profitSplit || '85/15',
+          entryPrice: entryPrice != null ? new Prisma.Decimal(entryPrice) : null,
         },
       });
 
@@ -364,6 +392,13 @@ export default async function poolRoutes(fastify: FastifyInstance) {
       supportsAppCredit?: boolean;
       creditMinUsd?: number | null;
       creditCreditedUsd?: number | null;
+      // Leveraged pool fields
+      heldAsset?: string;
+      leverageRatio?: number;
+      phase1Target?: number | null;
+      phase2Target?: number | null;
+      profitSplit?: string;
+      entryPrice?: number | null;
     };
   }>(
     '/:id',
@@ -392,6 +427,13 @@ export default async function poolRoutes(fastify: FastifyInstance) {
         supportsAppCredit,
         creditMinUsd,
         creditCreditedUsd,
+        // Leveraged pool fields
+        heldAsset,
+        leverageRatio,
+        phase1Target,
+        phase2Target,
+        profitSplit,
+        entryPrice,
       } = request.body;
 
       const mergedCheck = validatePoolCreditAfterPatch(existing, {
@@ -423,6 +465,13 @@ export default async function poolRoutes(fastify: FastifyInstance) {
           ...(creditCreditedUsd !== undefined && {
             creditCreditedUsd: creditCreditedUsd === null ? null : new Prisma.Decimal(creditCreditedUsd),
           }),
+          // Leveraged pool fields
+          ...(heldAsset !== undefined && { heldAsset }),
+          ...(leverageRatio !== undefined && { leverageRatio }),
+          ...(phase1Target !== undefined && { phase1Target: phase1Target === null ? null : new Prisma.Decimal(phase1Target) }),
+          ...(phase2Target !== undefined && { phase2Target: phase2Target === null ? null : new Prisma.Decimal(phase2Target) }),
+          ...(profitSplit !== undefined && { profitSplit }),
+          ...(entryPrice !== undefined && { entryPrice: entryPrice === null ? null : new Prisma.Decimal(entryPrice) }),
         },
         include: { _count: { select: { members: true } } },
       });

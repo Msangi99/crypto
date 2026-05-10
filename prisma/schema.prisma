@@ -85,6 +85,20 @@ model Pool {
   /// Loan line credited to claimedPoolCreditUsd after claim (e.g. 1000 when fee is 100). Required when supportsAppCredit is true.
   creditCreditedUsd   Decimal? @db.Decimal(36, 18)
 
+  // Leveraged Pool Configuration (for leveraged position pools)
+  /// The crypto asset users will hold with leverage (BTC, ETH, BNB)
+  heldAsset           String?  @default("BTC")
+  /// Leverage multiplier (10x, 20x, 30x, 60x)
+  leverageRatio       Int?     @default(10)
+  /// Phase 1 liquidation target price (e.g., BTC $150,000)
+  phase1Target        Decimal? @db.Decimal(36, 2)
+  /// Phase 2 liquidation target price (e.g., BTC $200,000)
+  phase2Target        Decimal? @db.Decimal(36, 2)
+  /// Profit split ratio (e.g., "85/15" for user/platform)
+  profitSplit         String?  @default("85/15")
+  /// Current market entry price used for calculations
+  entryPrice          Decimal? @db.Decimal(36, 2)
+
   // Relations
   deposits        Deposit[]
   members         PoolMember[]
