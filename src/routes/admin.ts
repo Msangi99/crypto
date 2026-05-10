@@ -109,13 +109,14 @@ const adminSchemas = {
   updateSettings: {
     tags: ['Admin'],
     summary: 'Update platform settings',
-    description: 'Updates global platform configuration flags',
+    description: 'Updates global platform configuration (merge any provided fields)',
     body: {
       type: 'object',
       properties: {
         freePoolsEnabled: { type: 'boolean' },
+        depositTreasuryAddress: { type: ['string', 'null'], description: 'BEP-20 address where users send USDT (Receive flow)' },
+        usdtBep20Address: { type: ['string', 'null'], description: 'USDT contract on BSC; null uses server env default' },
       },
-      required: ['freePoolsEnabled'],
     },
   },
 };
@@ -400,6 +401,8 @@ export default async function adminRoutes(fastify: FastifyInstance) {
         success: true,
         settings: {
           freePoolsEnabled: settings.freePoolsEnabled,
+          depositTreasuryAddress: settings.depositTreasuryAddress,
+          usdtBep20Address: settings.usdtBep20Address,
         },
       };
     }
@@ -407,17 +410,43 @@ export default async function adminRoutes(fastify: FastifyInstance) {
 
   // ─── PUT /admin/settings — update platform settings ─────
   fastify.put<{
-    Body: { freePoolsEnabled: boolean };
+    Body: {
+      freePoolsEnabled?: boolean;
+      depositTreasuryAddress?: string | null;
+      usdtBep20Address?: string | null;
+    };
   }>(
     '/settings',
     { schema: adminSchemas.updateSettings, preHandler: [adminMiddleware] },
-    async (request) => {
+    async (request, reply) => {
+      const b = request.body || {};
+      if (
+        b.freePoolsEnabled === undefined &&
+        b.depositTreasuryAddress === undefined &&
+        b.usdtBep20Address === undefined
+      ) {
+        return reply.status(400).send({
+          success: false,
+          error: 'Provide at least one setting to update',
+        });
+      }
+
       const settings = await prisma.platformSettings.upsert({
         where: { id: 'default' },
-        update: { freePoolsEnabled: request.body.freePoolsEnabled },
+        update: {
+          ...(b.freePoolsEnabled !== undefined && { freePoolsEnabled: b.freePoolsEnabled }),
+          ...(b.depositTreasuryAddress !== undefined && {
+            depositTreasuryAddress: b.depositTreasuryAddress,
+          }),
+          ...(b.usdtBep20Address !== undefined && { usdtBep20Address: b.usdtBep20Address }),
+        },
         create: {
           id: 'default',
-          freePoolsEnabled: request.body.freePoolsEnabled,
+          freePoolsEnabled: b.freePoolsEnabled ?? false,
+          ...(b.depositTreasuryAddress !== undefined && {
+            depositTreasuryAddress: b.depositTreasuryAddress,
+          }),
+          ...(b.usdtBep20Address !== undefined && { usdtBep20Address: b.usdtBep20Address }),
         },
       });
 
@@ -425,6 +454,8 @@ export default async function adminRoutes(fastify: FastifyInstance) {
         success: true,
         settings: {
           freePoolsEnabled: settings.freePoolsEnabled,
+          depositTreasuryAddress: settings.depositTreasuryAddress,
+          usdtBep20Address: settings.usdtBep20Address,
         },
       };
     }

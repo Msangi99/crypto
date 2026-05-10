@@ -24,6 +24,18 @@ export const env = {
   BSC_RPC_URL: envValue('BSC_RPC_URL', 'https://bsc-dataseed1.binance.org'),
   BSC_TESTNET_RPC_URL: envValue('BSC_TESTNET_RPC_URL', 'https://data-seed-prebsc-1-s1.binance.org:8545'),
   CHAIN_ID: parseInt(envValue('CHAIN_ID', '97'), 10),
+  /** BEP-20 USDT contract (mainnet / testnet default by CHAIN_ID). Overridable in admin Platform Settings. */
+  USDT_BEP20_ADDRESS: envValue(
+    'USDT_BEP20_ADDRESS',
+    parseInt(envValue('CHAIN_ID', '97'), 10) === 56
+      ? '0x55d398326f99059fF775485246099027B3197955'
+      : '0x337610d27c682E347C9cD60BD4b3b107C9d34dDd'
+  ),
+  /** Min block confirmations before crediting treasury USDT deposits. */
+  USDT_DEPOSIT_MIN_CONFIRMATIONS: parseInt(
+    envValue('USDT_DEPOSIT_MIN_CONFIRMATIONS', parseInt(envValue('CHAIN_ID', '97'), 10) === 56 ? '12' : '3'),
+    10
+  ),
   POOL_MANAGER_CONTRACT: envValue('POOL_MANAGER_CONTRACT'),
   PRIVATE_KEY: envValue('PRIVATE_KEY'),
   CLB_TOKEN_ADDRESS: envValue('CLB_TOKEN_ADDRESS'),

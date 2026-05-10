@@ -112,6 +112,55 @@ export const poolsAPI = {
   detail: (id: string) => api.get(`/api/pools/${id}`),
   deposit: (poolId: string, amount: number, txHash?: string) =>
     api.post(`/api/pools/${poolId}/deposit`, { amount, ...(txHash ? { txHash } : {}) }),
+  claimCredit: (poolId: string) =>
+    api.post(`/api/pools/${poolId}/claim-credit`),
+};
+
+// ─── Credit wallet (BEP-20 USDT receive → in-app balance; pool claim) ───
+export const creditWalletAPI = {
+  config: () =>
+    api.get<{
+      success: boolean;
+      config: {
+        chainId: number;
+        networkLabel: string;
+        assetSymbol: string;
+        assetStandard: string;
+        usdtContractAddress: string;
+        treasuryAddress: string | null;
+        minConfirmations: number;
+        treasuryConfigured: boolean;
+      };
+    }>('/api/credit-wallet/config'),
+  balances: () =>
+    api.get<{
+      success: boolean;
+      balances: {
+        depositCreditUsd: number;
+        claimedPoolCreditUsd: number;
+        swapHoldingsUsd: number;
+      };
+    }>('/api/credit-wallet/balances'),
+  confirmDeposit: (txHash: string) =>
+    api.post<{
+      success: boolean;
+      creditedUsd?: number;
+      newDepositCreditUsd?: number;
+      error?: string;
+    }>('/api/credit-wallet/confirm-deposit', { txHash }),
+  poolEligibility: () =>
+    api.get<{
+      success: boolean;
+      depositCreditUsd: number;
+      pools: Array<{
+        poolId: string;
+        name: string;
+        supportsAppCredit: boolean;
+        creditMinUsd: number;
+        creditCreditedUsd: number;
+        canClaimWithCredit: boolean;
+      }>;
+    }>('/api/credit-wallet/pool-eligibility'),
 };
 
 // ─── Price ────────────────────────────────────────────────

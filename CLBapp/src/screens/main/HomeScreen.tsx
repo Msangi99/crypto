@@ -7,7 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, FontSize, Spacing, Radius } from '../../constants/theme';
 import Badge from '../../components/ui/Badge';
-import { userAPI, notificationsAPI } from '../../services/api';
+import { userAPI, notificationsAPI, creditWalletAPI } from '../../services/api';
 import { useAuthStore } from '../../store/authStore';
 import { useLivePrices } from '../../hooks/useLivePrices';
 
@@ -22,19 +22,28 @@ export default function HomeScreen({ navigation }: any) {
   const [refreshing, setRefreshing] = useState(false);
   const [balanceVisible, setBalanceVisible] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [creditBalances, setCreditBalances] = useState<{
+    depositCreditUsd: number;
+    claimedPoolCreditUsd: number;
+    swapHoldingsUsd: number;
+  } | null>(null);
+  const [balanceTab, setBalanceTab] = useState<'deposit' | 'loan' | 'swap'>('deposit');
 
   const load = useCallback(async () => {
     try {
-      const [d, m, p, n] = await Promise.all([
+      const [d, m, p, n, cr] = await Promise.all([
         userAPI.dashboard(),
         userAPI.market(),
         userAPI.portfolio(),
         notificationsAPI.unreadCount().catch(() => ({ data: { unreadCount: 0 } })),
+        creditWalletAPI.balances().catch(() => null),
       ]);
       setDashboard(d.data);
       setMarket(m.data);
       setPortfolio(p.data);
       setUnreadCount(n.data.unreadCount ?? 0);
+      if (cr?.data?.balances) setCreditBalances(cr.data.balances);
+      else setCreditBalances(null);
     } catch (e) {
       console.error(e);
     }
@@ -84,6 +93,15 @@ export default function HomeScreen({ navigation }: any) {
   const pnl = totalValue - totalInvested;
   const pnlPct = totalInvested > 0 ? ((pnl / totalInvested) * 100).toFixed(2) : '0.00';
 
+  const tabAmount =
+    balanceTab === 'deposit'
+      ? creditBalances?.depositCreditUsd ?? 0
+      : balanceTab === 'loan'
+        ? creditBalances?.claimedPoolCreditUsd ?? 0
+        : creditBalances?.swapHoldingsUsd ?? 0;
+  const tabLabel =
+    balanceTab === 'deposit' ? 'Deposit balance' : balanceTab === 'loan' ? 'Loan balance' : 'Swapped hold';
+
   return (
     <View style={styles.container}>
       <ScrollView
@@ -114,16 +132,43 @@ export default function HomeScreen({ navigation }: any) {
             </TouchableOpacity>
           </View>
 
-          {/* Portfolio Balance */}
+          {/* Portfolio Balance — tabbed credit buckets + total */}
           <View style={styles.balanceSection}>
+            <View style={styles.balanceTabs}>
+              {(
+                [
+                  { key: 'deposit' as const, short: 'Deposit', full: 'Deposit balance' },
+                  { key: 'loan' as const, short: 'Loan', full: 'Loan balance' },
+                  { key: 'swap' as const, short: 'Swapped', full: 'Swapped hold' },
+                ]
+              ).map((t) => (
+                <TouchableOpacity
+                  key={t.key}
+                  style={[styles.balanceTab, balanceTab === t.key && styles.balanceTabActive]}
+                  onPress={() => setBalanceTab(t.key)}
+                  activeOpacity={0.85}
+                >
+                  <Text style={[styles.balanceTabText, balanceTab === t.key && styles.balanceTabTextActive]} numberOfLines={1}>
+                    {t.short}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
             <View style={styles.balanceTop}>
-              <Text style={styles.balanceLabel}>Total Portfolio Value</Text>
+              <Text style={styles.balanceLabel}>{tabLabel}</Text>
               <TouchableOpacity onPress={() => setBalanceVisible(!balanceVisible)}>
                 <Ionicons name={balanceVisible ? 'eye-outline' : 'eye-off-outline'} size={20} color={Colors.textMuted} />
               </TouchableOpacity>
             </View>
             <Text style={styles.balanceValue}>
-              {balanceVisible ? `$${totalValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '••••••'}
+              {balanceVisible
+                ? `$${tabAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                : '••••••'}
+            </Text>
+            <Text style={styles.balancePortfolioFoot}>
+              {balanceVisible
+                ? `Portfolio total $${totalValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                : ' '}
             </Text>
             <View style={styles.pnlRow}>
               <View style={[styles.pnlBadge, pnl >= 0 ? styles.pnlBadgeProfit : styles.pnlBadgeLoss]}>
@@ -165,7 +210,7 @@ export default function HomeScreen({ navigation }: any) {
               { icon: 'wallet-outline', label: 'CLB Tokens', screen: 'WalletTokens' },
               { icon: 'hardware-chip-outline', label: 'Mine CLB', screen: 'MiningClb' },
               { icon: 'cash-outline', label: 'Get Loan', screen: 'LoanRequest' },
-              { icon: 'add-circle-outline', label: 'Deposit', screen: 'Pools' },
+              { icon: 'add-circle-outline', label: 'Deposit', screen: 'DepositReceive' },
               { icon: 'people-outline', label: 'Referrals', screen: 'Referrals' },
             ].map((a) => (
               <TouchableOpacity key={a.label} style={styles.qaItem} onPress={() => navigation.navigate(a.screen)}>
@@ -388,9 +433,39 @@ const styles = StyleSheet.create({
   balanceSection: {
     marginHorizontal: Spacing.lg, alignItems: 'center', gap: 8, paddingVertical: Spacing.md,
   },
+  balanceTabs: {
+    flexDirection: 'row',
+    width: '100%',
+    gap: 6,
+    marginBottom: Spacing.sm,
+  },
+  balanceTab: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+    borderRadius: Radius.md,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    alignItems: 'center',
+  },
+  balanceTabActive: {
+    backgroundColor: 'rgba(240,185,11,0.18)',
+    borderColor: 'rgba(240,185,11,0.45)',
+  },
+  balanceTabText: { fontSize: 12, fontWeight: '700', color: Colors.textMuted },
+  balanceTabTextActive: { color: Colors.primary },
   balanceTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%' },
   balanceLabel: { fontSize: 13, fontWeight: '600', color: Colors.textMuted },
   balanceValue: { fontSize: 40, fontWeight: '900', color: Colors.textPrimary, letterSpacing: -1 },
+  balancePortfolioFoot: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.textMuted,
+    alignSelf: 'center',
+    marginTop: -4,
+    marginBottom: 4,
+  },
 
   // P&L
   pnlRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },

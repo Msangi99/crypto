@@ -343,6 +343,9 @@ export default async function poolRoutes(fastify: FastifyInstance) {
       name?: string; description?: string; tokenSymbol?: string;
       minDeposit?: number; maxDeposit?: number; apy?: number;
       status?: string; endDate?: string;
+      supportsAppCredit?: boolean;
+      creditMinUsd?: number | null;
+      creditCreditedUsd?: number | null;
     };
   }>(
     '/:id',
@@ -358,7 +361,19 @@ export default async function poolRoutes(fastify: FastifyInstance) {
         return reply.status(404).send({ success: false, error: 'Pool not found' });
       }
 
-      const { name, description, tokenSymbol, minDeposit, maxDeposit, apy, status, endDate } = request.body;
+      const {
+        name,
+        description,
+        tokenSymbol,
+        minDeposit,
+        maxDeposit,
+        apy,
+        status,
+        endDate,
+        supportsAppCredit,
+        creditMinUsd,
+        creditCreditedUsd,
+      } = request.body;
 
       const pool = await prisma.pool.update({
         where: { id: request.params.id },
@@ -371,6 +386,13 @@ export default async function poolRoutes(fastify: FastifyInstance) {
           ...(apy !== undefined && { apy }),
           ...(status !== undefined && { status: status as 'ACTIVE' | 'PAUSED' | 'COMPLETED' | 'CANCELLED' }),
           ...(endDate !== undefined && { endDate: new Date(endDate) }),
+          ...(supportsAppCredit !== undefined && { supportsAppCredit }),
+          ...(creditMinUsd !== undefined && {
+            creditMinUsd: creditMinUsd === null ? null : new Prisma.Decimal(creditMinUsd),
+          }),
+          ...(creditCreditedUsd !== undefined && {
+            creditCreditedUsd: creditCreditedUsd === null ? null : new Prisma.Decimal(creditCreditedUsd),
+          }),
         },
       });
 
@@ -483,6 +505,118 @@ export default async function poolRoutes(fastify: FastifyInstance) {
       });
 
       return reply.status(201).send({ success: true, deposit: result });
+    }
+  );
+
+  // POST /pools/:id/claim-credit — stake into pool using in-app USDT credit (no on-chain pool tx)
+  fastify.post<{ Params: { id: string } }>(
+    '/:id/claim-credit',
+    { preHandler: [authMiddleware] },
+    async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+      const { id: poolId } = request.params;
+
+      const pool = await prisma.pool.findUnique({ where: { id: poolId } });
+      if (!pool) {
+        return reply.status(404).send({ success: false, error: 'Pool not found' });
+      }
+      if (pool.status !== 'ACTIVE') {
+        return reply.status(400).send({ success: false, error: 'Pool is not active' });
+      }
+      if (!pool.supportsAppCredit) {
+        return reply.status(400).send({
+          success: false,
+          error: 'This pool does not support in-app credit claim',
+        });
+      }
+
+      const creditMin = new Prisma.Decimal((pool.creditMinUsd ?? pool.minDeposit).toString());
+      const creditGive = new Prisma.Decimal(
+        (pool.creditCreditedUsd ?? pool.creditMinUsd ?? pool.minDeposit).toString()
+      );
+
+      try {
+        const out = await prisma.$transaction(async (tx) => {
+          const user = await tx.user.findUnique({ where: { id: request.userId! } });
+          if (!user) throw new Error('USER_NOT_FOUND');
+          const avail = new Prisma.Decimal(user.depositCreditUsd.toString());
+          if (avail.lt(creditMin)) throw new Error('INSUFFICIENT_CREDIT');
+
+          await tx.user.update({
+            where: { id: user.id },
+            data: {
+              depositCreditUsd: { decrement: creditMin },
+              claimedPoolCreditUsd: { increment: creditGive },
+            },
+          });
+
+          const dep = await tx.deposit.create({
+            data: {
+              userId: user.id,
+              poolId,
+              amount: creditMin,
+              amountUsd: creditMin,
+              chain: 'BSC',
+              status: 'CONFIRMED',
+              confirmations: 1,
+              confirmedAt: new Date(),
+              txHash: null,
+            },
+          });
+
+          await tx.transaction.create({
+            data: {
+              userId: user.id,
+              type: 'DEPOSIT',
+              amount: creditMin,
+              status: 'SUCCESS',
+              metadata: {
+                poolId,
+                source: 'APP_CREDIT_CLAIM',
+                creditedClaimedUsd: creditGive.toString(),
+              },
+            },
+          });
+
+          await tx.poolMember.upsert({
+            where: { userId_poolId: { userId: user.id, poolId } },
+            create: { userId: user.id, poolId, share: creditMin },
+            update: { share: { increment: creditMin } },
+          });
+
+          await tx.pool.update({
+            where: { id: poolId },
+            data: { totalStaked: { increment: creditMin } },
+          });
+
+          const refreshed = await tx.user.findUnique({
+            where: { id: user.id },
+            select: { depositCreditUsd: true, claimedPoolCreditUsd: true },
+          });
+
+          return { deposit: dep, balances: refreshed };
+        });
+
+        return {
+          success: true,
+          deposit: out.deposit,
+          balances: {
+            depositCreditUsd: Number(out.balances?.depositCreditUsd ?? 0),
+            claimedPoolCreditUsd: Number(out.balances?.claimedPoolCreditUsd ?? 0),
+          },
+        };
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : '';
+        if (msg === 'INSUFFICIENT_CREDIT') {
+          return reply.status(400).send({
+            success: false,
+            error: 'Insufficient deposit credit for this pool minimum',
+          });
+        }
+        if (msg === 'USER_NOT_FOUND') {
+          return reply.status(404).send({ success: false, error: 'User not found' });
+        }
+        throw e;
+      }
     }
   );
 }

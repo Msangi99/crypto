@@ -1,13 +1,13 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, RefreshControl,
-  TouchableOpacity, TextInput,
+  TouchableOpacity, TextInput, Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, FontSize, Spacing, Radius } from '../../constants/theme';
 import Badge from '../../components/ui/Badge';
-import { poolsAPI } from '../../services/api';
+import { poolsAPI, creditWalletAPI } from '../../services/api';
 
 const COIN_ICONS: Record<string, string> = {
   BTC: 'logo-bitcoin',
@@ -39,6 +39,9 @@ function CoinIcon({ symbol }: { symbol: string }) {
 
 export default function PoolsScreen({ navigation }: any) {
   const [pools, setPools] = useState<any>([]);
+  const [eligibility, setEligibility] = useState<Record<string, { canClaimWithCredit: boolean; creditMinUsd: number }>>(
+    {}
+  );
   const [refreshing, setRefreshing] = useState(false);
   const [activeFilter, setActiveFilter] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
@@ -63,12 +66,47 @@ export default function PoolsScreen({ navigation }: any) {
 
   const load = useCallback(async () => {
     try {
-      const res = await poolsAPI.list();
+      const [res, elRes] = await Promise.all([
+        poolsAPI.list(),
+        creditWalletAPI.poolEligibility().catch(() => ({ data: { pools: [] as any[] } })),
+      ]);
       setPools(res.data?.data ?? []);
+      const map: Record<string, { canClaimWithCredit: boolean; creditMinUsd: number }> = {};
+      for (const row of elRes.data?.pools ?? []) {
+        map[row.poolId] = {
+          canClaimWithCredit: Boolean(row.canClaimWithCredit),
+          creditMinUsd: Number(row.creditMinUsd ?? 0),
+        };
+      }
+      setEligibility(map);
     } catch (e) {
       console.error('Failed to load pools:', e);
     }
   }, []);
+
+  const handleClaimCredit = (pool: any) => {
+    const el = eligibility[pool.id];
+    if (!el?.canClaimWithCredit) return;
+    Alert.alert(
+      'Claim with credit',
+      `Use your in-app deposit balance to open this pool? Minimum credit: $${el.creditMinUsd}.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Claim',
+          onPress: async () => {
+            try {
+              await poolsAPI.claimCredit(pool.id);
+              Alert.alert('Done', 'Pool opened with in-app credit.');
+              await load();
+            } catch (e: any) {
+              Alert.alert('Claim failed', e?.response?.data?.error || e?.message || 'Error');
+            }
+          },
+        },
+      ]
+    );
+  };
 
   useEffect(() => {
     load();
@@ -205,46 +243,57 @@ export default function PoolsScreen({ navigation }: any) {
             <Text style={styles.emptyText}>Check back later for new liquidity pools</Text>
           </View>
         ) : (
-          filteredPools.map((pool: any) => (
-            <TouchableOpacity
-              key={pool.id}
-              onPress={() => navigation.navigate('PoolDetail', { poolId: pool.id })}
-              activeOpacity={0.85}
-            >
-              <View style={styles.poolCard}>
-                <View style={styles.poolHeader}>
-                  <CoinIcon symbol={pool.tokenSymbol} />
-                  <View style={{ flex: 1, marginLeft: Spacing.md }}>
-                    <Text style={styles.poolName}>{pool.name}</Text>
-                    <View style={styles.poolTokenRow}>
-                      <Text style={styles.poolToken}>{pool.tokenSymbol}</Text>
-                      <View style={styles.poolDot} />
-                      <Badge
-                        label={pool.status || 'Active'}
-                        variant={pool.status === 'ACTIVE' ? 'success' : 'warning'}
-                      />
+          filteredPools.map((pool: any) => {
+            const el = eligibility[pool.id];
+            return (
+              <View key={pool.id} style={styles.poolCard}>
+                <TouchableOpacity
+                  onPress={() => navigation.navigate('PoolDetail', { poolId: pool.id })}
+                  activeOpacity={0.85}
+                >
+                  <View style={styles.poolHeader}>
+                    <CoinIcon symbol={pool.tokenSymbol} />
+                    <View style={{ flex: 1, marginLeft: Spacing.md }}>
+                      <Text style={styles.poolName}>{pool.name}</Text>
+                      <View style={styles.poolTokenRow}>
+                        <Text style={styles.poolToken}>{pool.tokenSymbol}</Text>
+                        <View style={styles.poolDot} />
+                        <Badge
+                          label={pool.status || 'Active'}
+                          variant={pool.status === 'ACTIVE' ? 'success' : 'warning'}
+                        />
+                      </View>
+                    </View>
+                    <View style={styles.poolApyBox}>
+                      <Text style={styles.poolApyValue}>{pool.apy}%</Text>
+                      <Text style={styles.poolApyLabel}>APY</Text>
                     </View>
                   </View>
-                  <View style={styles.poolApyBox}>
-                    <Text style={styles.poolApyValue}>{pool.apy}%</Text>
-                    <Text style={styles.poolApyLabel}>APY</Text>
-                  </View>
-                </View>
 
-                <View style={styles.poolMetrics}>
-                  <Metric label="Min Deposit" value={`$${pool.minDeposit}`} />
-                  <Metric label="TVL" value={`$${Number(pool.totalStaked).toLocaleString()}`} />
-                  <Metric label="Members" value={`${pool._count?.members || pool.memberCount || 0}`} />
-                </View>
+                  <View style={styles.poolMetrics}>
+                    <Metric label="Min Deposit" value={`$${pool.minDeposit}`} />
+                    <Metric label="TVL" value={`$${Number(pool.totalStaked).toLocaleString()}`} />
+                    <Metric label="Members" value={`${pool._count?.members || pool.memberCount || 0}`} />
+                  </View>
+                </TouchableOpacity>
 
                 <View style={styles.poolFooter}>
-                  <Ionicons name="people-outline" size={13} color={Colors.textMuted} />
-                  <Text style={styles.poolMemberText}>{pool._count?.members || pool.memberCount || 0} members</Text>
-                  <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
+                  <View style={styles.poolFooterLeft}>
+                    <Ionicons name="people-outline" size={13} color={Colors.textMuted} />
+                    <Text style={styles.poolMemberText}>{pool._count?.members || pool.memberCount || 0} members</Text>
+                  </View>
+                  {el?.canClaimWithCredit ? (
+                    <TouchableOpacity style={styles.claimPill} onPress={() => handleClaimCredit(pool)}>
+                      <Text style={styles.claimPillText}>Claim</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                  <TouchableOpacity onPress={() => navigation.navigate('PoolDetail', { poolId: pool.id })}>
+                    <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
+                  </TouchableOpacity>
                 </View>
               </View>
-            </TouchableOpacity>
-          ))
+            );
+          })
         )}
       </ScrollView>
     </View>
@@ -422,7 +471,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 6,
     paddingTop: Spacing.sm, borderTopWidth: 1, borderTopColor: Colors.border,
   },
-  poolMemberText: { fontSize: 12, color: Colors.textSecondary, flex: 1 },
+  poolFooterLeft: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1, minWidth: 0 },
+  poolMemberText: { fontSize: 12, color: Colors.textSecondary, flexShrink: 1 },
+  claimPill: {
+    marginRight: Spacing.sm,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 99,
+    backgroundColor: 'rgba(240,185,11,0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(240,185,11,0.45)',
+  },
+  claimPillText: { fontSize: 12, fontWeight: '800', color: Colors.primary },
 
   // Empty
   empty: { alignItems: 'center', gap: Spacing.sm, paddingVertical: 80 },

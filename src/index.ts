@@ -1,5 +1,7 @@
+import path from 'path';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
+import fastifyStatic from '@fastify/static';
 import jwt from '@fastify/jwt';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
@@ -24,6 +26,7 @@ import tokenRoutes from './routes/tokens';
 import withdrawalRoutes from './routes/withdrawals';
 import miningPackageRoutes from './routes/miningPackages';
 import userMiningRoutes from './routes/userMining';
+import creditWalletRoutes from './routes/creditWallet';
 
 const buildApp = async () => {
   const fastify = Fastify({
@@ -82,6 +85,7 @@ const buildApp = async () => {
         { name: 'Transactions', description: 'Transaction history' },
         { name: 'User Dashboard', description: 'User personal dashboard, portfolio, referrals & market data' },
         { name: 'Health', description: 'System health checks' },
+        { name: 'Credit Wallet', description: 'BEP-20 USDT treasury receive, in-app balances, pool credit claim' },
       ],
     },
   });
@@ -184,10 +188,11 @@ const buildApp = async () => {
   await fastify.register(withdrawalRoutes, { prefix: '/api/withdrawals' });
   await fastify.register(miningPackageRoutes, { prefix: '/api/mining-packages' });
   await fastify.register(userMiningRoutes, { prefix: '/api/mining' });
+  await fastify.register(creditWalletRoutes, { prefix: '/api/credit-wallet' });
 
-  // ─── Root Route ────────────────────────────────
-  fastify.get('/', async () => {
-    return {
+  // ─── Root: JSON discovery (production) or static DApp (development) ──
+  if (env.NODE_ENV !== 'development') {
+    fastify.get('/', async () => ({
       name: 'CLB DApp Backend',
       version: '1.0.0',
       docs: `/docs`,
@@ -205,9 +210,20 @@ const buildApp = async () => {
         withdrawals: '/api/withdrawals',
         miningPackages: '/api/mining-packages',
         mining: '/api/mining',
+        creditWallet: '/api/credit-wallet',
       },
-    };
-  });
+    }));
+  }
+
+  // Serve `app.cryptoloanboost.com/` from API origin in dev so DApp + `/api/*` share localhost
+  if (env.NODE_ENV === 'development') {
+    const dappRoot = path.join(__dirname, '..', 'app.cryptoloanboost.com');
+    await fastify.register(fastifyStatic, {
+      root: dappRoot,
+      prefix: '/',
+      decorateReply: false,
+    });
+  }
 
   return fastify;
 };

@@ -1,3 +1,4 @@
+import { LoanType } from '@prisma/client';
 import prisma from '../config/db';
 import { priceService } from './priceService';
 import { tokenService } from './tokenService';
@@ -81,7 +82,7 @@ export const liquidationService = {
 
       // ═══ CHECK 1: FIXED LOANS (target price settlement) ═══
       const fixedLoans = await prisma.loan.findMany({
-        where: { status: 'ACTIVE', loanType: 'FIXED_LOAN' },
+        where: { status: 'ACTIVE', loanType: LoanType.FIXED_LOAN },
         include: { user: { select: { id: true, walletAddress: true } } },
       });
 

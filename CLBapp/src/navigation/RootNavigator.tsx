@@ -24,6 +24,7 @@ import LoanRequestScreen from '../screens/main/LoanRequestScreen';
 import MyLoansScreen from '../screens/main/MyLoansScreen';
 import TransferTokensScreen from '../screens/main/TransferTokensScreen';
 import WithdrawScreen from '../screens/main/WithdrawScreen';
+import DepositReceiveScreen from '../screens/main/DepositReceiveScreen';
 import { Colors } from '../constants/theme';
 
 const Stack = createStackNavigator();
@@ -130,6 +131,9 @@ export default function RootNavigator() {
               options={{ headerShown: false }}
             />
             <Stack.Screen name="Withdraw" component={WithdrawScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen name="DepositReceive" component={DepositReceiveScreen}
               options={{ headerShown: false }}
             />
           </>

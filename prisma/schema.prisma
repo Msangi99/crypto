@@ -47,6 +47,11 @@ model User {
   creditDraws   CreditDraw[]
   miningSubscription UserMiningSubscription?
 
+  // In-app USD credit (BEP-20 USDT → treasury) and pool-claim ledger (see credit-wallet API)
+  depositCreditUsd       Decimal @default(0) @db.Decimal(36, 18)
+  claimedPoolCreditUsd   Decimal @default(0) @db.Decimal(36, 18)
+  swapHoldingsUsd        Decimal @default(0) @db.Decimal(36, 18)
+
   @@map("users")
 }
 
@@ -72,6 +77,13 @@ model Pool {
   endDate         DateTime?
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
+
+  /// When true, user can "Claim" this pool using in-app USDT credit (depositCreditUsd) instead of on-chain pool tx.
+  supportsAppCredit   Boolean  @default(false)
+  /// Minimum USD credit required to claim (defaults to minDeposit if null).
+  creditMinUsd        Decimal? @db.Decimal(36, 18)
+  /// USD credited to claimedPoolCreditUsd after a successful app-credit claim (defaults to credit min if null).
+  creditCreditedUsd   Decimal? @db.Decimal(36, 18)
 
   // Relations
   deposits        Deposit[]
@@ -393,6 +405,10 @@ enum WithdrawalStatus {
 model PlatformSettings {
   id               String   @id @default("default")
   freePoolsEnabled Boolean  @default(false)
+  /// BEP-20 treasury address where users send USDT (Receive flow). Set in admin.
+  depositTreasuryAddress String?
+  /// USDT contract on BSC/BSC testnet (defaults from env if null).
+  usdtBep20Address       String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
