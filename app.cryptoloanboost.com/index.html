@@ -571,8 +571,9 @@
           <div style="font-size:18px;font-weight:700;word-break:break-all;margin-bottom:10px;" id="walletAddress">Not connected</div>
           <div class="grid-3" style="gap:10px;">
             <div class="metric" style="border:1px solid var(--border);border-radius:12px;padding:10px;background:rgba(255,255,255,0.02);">
-              <div style="color:var(--muted);font-size:12px;">Chain ID</div>
-              <div style="font-weight:700;margin-top:4px;" id="network">Unknown</div>
+              <div style="color:var(--muted);font-size:12px;">Network</div>
+              <div style="font-weight:700;margin-top:4px;font-size:12px;line-height:1.35;" id="network">Not connected</div>
+              <div style="color:var(--faint);font-size:11px;margin-top:6px;line-height:1.4;">Same 0x address on Ethereum &amp; BSC — CLB tokens &amp; pools use <strong style="color:var(--muted);">BSC (BEP-20)</strong>.</div>
             </div>
             <div class="metric" style="border:1px solid var(--border);border-radius:12px;padding:10px;background:rgba(255,255,255,0.02);">
               <div style="color:var(--muted);font-size:12px;">Connection</div>
@@ -695,6 +696,40 @@
       let charts = {};
       const JWT_KEY = 'clb_dapp_jwt';
       const BSC_CHAIN_HEX = '0x38';
+      const BSC_CHAIN_DEC = 56;
+
+      /** JSON-RPC chainId can be hex string (0x38) or rarely decimal; normalize to lowercase hex. */
+      function normalizeChainId(chainId) {
+        if (chainId == null || chainId === '') return '';
+        const s = String(chainId).trim();
+        if (/^0x[0-9a-fA-F]+$/i.test(s) && s.length > 2) {
+          try {
+            return '0x' + BigInt(s).toString(16);
+          } catch (_) {
+            return s.toLowerCase();
+          }
+        }
+        const n = parseInt(s, 10);
+        if (!Number.isNaN(n) && n >= 0) return '0x' + n.toString(16);
+        return s.toLowerCase();
+      }
+      function describeChain(chainId) {
+        const h = normalizeChainId(chainId);
+        const map = {
+          '0x1': 'Ethereum Mainnet',
+          '0x5': 'Goerli',
+          '0xaa36a7': 'Sepolia',
+          '0x38': 'BNB Smart Chain (BSC)',
+          '0x61': 'BSC Testnet',
+          '0x89': 'Polygon',
+          '0xa4b1': 'Arbitrum One',
+        };
+        return map[h] || ('Chain ' + (h || String(chainId)));
+      }
+      function isBscChain(chainId) {
+        const h = normalizeChainId(chainId);
+        return h === BSC_CHAIN_HEX || h === '0x' + BSC_CHAIN_DEC.toString(16);
+      }
 
       function getClbToken() {
         try { return localStorage.getItem(JWT_KEY); } catch (_) { return null; }
@@ -725,6 +760,7 @@
       async function ensureBsc(eth) {
         try {
           await eth.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: BSC_CHAIN_HEX }] });
+          return { ok: true, reason: '' };
         } catch (e) {
           if (e && e.code === 4902) {
             try {
@@ -738,8 +774,28 @@
                   blockExplorerUrls: ['https://bscscan.com'],
                 }],
               });
-            } catch (_) {}
+              return { ok: true, reason: '' };
+            } catch (e2) {
+              return { ok: false, reason: (e2 && e2.message) || 'add chain failed' };
+            }
           }
+          if (e && (e.code === 4001 || e.code === 'ACTION_REJECTED')) {
+            return { ok: false, reason: 'rejected' };
+          }
+          return { ok: false, reason: (e && e.message) || 'switch failed' };
+        }
+      }
+
+      async function refreshNetworkLabel(eth) {
+        if (!eth) return;
+        try {
+          const chainId = await eth.request({ method: 'eth_chainId' });
+          const h = normalizeChainId(chainId);
+          const name = describeChain(chainId);
+          const tail = isBscChain(chainId) ? '' : ' — CLB on-chain = BSC; signing in still works.';
+          document.getElementById('network').textContent = name + ' (' + h + ')' + tail;
+        } catch (_) {
+          document.getElementById('network').textContent = 'Could not read chain';
         }
       }
 
@@ -750,31 +806,55 @@
         return fetch(`${apiBase}${path}`, Object.assign({}, opts, { headers }));
       }
 
+      async function readJsonSafe(res) {
+        try {
+          return await res.json();
+        } catch (_) {
+          return null;
+        }
+      }
+
       async function loadUserHub() {
         const hub = document.getElementById('userHub');
         const token = getClbToken();
         if (!token || !hub) {
           if (hub) hub.hidden = true;
-          return;
+          return false;
         }
         hub.hidden = false;
-        const [dashR, portR, balR, minR, refR] = await Promise.all([
-          authFetch('/api/user/dashboard'),
-          authFetch('/api/user/portfolio'),
-          authFetch('/api/tokens/balances'),
-          authFetch('/api/mining/subscription'),
-          authFetch('/api/user/referrals/tree'),
-        ]);
+        let dashR, portR, balR, minR, refR;
+        try {
+          [dashR, portR, balR, minR, refR] = await Promise.all([
+            authFetch('/api/user/dashboard'),
+            authFetch('/api/user/portfolio'),
+            authFetch('/api/tokens/balances'),
+            authFetch('/api/mining/subscription'),
+            authFetch('/api/user/referrals/tree'),
+          ]);
+        } catch (err) {
+          setStatus('Network error loading your CLB data: ' + (err && err.message ? err.message : String(err)), 'warn');
+          return false;
+        }
         if (dashR.status === 401) {
           clearClbSession();
           setStatus('Session expired — connect and sign again.', 'warn');
-          return;
+          return false;
         }
-        const dash = dashR.ok ? await dashR.json() : null;
-        const port = portR.ok ? await portR.json() : null;
-        const bal = balR.ok ? await balR.json() : null;
-        const min = minR.ok ? await minR.json() : null;
-        const ref = refR.ok ? await refR.json() : null;
+        const dash = dashR.ok ? await readJsonSafe(dashR) : null;
+        const port = portR.ok ? await readJsonSafe(portR) : null;
+        const bal = balR.ok ? await readJsonSafe(balR) : null;
+        const min = minR.ok ? await readJsonSafe(minR) : null;
+        const ref = refR.ok ? await readJsonSafe(refR) : null;
+
+        if (!dashR.ok || !dash || !dash.success) {
+          const errBody = dash && dash.error ? dash.error : null;
+          setStatus(
+            'Could not load dashboard (HTTP ' + dashR.status + '). ' +
+              (errBody || 'Check API / CORS, or deploy latest backend.') +
+              ' API: ' + apiBase,
+            'warn',
+          );
+        }
 
         const d = dash && dash.success ? dash.dashboard : null;
         const u = d && d.user;
@@ -885,13 +965,14 @@
         } else {
           mw.innerHTML = '<p style="font-size:13px;color:var(--muted);">No active mining package (same as app if not subscribed).</p>';
         }
+        return !!(dash && dash.success);
       }
 
       function disconnectWallet() {
         clearClbSession();
         document.getElementById('walletAddress').textContent = 'Not connected';
         document.getElementById('walletStatus').textContent = 'Disconnected';
-        document.getElementById('network').textContent = 'Unknown';
+        document.getElementById('network').textContent = 'Not connected';
         setStatus('Signed out of CLB on this device.', 'ok');
       }
 
@@ -1141,10 +1222,10 @@
             setStatus('No account returned from the wallet.', 'warn');
             return;
           }
-          await ensureBsc(eth);
-          const chainId = await eth.request({ method: 'eth_chainId' });
+          const switchRes = await ensureBsc(eth);
+          await refreshNetworkLabel(eth);
+          const stayedOffBsc = !switchRes.ok && switchRes.reason === 'rejected';
           document.getElementById('walletAddress').textContent = addr;
-          document.getElementById('network').textContent = String(chainId) + (String(chainId).toLowerCase() === BSC_CHAIN_HEX ? ' (BSC)' : ' — switch to BSC for transactions');
           document.getElementById('walletStatus').textContent = 'Awaiting signature…';
 
           const nRes = await fetch(`${apiBase}/api/auth/nonce/${encodeURIComponent(addr)}`, { headers: { Accept: 'application/json' } });
@@ -1176,9 +1257,18 @@
           }
           setClbToken(vJson.token);
           updateAuthUi(true);
+          await refreshNetworkLabel(eth);
           document.getElementById('walletStatus').textContent = 'Connected · signed in';
-          setStatus('Wallet linked to CLB — loading your pools, balances, and referrals.', 'ok');
-          await loadUserHub();
+          const hubOk = await loadUserHub();
+          if (hubOk) {
+            setStatus(
+              stayedOffBsc
+                ? 'Data loaded. Wallet is still on a non-BSC network — switch to BNB Smart Chain (56) for CLB on-chain; your 0x address is the same on Ethereum and BSC.'
+                : 'Wallet linked to CLB — your dashboard data is up to date.',
+              stayedOffBsc ? 'warn' : 'ok',
+            );
+          }
+          /* If !hubOk, loadUserHub already set statusBox with HTTP / API details. */
         } catch (err) {
           setStatus('Wallet / sign-in error: ' + (err && err.message ? err.message : String(err)), 'warn');
           document.getElementById('walletStatus').textContent = 'Error';
@@ -1215,8 +1305,9 @@
       if (getClbToken()) {
         updateAuthUi(true);
         document.getElementById('walletStatus').textContent = 'Restoring session…';
-        loadUserHub().then(function () {
-          document.getElementById('walletStatus').textContent = 'Session restored';
+        if (window.ethereum) refreshNetworkLabel(window.ethereum);
+        loadUserHub().then(function (ok) {
+          document.getElementById('walletStatus').textContent = ok ? 'Signed in' : 'Check status message below';
         });
       }
 
