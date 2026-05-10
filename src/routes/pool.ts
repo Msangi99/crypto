@@ -3,6 +3,7 @@ import prisma from '../config/db';
 import { authMiddleware } from '../middleware/auth';
 import { contractService } from '../services/contractService';
 import { Prisma } from '@prisma/client';
+import { onPoolClaimed } from '../services/referralRewardService';
 import {
   validatePoolCreditPackage,
   validatePoolCreditAfterPatch,
@@ -691,8 +692,13 @@ export default async function poolRoutes(fastify: FastifyInstance) {
             select: { depositCreditUsd: true, claimedPoolCreditUsd: true },
           });
 
-          return { deposit: dep, balances: refreshed };
+          return { deposit: dep, balances: refreshed, loanCreditUsd: Number(netLoanDelta) };
         });
+
+        // Trigger referral reward: 20% of pool loan credit → referrer Loan Amount
+        onPoolClaimed(request.userId!, out.loanCreditUsd).catch((err) =>
+          console.error('[Referral] Pool claim reward error:', err.message)
+        );
 
         return {
           success: true,

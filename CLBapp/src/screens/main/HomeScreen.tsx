@@ -87,7 +87,8 @@ export default function HomeScreen({ navigation }: any) {
   const positionAssets = positions
     .map((p: any) => p.asset?.toUpperCase?.() ?? p.asset)
     .filter((s: any) => typeof s === 'string' && s.length > 0);
-  const liveSymbols = Array.from(new Set([...baseCoins.slice(0, 8).map((c: any) => c.symbol), ...positionAssets]));
+  // Always include BTC/ETH/BNB so currency conversion always has rates available
+  const liveSymbols = Array.from(new Set([...baseCoins.slice(0, 8).map((c: any) => c.symbol), ...positionAssets, 'BTC', 'ETH', 'BNB']));
   const livePrices = useLivePrices(liveSymbols);
 
   const liveCoins = baseCoins.map((c: any) => {
@@ -123,55 +124,40 @@ export default function HomeScreen({ navigation }: any) {
   const pnl = totalValue - totalInvested;
   const pnlPct = totalInvested > 0 ? ((pnl / totalInvested) * 100).toFixed(2) : '0.00';
 
-  /** Aggregated “swapped hold” per asset (from pool / loan → crypto positions). */
-  // Include leveraged pool entry loans as holdings
+  /** Leveraged loan holdings — valueUsd updates live with market price */
   const leveragedHoldings = useMemo(() => {
-    // Debug: log all loans to see what we have
-    if (loans.length > 0) {
-      console.log('All loans:', loans.map((l: any) => ({
-        id: l.id,
-        status: l.status,
-        chain: l.collateralChain,
-        amount: l.collateralAmount,
-        valueUsd: l.collateralValueUsd,
-        entryFeeUsd: l.entryFeeUsd,
-      })));
-    }
     const validLoans = loans.filter((l: any) => {
       const status = (l.status || '').toUpperCase();
       const chain = (l.collateralChain || '').toUpperCase();
       const isActive = status === 'ACTIVE' || status === 'PENDING';
       const isValidChain = ['BTC', 'ETH', 'BNB'].includes(chain);
       const hasAmount = Number(l.collateralAmount) > 0;
-      const isValid = isActive && isValidChain && hasAmount;
-      if (!isValid && l.collateralChain) {
-        console.log('Filtered out loan:', { status, chain, isActive, isValidChain, hasAmount });
-      }
-      return isValid;
+      return isActive && isValidChain && hasAmount;
     });
-    console.log('Valid leveraged loans:', validLoans.length);
-    const mapped = validLoans.map((l: any) => {
+    return validLoans.map((l: any) => {
       const symbol = (l.collateralChain || '').toUpperCase();
       const amount = Number(l.collateralAmount || 0);
       const entryPrice = Number(l.collateralPriceUsd || 0);
-      const valueUsd = Number(l.collateralValueUsd || 0);
-      const entryFeeUsd = Number(l.entryFeeUsd || 0); // Entry fee paid (e.g., $300)
-      // Calculate leverage: valueUsd = amount * entryPrice * leverage
+      const originalValueUsd = Number(l.collateralValueUsd || 0);
+      const entryFeeUsd = Number(l.entryFeeUsd || 0);
+      // Use live price to compute current position value, fallback to DB value
+      const livePrice = livePrices[symbol]?.price;
+      const valueUsd = livePrice && amount > 0 ? amount * livePrice : originalValueUsd;
+      // Calculate leverage from original entry data
       const notionalValue = amount * entryPrice;
-      const leverage = notionalValue > 0 ? Math.round(valueUsd / notionalValue) : 1;
+      const leverage = notionalValue > 0 ? Math.round(originalValueUsd / notionalValue) : 10;
       return {
         symbol,
         amount,
-        valueUsd,
+        valueUsd,           // live-updated current value
+        originalValueUsd,   // original entry value (from DB)
         entryPrice,
         entryFeeUsd,
-        leverage: leverage > 1 ? leverage : 10, // Default 10x if calculation fails
+        leverage: leverage > 1 ? leverage : 10,
         isLeveraged: true,
       };
     });
-    console.log('Mapped leveraged holdings:', mapped);
-    return mapped;
-  }, [loans]);
+  }, [loans, livePrices]);
 
   // "Held Crypto" shows ONLY active leveraged loan positions (not portfolio positions)
   const swappedHoldings = useMemo(() => {
@@ -267,9 +253,11 @@ export default function HomeScreen({ navigation }: any) {
                 ? (() => {
                     const amount = tabAmount;
                     if (currency === 'USD') return `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-                    const rate = livePrices[currency.toLowerCase()]?.price || 1;
+                    const rate = livePrices[currency]?.price; // Use uppercase key e.g. 'BTC'
+                    if (!rate || rate === 0) return `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (loading...)`;
                     const converted = amount / rate;
-                    return `${converted.toFixed(currency === 'BTC' ? 6 : 4)} ${currency}`;
+                    const decimals = currency === 'BTC' ? 8 : currency === 'ETH' ? 6 : 4;
+                    return `${converted.toFixed(decimals)} ${currency}`;
                   })()
                 : '••••••'}
             </Text>
@@ -515,7 +503,7 @@ function MarketChipSkeleton({ label }: { label: string }) {
   );
 }
 
-function LiveCryptoCard({ row, livePrice }: { row: { symbol: string; amount: number; valueUsd: number; entryPrice?: number; entryFeeUsd?: number; leverage?: number; isLeveraged?: boolean }; livePrice?: number }) {
+function LiveCryptoCard({ row, livePrice }: { row: { symbol: string; amount: number; valueUsd: number; originalValueUsd?: number; entryPrice?: number; entryFeeUsd?: number; leverage?: number; isLeveraged?: boolean }; livePrice?: number }) {
   const icon = (SWAP_COIN_ICONS[row.symbol] || 'cube-outline') as any;
   const flashAnim = useRef(new Animated.Value(0)).current;
   const [flashColor, setFlashColor] = useState<string | null>(null);
@@ -548,9 +536,11 @@ function LiveCryptoCard({ row, livePrice }: { row: { symbol: string; amount: num
     outputRange: [0, 0.3],
   });
 
-  const currentValue = livePrice ? row.amount * livePrice : row.valueUsd;
-  const pnl = livePrice && row.entryPrice ? ((livePrice - row.entryPrice) / row.entryPrice) * 100 : 0;
-  const isProfit = pnl >= 0;
+  const currentValue = row.valueUsd; // already live-computed in parent
+  const originalValue = row.originalValueUsd ?? row.valueUsd;
+  const pnlUsd = currentValue - originalValue;
+  const pnlPct = originalValue > 0 ? (pnlUsd / originalValue) * 100 : 0;
+  const isProfit = pnlPct >= 0;
 
   return (
     <View style={styles.cryptoCard}>
@@ -602,9 +592,14 @@ function LiveCryptoCard({ row, livePrice }: { row: { symbol: string; amount: num
               <View style={[styles.pnlBadge, { backgroundColor: isProfit ? 'rgba(0,214,161,0.15)' : 'rgba(255,61,87,0.15)' }]}>
                 <Ionicons name={isProfit ? 'trending-up' : 'trending-down'} size={12} color={isProfit ? '#00D6A1' : '#FF3D57'} />
                 <Text style={[styles.pnlText, { color: isProfit ? '#00D6A1' : '#FF3D57' }]}>
-                  {isProfit ? '+' : ''}{pnl.toFixed(2)}%
+                  {isProfit ? '+' : ''}{pnlPct.toFixed(2)}%
                 </Text>
               </View>
+              {pnlUsd !== 0 && (
+                <Text style={{ fontSize: 10, color: isProfit ? '#00D6A1' : '#FF3D57', textAlign: 'center' }}>
+                  {isProfit ? '+' : ''}${Math.abs(pnlUsd).toFixed(2)}
+                </Text>
+              )}
             </View>
           ) : (
             <Text style={styles.entryPriceText}>@${row.entryPrice?.toLocaleString()}</Text>

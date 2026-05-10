@@ -4,6 +4,7 @@ import prisma from '../config/db';
 import { authMiddleware } from '../middleware/auth';
 import { serializeMiningPackage } from './miningPackages';
 import { computeMiningProgress } from '../services/miningAccrual';
+import { onMiningPackageBought, onMinedTokensClaimed } from '../services/referralRewardService';
 
 function isBscAddress(addr: string): boolean {
   return /^0x[a-f0-9]{40}$/i.test(addr.trim());
@@ -177,6 +178,14 @@ export default async function userMiningRoutes(fastify: FastifyInstance) {
         });
 
         const subscription = await buildSubscriptionResponse(userId);
+
+        // Trigger referral reward: 20% of mining package price → referrer Available Credit
+        if (isPackageChangeOrNew && feeUsd != null && Number(feeUsd) > 0) {
+          onMiningPackageBought(userId, Number(feeUsd)).catch((err) =>
+            console.error('[Referral] Mining package reward error:', err.message)
+          );
+        }
+
         return {
           success: true,
           subscription,
@@ -235,6 +244,11 @@ export default async function userMiningRoutes(fastify: FastifyInstance) {
         data: { startedAt: new Date() },
       }),
     ]);
+
+    // Trigger referral reward: 10% of claimed tokens → referrer CLB Balance
+    onMinedTokensClaimed(userId, token, accruedTokens).catch((err) =>
+      console.error('[Referral] Token claim reward error:', err.message)
+    );
 
     return {
       success: true,
