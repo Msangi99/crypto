@@ -1,0 +1,37 @@
+# EAS Build — exclude large/unnecessary files from upload tarball
+
+# Dependencies (reinstalled on build server)
+node_modules/
+
+# Generated native projects (EAS builds these from scratch)
+ios/
+android/
+
+# Expo local cache
+.expo/
+
+# Build outputs
+dist/
+web-build/
+build/
+
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Logs
+*.log
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# Local env (use EAS secrets instead)
+.env*.local
+.env.local
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Editor
+.vscode/
+.idea/

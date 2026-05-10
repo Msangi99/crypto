@@ -1,4 +1,5 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View, Text, StyleSheet, ScrollView, RefreshControl,
   TouchableOpacity,
@@ -7,12 +8,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, FontSize, Spacing, Radius } from '../../constants/theme';
 import Badge from '../../components/ui/Badge';
-import { userAPI } from '../../services/api';
+import { loansAPI, creditWalletAPI } from '../../services/api';
 import { useLivePrices } from '../../hooks/useLivePrices';
 
 const COIN_ICONS: Record<string, string> = {
   BTC: 'logo-bitcoin',
-  ETH: 'logo-ethereum',
+  ETH: 'diamond-outline',
   BNB: 'cube',
   SOL: 'flash',
   ADA: 'card',
@@ -39,17 +40,23 @@ function CoinIcon({ symbol }: { symbol: string }) {
 }
 
 export default function PortfolioScreen({ navigation }: any) {
-  const [data, setData] = useState<any>(null);
+  const [loans, setLoans] = useState<any[]>([]);
+  const [creditBalances, setCreditBalances] = useState<any>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [tab, setTab] = useState<'active' | 'history'>('active');
 
   const load = useCallback(async () => {
     try {
-      const res = await userAPI.portfolio();
-      setData(res.data);
+      const [ln, cr] = await Promise.all([
+        loansAPI.list().catch(() => ({ data: { loans: [] } })),
+        creditWalletAPI.balances().catch(() => null),
+      ]);
+      setLoans(ln.data?.loans || []);
+      if (cr?.data?.balances) setCreditBalances(cr.data.balances);
     } catch (e) { console.error(e); }
   }, []);
 
-  useEffect(() => { load(); }, []);
+  useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -57,62 +64,62 @@ export default function PortfolioScreen({ navigation }: any) {
     setRefreshing(false);
   };
 
-  const positions = data?.positions ?? [];
-  const summary = data?.summary ?? {};
-  const liveSymbols: string[] = Array.from(
-    new Set(
-      positions
-        .map((p: any) => p.asset)
-        .filter((s: unknown): s is string => typeof s === 'string' && s.length > 0)
-    )
-  );
-  const livePrices = useLivePrices(liveSymbols);
-  const livePositions = positions.map((pos: any) => {
-    const symbol = pos.asset ?? 'BNB';
-    const amount = Number(pos.cryptoAllocation?.amount ?? 0);
-    const livePrice = livePrices[symbol]?.price;
-    const liveCurrentValueUsd = livePrice && amount > 0
-      ? amount * livePrice
-      : Number(pos.currentValueUsd ?? 0);
-    return { ...pos, liveCurrentValueUsd };
-  });
-  const totalInvestedUsd = summary.totalInvestedUsd ?? 0;
-  const totalCurrentValueUsd = livePositions.reduce(
-    (sum: number, pos: any) => sum + (pos.liveCurrentValueUsd ?? 0),
-    0
-  );
-  const totalUnrealizedPnlUsd = totalCurrentValueUsd - totalInvestedUsd;
-  const totalProjectedProfitUsd = summary.totalProjectedProfitUsd ?? 0;
+  // Split active vs history
+  const activeLoans = loans.filter((l: any) => ['ACTIVE', 'PENDING'].includes((l.status || '').toUpperCase()));
+  const historyLoans = loans.filter((l: any) => ['LIQUIDATED', 'SETTLED'].includes((l.status || '').toUpperCase()));
 
-  const pnlPercent = totalInvestedUsd > 0
-    ? ((totalUnrealizedPnlUsd / totalInvestedUsd) * 100).toFixed(2)
-    : '0.00';
-  const isProfit = totalUnrealizedPnlUsd >= 0;
+  // Live prices for all assets
+  const livePrices = useLivePrices(['BTC', 'ETH', 'BNB']);
+
+  // Enrich active loans with live values
+  const liveActiveLoans = activeLoans.map((l: any) => {
+    const symbol = (l.collateralChain || 'BNB').toUpperCase();
+    const amount = Number(l.collateralAmount || 0);
+    const entryPrice = Number(l.collateralPriceUsd || 0);
+    const originalValueUsd = Number(l.collateralValueUsd || 0);
+    const entryFeeUsd = Number(l.entryFeeUsd || 0);
+    const livePrice = livePrices[symbol]?.price;
+    const liveValueUsd = livePrice && amount > 0 ? amount * livePrice : originalValueUsd;
+    const pnlUsd = liveValueUsd - originalValueUsd;
+    const pnlPct = originalValueUsd > 0 ? (pnlUsd / originalValueUsd) * 100 : 0;
+    const liquidationPrice = Number(l.liquidationPriceUsd || 0);
+    const targetPrice = Number(l.targetPriceUsd || 0);
+    return { ...l, symbol, amount, entryPrice, originalValueUsd, entryFeeUsd, liveValueUsd, pnlUsd, pnlPct, livePrice, liquidationPrice, targetPrice };
+  });
+
+  // Totals
+  const totalEntryFees = liveActiveLoans.reduce((s: number, l: any) => s + l.entryFeeUsd, 0);
+  const totalLiveValue = liveActiveLoans.reduce((s: number, l: any) => s + l.liveValueUsd, 0);
+  const totalOriginalValue = liveActiveLoans.reduce((s: number, l: any) => s + l.originalValueUsd, 0);
+  const totalPnlUsd = totalLiveValue - totalOriginalValue;
+  const totalPnlPct = totalOriginalValue > 0 ? (totalPnlUsd / totalOriginalValue) * 100 : 0;
+  const isProfit = totalPnlUsd >= 0;
 
   return (
     <View style={styles.container}>
-      {/* Dark Gradient Header */}
       <LinearGradient colors={['#1A1F35', '#0B0E1A']} style={styles.headerGradient}>
         <View style={styles.header}>
           <Text style={styles.title}>Portfolio</Text>
-          <TouchableOpacity style={styles.chartBtn}>
-            <Ionicons name="stats-chart-outline" size={20} color={Colors.textSecondary} />
+          <TouchableOpacity style={styles.chartBtn} onPress={onRefresh}>
+            <Ionicons name="refresh-outline" size={20} color={Colors.textSecondary} />
           </TouchableOpacity>
         </View>
 
-        {/* Total Value */}
+        {/* Total Live Value */}
         <View style={styles.heroSection}>
-          <Text style={styles.heroLabel}>Total Portfolio Value</Text>
-          <Text style={styles.heroValue}>${totalCurrentValueUsd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
+          <Text style={styles.heroLabel}>Total Position Value (Live)</Text>
+          <Text style={styles.heroValue}>
+            ${totalLiveValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </Text>
           <View style={styles.pnlRow}>
             <View style={[styles.pnlBadge, isProfit ? styles.pnlBadgeProfit : styles.pnlBadgeLoss]}>
               <Ionicons name={isProfit ? 'trending-up' : 'trending-down'} size={14} color={isProfit ? '#00D6A1' : '#FF4757'} />
-              <Text style={[styles.pnlText, isProfit && styles.pnlTextProfit, !isProfit && styles.pnlTextLoss]}>
-                {isProfit ? '+' : ''}{pnlPercent}%
+              <Text style={[styles.pnlText, isProfit ? styles.pnlTextProfit : styles.pnlTextLoss]}>
+                {isProfit ? '+' : ''}{totalPnlPct.toFixed(2)}%
               </Text>
             </View>
             <Text style={styles.pnlUsd}>
-              {isProfit ? '+' : ''}${totalUnrealizedPnlUsd.toFixed(2)}
+              {isProfit ? '+' : ''}${totalPnlUsd.toFixed(2)}
             </Text>
           </View>
         </View>
@@ -120,46 +127,66 @@ export default function PortfolioScreen({ navigation }: any) {
         {/* Quick Stats */}
         <View style={styles.quickStatsRow}>
           <View style={styles.quickStatItem}>
-            <Text style={styles.quickStatValue}>${totalInvestedUsd.toLocaleString()}</Text>
-            <Text style={styles.quickStatLabel}>Invested</Text>
+            <Text style={styles.quickStatValue}>${totalEntryFees.toLocaleString()}</Text>
+            <Text style={styles.quickStatLabel}>Entry Fees</Text>
           </View>
           <View style={styles.quickStatDivider} />
           <View style={styles.quickStatItem}>
-            <Text style={styles.quickStatValue}>${totalProjectedProfitUsd.toLocaleString()}</Text>
-            <Text style={styles.quickStatLabel}>Projected</Text>
+            <Text style={styles.quickStatValue}>${totalOriginalValue.toLocaleString()}</Text>
+            <Text style={styles.quickStatLabel}>Position Value</Text>
           </View>
           <View style={styles.quickStatDivider} />
           <View style={styles.quickStatItem}>
-            <Text style={styles.quickStatValue}>{livePositions.length}</Text>
-            <Text style={styles.quickStatLabel}>Positions</Text>
+            <Text style={styles.quickStatValue}>{liveActiveLoans.length}</Text>
+            <Text style={styles.quickStatLabel}>Active</Text>
           </View>
         </View>
 
         {/* Quick Actions */}
         <View style={styles.quickActions}>
-          <TouchableOpacity style={styles.quickAction} onPress={() => navigation.navigate('Pools')}>
+          <TouchableOpacity style={styles.quickAction} onPress={() => navigation.navigate('LoanHub')}>
             <View style={styles.quickActionIcon}>
-              <Ionicons name="add-outline" size={20} color={Colors.primary} />
+              <Ionicons name="add-circle-outline" size={20} color={Colors.primary} />
+            </View>
+            <Text style={styles.quickActionText}>Open Position</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.quickAction} onPress={() => navigation.navigate('DepositReceive')}>
+            <View style={styles.quickActionIcon}>
+              <Ionicons name="wallet-outline" size={20} color={Colors.primary} />
             </View>
             <Text style={styles.quickActionText}>Deposit</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.quickAction} onPress={() => navigation.navigate('Pools')}>
+          <TouchableOpacity style={styles.quickAction} onPress={() => navigation.navigate('Referrals')}>
             <View style={styles.quickActionIcon}>
-              <Ionicons name="swap-horizontal-outline" size={20} color={Colors.primary} />
+              <Ionicons name="people-outline" size={20} color={Colors.primary} />
             </View>
-            <Text style={styles.quickActionText}>Borrow</Text>
+            <Text style={styles.quickActionText}>Referrals</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.quickAction}>
+          <TouchableOpacity style={styles.quickAction} onPress={() => navigation.navigate('MiningClb')}>
             <View style={styles.quickActionIcon}>
-              <Ionicons name="gift-outline" size={20} color={Colors.primary} />
+              <Ionicons name="hardware-chip-outline" size={20} color={Colors.primary} />
             </View>
-            <Text style={styles.quickActionText}>Rewards</Text>
+            <Text style={styles.quickActionText}>Mine CLB</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.quickAction}>
-            <View style={styles.quickActionIcon}>
-              <Ionicons name="document-text-outline" size={20} color={Colors.primary} />
-            </View>
-            <Text style={styles.quickActionText}>History</Text>
+        </View>
+
+        {/* Tabs */}
+        <View style={styles.tabs}>
+          <TouchableOpacity
+            style={[styles.tabBtn, tab === 'active' && styles.tabBtnActive]}
+            onPress={() => setTab('active')}
+          >
+            <Text style={[styles.tabText, tab === 'active' && styles.tabTextActive]}>
+              Active ({liveActiveLoans.length})
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tabBtn, tab === 'history' && styles.tabBtnActive]}
+            onPress={() => setTab('history')}
+          >
+            <Text style={[styles.tabText, tab === 'history' && styles.tabTextActive]}>
+              History ({historyLoans.length})
+            </Text>
           </TouchableOpacity>
         </View>
       </LinearGradient>
@@ -169,63 +196,138 @@ export default function PortfolioScreen({ navigation }: any) {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
         contentContainerStyle={{ padding: Spacing.lg, paddingTop: Spacing.lg, gap: Spacing.md, paddingBottom: 100 }}
       >
-        {/* Positions Section Header */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>My Positions</Text>
-          <View style={styles.sectionBadge}>
-            <Text style={styles.sectionCount}>{livePositions.length}</Text>
-          </View>
-        </View>
-
-        {/* Positions list */}
-        {livePositions.length === 0 ? (
-          <View style={styles.empty}>
-            <Ionicons name="briefcase-outline" size={48} color={Colors.textMuted} />
-            <Text style={styles.emptyTitle}>No Positions Yet</Text>
-            <Text style={styles.emptyText}>Join a pool to start earning leveraged returns</Text>
-          </View>
-        ) : (
-          livePositions.map((pos: any) => (
-            <TouchableOpacity key={pos.poolId} onPress={() => navigation.navigate('PositionDetail', { poolId: pos.poolId })} activeOpacity={0.8}>
-              <View style={styles.posCard}>
+        {tab === 'active' ? (
+          liveActiveLoans.length === 0 ? (
+            <View style={styles.empty}>
+              <Ionicons name="briefcase-outline" size={48} color={Colors.textMuted} />
+              <Text style={styles.emptyTitle}>No Active Positions</Text>
+              <Text style={styles.emptyText}>Go to "Use Your Loan" → "Enter Leveraged Pool" to open a BTC/ETH/BNB position</Text>
+              <TouchableOpacity style={styles.emptyBtn} onPress={() => navigation.navigate('LoanHub')}>
+                <Text style={styles.emptyBtnText}>Open Position</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            liveActiveLoans.map((l: any) => (
+              <View key={l.id} style={styles.posCard}>
                 <View style={styles.posHeader}>
-                  <CoinIcon symbol={pos.asset ?? 'BNB'} />
+                  <CoinIcon symbol={l.symbol} />
                   <View style={{ flex: 1, marginLeft: Spacing.sm }}>
-                    <Text style={styles.posName}>{pos.poolName ?? `Pool ${pos.poolId}`}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Text style={styles.posName}>{l.symbol} Position</Text>
+                      <View style={styles.leverageBadge}>
+                        <Text style={styles.leverageBadgeText}>{l.leverage ?? 10}x</Text>
+                      </View>
+                    </View>
                     <View style={styles.posSubRow}>
-                      <Text style={styles.posTier}>{pos.leverage ?? 1}x Leverage</Text>
+                      <Text style={styles.posTier}>{l.amount.toFixed(6)} {l.symbol}</Text>
                       <View style={styles.posDot} />
-                      <Badge
-                        label={pos.poolStatus ?? 'Active'}
-                        variant={pos.poolStatus === 'ACTIVE' ? 'success' : pos.poolStatus === 'PAUSED' ? 'warning' : 'error'}
-                      />
+                      <Badge label={l.status} variant={l.status === 'ACTIVE' ? 'success' : 'warning'} />
                     </View>
                   </View>
                   <View style={styles.posValueBox}>
-                    <Text style={styles.posValueAmount}>${(pos.liveCurrentValueUsd ?? 0).toLocaleString()}</Text>
-                    <Text style={[styles.posValuePnl, (pos.unrealizedPnlUsd ?? 0) >= 0 ? styles.posValueProfit : styles.posValueLoss]}>
-                      {(pos.unrealizedPnlUsd ?? 0) >= 0 ? '+' : ''}${(pos.unrealizedPnlUsd ?? 0).toFixed(2)}
+                    <Text style={styles.posValueAmount}>
+                      ${l.liveValueUsd.toLocaleString('en-US', { maximumFractionDigits: 2 })}
+                    </Text>
+                    <Text style={[styles.posValuePnl, l.pnlUsd >= 0 ? styles.posValueProfit : styles.posValueLoss]}>
+                      {l.pnlUsd >= 0 ? '+' : ''}${l.pnlUsd.toFixed(2)}
                     </Text>
                   </View>
                 </View>
 
                 <View style={styles.posMetrics}>
                   <View style={styles.posMetric}>
-                    <Text style={styles.posMetricLabel}>Deposited</Text>
-                    <Text style={styles.posMetricValue}>${(pos.depositUsd ?? 0).toLocaleString()}</Text>
+                    <Text style={styles.posMetricLabel}>Entry Fee</Text>
+                    <Text style={styles.posMetricValue}>${l.entryFeeUsd.toLocaleString()}</Text>
                   </View>
                   <View style={styles.posMetric}>
-                    <Text style={styles.posMetricLabel}>Loan</Text>
-                    <Text style={[styles.posMetricValue, { color: Colors.primary }]}>${(pos.loanUsd ?? 0).toLocaleString()}</Text>
+                    <Text style={styles.posMetricLabel}>Entry Price</Text>
+                    <Text style={[styles.posMetricValue, { color: Colors.primary }]}>
+                      ${l.entryPrice.toLocaleString()}
+                    </Text>
                   </View>
                   <View style={styles.posMetric}>
-                    <Text style={styles.posMetricLabel}>Liq. Target</Text>
-                    <Text style={styles.posMetricValue}>${(pos.liquidationTargets?.phase1 ?? 0).toLocaleString()}</Text>
+                    <Text style={styles.posMetricLabel}>Liq. Price</Text>
+                    <Text style={[styles.posMetricValue, { color: '#FF4757' }]}>
+                      ${l.liquidationPrice.toLocaleString()}
+                    </Text>
                   </View>
                 </View>
+
+                {/* Price progress bar toward target */}
+                {l.targetPrice > 0 && l.livePrice > 0 && (
+                  <View style={styles.progressSection}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <Text style={styles.posMetricLabel}>Progress to Phase 1 Target</Text>
+                      <Text style={[styles.posMetricLabel, { color: Colors.primary }]}>
+                        ${l.targetPrice.toLocaleString()}
+                      </Text>
+                    </View>
+                    <View style={styles.progressBar}>
+                      <View style={[
+                        styles.progressFill,
+                        { width: `${Math.min((l.livePrice / l.targetPrice) * 100, 100)}%` as any }
+                      ]} />
+                    </View>
+                    <Text style={[styles.posMetricLabel, { textAlign: 'right', marginTop: 2 }]}>
+                      {((l.livePrice / l.targetPrice) * 100).toFixed(1)}%
+                    </Text>
+                  </View>
+                )}
               </View>
-            </TouchableOpacity>
-          ))
+            ))
+          )
+        ) : (
+          historyLoans.length === 0 ? (
+            <View style={styles.empty}>
+              <Ionicons name="time-outline" size={48} color={Colors.textMuted} />
+              <Text style={styles.emptyTitle}>No History Yet</Text>
+              <Text style={styles.emptyText}>Settled and liquidated positions will appear here</Text>
+            </View>
+          ) : (
+            historyLoans.map((l: any) => {
+              const sym = (l.collateralChain || 'BNB').toUpperCase();
+              const isSettled = (l.status || '').toUpperCase() === 'SETTLED';
+              return (
+                <View key={l.id} style={[styles.posCard, { opacity: 0.75 }]}>
+                  <View style={styles.posHeader}>
+                    <CoinIcon symbol={sym} />
+                    <View style={{ flex: 1, marginLeft: Spacing.sm }}>
+                      <Text style={styles.posName}>{sym} Position</Text>
+                      <View style={styles.posSubRow}>
+                        <Text style={styles.posTier}>{Number(l.collateralAmount || 0).toFixed(6)} {sym}</Text>
+                        <View style={styles.posDot} />
+                        <Badge label={l.status} variant={isSettled ? 'success' : 'error'} />
+                      </View>
+                    </View>
+                    <View style={styles.posValueBox}>
+                      <Text style={styles.posValueAmount}>
+                        ${Number(l.collateralValueUsd || 0).toLocaleString()}
+                      </Text>
+                      <Text style={[styles.posValuePnl, isSettled ? styles.posValueProfit : styles.posValueLoss]}>
+                        {isSettled ? 'Settled' : 'Liquidated'}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.posMetrics}>
+                    <View style={styles.posMetric}>
+                      <Text style={styles.posMetricLabel}>Entry Fee</Text>
+                      <Text style={styles.posMetricValue}>${Number(l.entryFeeUsd || 0).toLocaleString()}</Text>
+                    </View>
+                    <View style={styles.posMetric}>
+                      <Text style={styles.posMetricLabel}>Entry Price</Text>
+                      <Text style={styles.posMetricValue}>${Number(l.collateralPriceUsd || 0).toLocaleString()}</Text>
+                    </View>
+                    <View style={styles.posMetric}>
+                      <Text style={styles.posMetricLabel}>Profit/Loss</Text>
+                      <Text style={[styles.posMetricValue, isSettled ? { color: '#00D6A1' } : { color: '#FF4757' }]}>
+                        {isSettled ? `+$${Number(l.profitUsd || 0).toFixed(2)}` : `-$${Math.abs(Number(l.profitUsd || 0)).toFixed(2)}`}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              );
+            })
+          )
         )}
       </ScrollView>
     </View>
@@ -343,8 +445,46 @@ const styles = StyleSheet.create({
   posMetricLabel: { fontSize: 11, fontWeight: '600', color: Colors.textMuted },
   posMetricValue: { fontSize: 13, fontWeight: '700', color: Colors.textPrimary },
 
+  // Tabs
+  tabs: {
+    flexDirection: 'row', marginHorizontal: Spacing.lg, marginTop: Spacing.md,
+    backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: Radius.lg,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', padding: 4,
+  },
+  tabBtn: {
+    flex: 1, paddingVertical: 8, borderRadius: Radius.md, alignItems: 'center',
+  },
+  tabBtnActive: { backgroundColor: Colors.primary },
+  tabText: { fontSize: 13, fontWeight: '700', color: Colors.textMuted },
+  tabTextActive: { color: '#000' },
+
+  // Leverage Badge
+  leverageBadge: {
+    backgroundColor: 'rgba(0,214,161,0.15)', borderRadius: 6,
+    paddingHorizontal: 6, paddingVertical: 2,
+    borderWidth: 1, borderColor: 'rgba(0,214,161,0.3)',
+  },
+  leverageBadgeText: { fontSize: 11, fontWeight: '800', color: '#00D6A1' },
+
+  // Progress Bar
+  progressSection: {
+    paddingTop: Spacing.sm, borderTopWidth: 1, borderTopColor: Colors.border,
+  },
+  progressBar: {
+    height: 6, backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 99, overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%', backgroundColor: Colors.primary, borderRadius: 99,
+  },
+
   // Empty
   empty: { alignItems: 'center', gap: Spacing.sm, paddingVertical: 60 },
   emptyTitle: { fontSize: FontSize.lg, fontWeight: '700', color: Colors.textPrimary },
   emptyText: { fontSize: FontSize.sm, color: Colors.textSecondary, textAlign: 'center' },
+  emptyBtn: {
+    marginTop: Spacing.sm, backgroundColor: Colors.primary,
+    borderRadius: Radius.lg, paddingHorizontal: Spacing.xl, paddingVertical: 12,
+  },
+  emptyBtnText: { fontSize: 14, fontWeight: '800', color: '#000' },
 });
