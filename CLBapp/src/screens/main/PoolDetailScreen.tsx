@@ -43,7 +43,7 @@ export default function PoolDetailScreen({ route, navigation }: any) {
   const insets = useSafeAreaInsets();
   const [pool, setPool] = useState<any>(null);
   const [depositCredit, setDepositCredit] = useState(0);
-  /** User's Loan credit (claimedPoolCreditUsd) — can pay part of pool claim fee after deposit is used. */
+  /** User's Loan credit (claimedPoolCreditUsd) — shown for context; claim fee uses deposit only. */
   const [userLoanCreditUsd, setUserLoanCreditUsd] = useState(0);
   const [canClaim, setCanClaim] = useState(false);
   const [packageMisconfigured, setPackageMisconfigured] = useState(false);
@@ -73,13 +73,12 @@ export default function PoolDetailScreen({ route, navigation }: any) {
         supportsPool && (row ? Boolean(row.packageMisconfigured) : !loanOk);
       setPackageMisconfigured(pkgBad);
       const apiSaysClaim = Boolean(row?.canClaimWithCredit);
-      const spendable = depBal + loanBal;
       const localClaim =
         supportsPool &&
         (poolData?.status || 'ACTIVE') === 'ACTIVE' &&
         loanOk &&
         !pkgBad &&
-        spendable + 1e-9 >= feeUsd;
+        depBal + 1e-9 >= feeUsd;
       setCanClaim(apiSaysClaim || localClaim);
     } catch (e) {
       console.error(e);
@@ -138,7 +137,7 @@ export default function PoolDetailScreen({ route, navigation }: any) {
     const loan = loanCredit ?? 0;
     Alert.alert(
       'Claim this package?',
-      `Spend $${fee} for this claim (from Deposit wallet first, then Loan credit if needed). You receive $${loan.toLocaleString()} Loan credit on top. Then open “Use your loan” on Home.`,
+      `Spend $${fee} from your Deposit wallet only (loan credit is not used for this fee). You receive $${loan.toLocaleString()} Loan credit after. Then open “Use your loan” on Home.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -160,6 +159,30 @@ export default function PoolDetailScreen({ route, navigation }: any) {
     );
   };
 
+<<<<<<< Updated upstream
+=======
+  const goDeposit = () => {
+    navigation.navigate('DepositReceive');
+  };
+
+  if (!pool) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <ActivityIndicator color={Colors.primary} size="large" />
+        <Text style={styles.loadingText}>Loading pool…</Text>
+      </View>
+    );
+  }
+
+  const supports = supportsAppCreditPool(pool);
+  const claimFee = claimFeeFromPool(pool);
+  const loanCredit = loanCreditFromPool(pool);
+  const members = pool._count?.members ?? pool.memberCount ?? 0;
+  const depositForClaimFee = depositCredit;
+  const needMoreFunds = supports && depositForClaimFee + 1e-9 < claimFee;
+  const claimReady = supports && !packageMisconfigured && canClaim && !needMoreFunds;
+
+>>>>>>> Stashed changes
   return (
     <View style={styles.container}>
       <ScrollView
@@ -201,7 +224,7 @@ export default function PoolDetailScreen({ route, navigation }: any) {
                   ${loanCredit.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                 </Text>
                 <Text style={styles.loanHeroSub}>
-                  Claim fee ${claimFee}: taken from Deposit wallet first, then Loan credit if needed.
+                  Claim fee ${claimFee}: taken from your Deposit wallet only (loan credit is not used for the fee).
                 </Text>
               </View>
             ) : (
@@ -234,7 +257,7 @@ export default function PoolDetailScreen({ route, navigation }: any) {
                   <View style={styles.statDivider} />
                   <View style={styles.statCell}>
                     <Ionicons name="wallet-outline" size={16} color={Colors.primary} />
-                    <Text style={styles.statVal}>${spendableForFee.toFixed(0)}</Text>
+                    <Text style={styles.statVal}>${depositForClaimFee.toFixed(0)}</Text>
                     <Text style={styles.statLab}>{CreditWalletCopy.poolDetailDepositStat}</Text>
                   </View>
                 </>
@@ -263,12 +286,12 @@ export default function PoolDetailScreen({ route, navigation }: any) {
                 {packageMisconfigured
                   ? 'This pack is missing loan credit in admin settings — claim is blocked.'
                   : claimReady
-                    ? `Ready to claim — jumla kwa ada $${spendableForFee.toFixed(2)} (inahitaji $${claimFee}).`
+                    ? `Ready to claim — deposit $${depositForClaimFee.toFixed(2)} (fee $${claimFee}).`
                     : needMoreFunds
-                      ? `Una jumla $${spendableForFee.toFixed(2)} kwa ada — unahitaji angalau $${claimFee} (Deposit + Loan credit).`
+                      ? `Deposit wallet $${depositForClaimFee.toFixed(2)} — unahitaji angalau $${claimFee} kwa ada (Deposit pekee).`
                       : canClaim
                         ? 'You can claim from this screen (see button below).'
-                        : `Jumla kwa ada $${spendableForFee.toFixed(2)} — sync eligibility; pull down to refresh.`}
+                        : `Deposit $${depositForClaimFee.toFixed(2)} — sync eligibility; pull down to refresh.`}
               </Text>
             </View>
           </View>
@@ -282,14 +305,14 @@ export default function PoolDetailScreen({ route, navigation }: any) {
                 <View style={styles.stepRow}>
                   <View style={styles.stepNum}><Text style={styles.stepNumText}>1</Text></View>
                   <Text style={styles.stepText}>
-                    {`Have at least $${claimFee} combined in Deposit wallet and/or Loan credit (fee uses Deposit first, then Loan credit). You can deposit USDT (BEP-20) to top up.`}
+                    {`Have at least $${claimFee} in your Deposit wallet (loan credit does not pay this fee). You can deposit USDT (BEP-20) to top up.`}
                   </Text>
                 </View>
                 <View style={styles.stepRow}>
                   <View style={styles.stepNum}><Text style={styles.stepNumText}>2</Text></View>
                   <Text style={styles.stepText}>
-                    Tap Claim. The fee is split: Deposit wallet first, then Loan credit if needed. New Loan credit from
-                    this pack is added on the Loan tab on Home.
+                    Tap Claim. The full fee comes from your Deposit wallet. New Loan credit from this pack is added on
+                    the Loan tab on Home.
                   </Text>
                 </View>
                 <View style={styles.stepRow}>
@@ -318,8 +341,8 @@ export default function PoolDetailScreen({ route, navigation }: any) {
             <View style={styles.noteCard}>
               <Text style={styles.noteText}>
                 This pool is not set up for in-app claim in the admin dashboard (supportsAppCredit). Until that is
-                turned on, the app cannot charge the claim fee or credit Loan credit — even if your combined Deposit +
-                Loan credit would cover the fee.
+                turned on, the app cannot charge the claim fee or credit Loan credit — even if your Deposit wallet
+                would cover the fee.
               </Text>
             </View>
           )}
@@ -340,7 +363,7 @@ export default function PoolDetailScreen({ route, navigation }: any) {
               <Ionicons name="add-circle-outline" size={22} color="#000" />
               <Text style={styles.btnPrimaryText}>Add deposit</Text>
               <Text style={styles.btnSub}>
-                Need ${claimFee} combined (have ${spendableForFee.toFixed(2)}) · USDT increases Deposit wallet
+                Need ${claimFee} deposit (have ${depositForClaimFee.toFixed(2)}) · USDT increases Deposit wallet
               </Text>
             </TouchableOpacity>
           ) : (
@@ -361,7 +384,7 @@ export default function PoolDetailScreen({ route, navigation }: any) {
                       ? 'Package misconfigured'
                       : canClaim
                         ? `Fee $${claimFee} → Loan $${loanCredit?.toLocaleString() ?? '—'}`
-                        : `Need $${claimFee} combined (have $${spendableForFee.toFixed(2)})`}
+                        : `Need $${claimFee} deposit (have $${depositForClaimFee.toFixed(2)})`}
                   </Text>
                 </>
               )}

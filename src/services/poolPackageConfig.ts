@@ -2,8 +2,8 @@ import { Prisma } from '@prisma/client';
 
 /**
  * In-app credit claim flow (admin-configurable per pool, unlimited pools — not a fixed count):
- * - User builds depositCreditUsd via USDT treasury receive (and may already have claimedPoolCreditUsd).
- * - They pay claim fee `creditMinUsd` from deposit + loan credit combined (deposit spent first, then loan credit).
+ * - User builds depositCreditUsd via USDT treasury receive.
+ * - They pay claim fee `creditMinUsd` from deposit credit only (loan credit is not used for the fee).
  * - Their loan / claimed line (`claimedPoolCreditUsd`) increases by `creditCreditedUsd` (e.g. fee $100 → loan $1000).
  */
 export type PoolCreditInput = {
@@ -30,7 +30,7 @@ export function validatePoolCreditPackage(body: PoolCreditInput): { ok: true } |
     return {
       ok: false,
       error:
-        'When supportsAppCredit is true, set creditMinUsd (claim fee in USD from deposit + loan credit) or minDeposit > 0 as the fee.',
+        'When supportsAppCredit is true, set creditMinUsd (claim fee in USD from deposit credit only) or minDeposit > 0 as the fee.',
     };
   }
   if (!Number.isFinite(loan) || loan <= 0) {

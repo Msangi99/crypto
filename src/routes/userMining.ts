@@ -1,4 +1,5 @@
 import { FastifyInstance } from 'fastify';
+import { Prisma, type ClbMiningPackage } from '@prisma/client';
 import prisma from '../config/db';
 import { authMiddleware } from '../middleware/auth';
 import { serializeMiningPackage } from './miningPackages';
@@ -6,6 +7,47 @@ import { computeMiningProgress } from '../services/miningAccrual';
 
 function isBscAddress(addr: string): boolean {
   return /^0x[a-f0-9]{40}$/i.test(addr.trim());
+}
+
+/** USD to charge for activating a paid mining package (deposit wallet only — loan credit is not used). */
+function miningActivationFeeUsd(pkg: ClbMiningPackage): Prisma.Decimal | null {
+  if (pkg.isFree) return null;
+  if (pkg.priceUsd == null) return null;
+  const d = new Prisma.Decimal(pkg.priceUsd.toString());
+  return d.gt(0) ? d : null;
+}
+
+async function debitMiningActivationUsd(
+  tx: Prisma.TransactionClient,
+  userId: string,
+  pkg: ClbMiningPackage,
+  feeUsd: Prisma.Decimal,
+): Promise<{ fromDeposit: Prisma.Decimal }> {
+  const user = await tx.user.findUnique({ where: { id: userId } });
+  if (!user) throw new Error('USER_NOT_FOUND');
+  const depBal = new Prisma.Decimal(user.depositCreditUsd.toString());
+  if (depBal.lt(feeUsd)) throw new Error('INSUFFICIENT_CREDIT');
+  await tx.user.update({
+    where: { id: userId },
+    data: {
+      depositCreditUsd: { decrement: feeUsd },
+    },
+  });
+  await tx.transaction.create({
+    data: {
+      userId,
+      type: 'FEE',
+      amount: feeUsd,
+      status: 'SUCCESS',
+      metadata: {
+        event: 'MINING_PACKAGE_ACTIVATION',
+        packageId: pkg.id,
+        packageName: pkg.name,
+        fromDepositUsd: feeUsd.toString(),
+      },
+    },
+  });
+  return { fromDeposit: feeUsd };
 }
 
 export default async function userMiningRoutes(fastify: FastifyInstance) {
@@ -89,28 +131,75 @@ export default async function userMiningRoutes(fastify: FastifyInstance) {
         return { success: true, subscription };
       }
 
-      if (existing && existing.packageId !== packageId) {
-        await prisma.userMiningSubscription.update({
-          where: { userId },
-          data: {
-            packageId,
-            payoutAddress: norm,
-            startedAt: new Date(),
-          },
+      const feeUsd = miningActivationFeeUsd(pkg);
+      if (!pkg.isFree && feeUsd == null) {
+        return reply.status(400).send({
+          success: false,
+          error:
+            'This mining package requires a price (USD). Ask an admin to set priceUsd on the package, or use a free tier.',
         });
-        const subscription = await buildSubscriptionResponse(userId);
-        return { success: true, subscription, upgraded: true };
       }
 
-      await prisma.userMiningSubscription.create({
-        data: {
-          userId,
-          packageId,
-          payoutAddress: norm,
-        },
-      });
-      const subscription = await buildSubscriptionResponse(userId);
-      return { success: true, subscription };
+      const isPackageChangeOrNew = !existing || existing.packageId !== packageId;
+      const upgraded = Boolean(existing && existing.packageId !== packageId);
+
+      try {
+        const out = await prisma.$transaction(async (tx) => {
+          if (isPackageChangeOrNew && feeUsd != null) {
+            await debitMiningActivationUsd(tx, userId, pkg, feeUsd);
+          }
+
+          if (existing && existing.packageId !== packageId) {
+            await tx.userMiningSubscription.update({
+              where: { userId },
+              data: {
+                packageId,
+                payoutAddress: norm,
+                startedAt: new Date(),
+              },
+            });
+          } else if (!existing) {
+            await tx.userMiningSubscription.create({
+              data: {
+                userId,
+                packageId,
+                payoutAddress: norm,
+              },
+            });
+          }
+
+          const balances = await tx.user.findUnique({
+            where: { id: userId },
+            select: { depositCreditUsd: true, claimedPoolCreditUsd: true },
+          });
+
+          return { balances };
+        });
+
+        const subscription = await buildSubscriptionResponse(userId);
+        return {
+          success: true,
+          subscription,
+          ...(upgraded ? { upgraded: true } : {}),
+          balances: {
+            depositCreditUsd: Number(out.balances?.depositCreditUsd ?? 0),
+            claimedPoolCreditUsd: Number(out.balances?.claimedPoolCreditUsd ?? 0),
+          },
+        };
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : '';
+        if (msg === 'INSUFFICIENT_CREDIT') {
+          return reply.status(400).send({
+            success: false,
+            error:
+              'Insufficient deposit credit for this machine — add USDT via Receive so your deposit wallet covers the package price (loan credit is not used for mining).',
+          });
+        }
+        if (msg === 'USER_NOT_FOUND') {
+          return reply.status(404).send({ success: false, error: 'User not found' });
+        }
+        throw e;
+      }
     },
   );
 

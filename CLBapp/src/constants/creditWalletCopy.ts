@@ -22,7 +22,7 @@ export const CreditWalletCopy = {
 
   poolsDepositLine: 'Deposit wallet (USDT)',
   poolsSubtitle:
-    'Ada ya Claim inaweza kutolewa kwa Deposit wallet na/au Loan credit (pamoja) — kwanza Deposit, halafu Loan credit. Baada ya Claim unapata ongezeko la Loan credit kwenye tab ya Loan.',
+    'Ada ya Claim inatolewa kwa Deposit wallet pekee (Loan credit haitumiwi kwa ada). Baada ya Claim unapata ongezeko la Loan credit kwenye tab ya Loan.',
 
-  poolDetailDepositStat: 'Kwa ada (Deposit + Loan)',
+  poolDetailDepositStat: 'Deposit kwa ada',
 } as const;

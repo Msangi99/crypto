@@ -31,7 +31,7 @@ const schemas = {
     tags: ['Credit Wallet'],
     summary: 'Pool claim eligibility (app credit)',
     description:
-      'Which pools support credit claim and whether the user can claim each pool now. Claim fee can be paid from deposit credit and/or existing loan (claimed pool) credit combined.',
+      'Which pools support credit claim and whether the user can claim each pool now. Claim fee is paid from deposit credit only (loan credit is not used).',
   },
 };
 
@@ -210,7 +210,6 @@ export default async function creditWalletRoutes(fastify: FastifyInstance) {
       });
       const depositAvail = user ? new Prisma.Decimal(user.depositCreditUsd.toString()) : new Prisma.Decimal(0);
       const loanAvail = user ? new Prisma.Decimal(user.claimedPoolCreditUsd.toString()) : new Prisma.Decimal(0);
-      const creditAvail = depositAvail.add(loanAvail);
 
       const pools = await prisma.pool.findMany({
         where: { supportsAppCredit: true },
@@ -233,13 +232,13 @@ export default async function creditWalletRoutes(fastify: FastifyInstance) {
           loanRaw != null && new Prisma.Decimal(loanRaw.toString()).gt(0);
         const loanCreditUsd = loanConfigured ? num(loanRaw) : null;
         const poolActive = p.status === 'ACTIVE';
-        const canClaim = poolActive && loanConfigured && creditAvail.gte(minN);
+        const canClaim = poolActive && loanConfigured && depositAvail.gte(minN);
         return {
           poolId: p.id,
           name: p.name,
           poolStatus: p.status,
           supportsAppCredit: p.supportsAppCredit,
-          /** Claim fee (USD) — payable from deposit + loan credit combined */
+          /** Claim fee (USD) — payable from deposit credit only */
           creditMinUsd: num(min),
           /** Loan balance (USD) after claim — null if admin did not set creditCreditedUsd */
           creditCreditedUsd: loanCreditUsd,
@@ -252,7 +251,8 @@ export default async function creditWalletRoutes(fastify: FastifyInstance) {
         success: true,
         depositCreditUsd: num(depositAvail),
         claimedPoolCreditUsd: num(loanAvail),
-        claimFeeSpendableUsd: num(creditAvail),
+        /** USD available to pay pool claim fees (deposit wallet only). */
+        claimFeeSpendableUsd: num(depositAvail),
         pools: rows,
       };
     }

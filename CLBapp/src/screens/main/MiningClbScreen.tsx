@@ -19,6 +19,7 @@ import { Colors, Spacing, Radius } from '../../constants/theme';
 import {
   miningPackagesAPI,
   miningUserAPI,
+  creditWalletAPI,
   type MiningPackageDto,
   type MiningSubscriptionDto,
 } from '../../services/api';
@@ -61,6 +62,24 @@ function shortAddr(addr: string): string {
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
 }
 
+/** Positive USD price for a paid tier; 0 if free or unset. */
+function packageActivationUsd(p: MiningPackageDto): number {
+  if (p.isFree) return 0;
+  const n = Number(p.priceUsd ?? 0);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+/** Server charges when switching to this package (or first subscribe); not when only editing payout on same tier. */
+function willChargeActivation(
+  current: MiningSubscriptionDto | null,
+  target: MiningPackageDto,
+): boolean {
+  const price = packageActivationUsd(target);
+  if (price <= 0) return false;
+  if (!current) return true;
+  return current.packageId !== target.id;
+}
+
 export default function MiningClbScreen({ navigation }: { navigation: any }) {
   const { isAuthenticated, user } = useAuthStore();
   const [packages, setPackages] = useState<MiningPackageDto[]>([]);
@@ -74,15 +93,29 @@ export default function MiningClbScreen({ navigation }: { navigation: any }) {
   const [pickPackage, setPickPackage] = useState<MiningPackageDto | null>(null);
   const [payoutInput, setPayoutInput] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [depositCreditUsd, setDepositCreditUsd] = useState(0);
+
+  const subscribeModalCantAfford = useMemo(() => {
+    if (!pickPackage) return false;
+    if (!willChargeActivation(subscription, pickPackage)) return false;
+    return depositCreditUsd + 1e-9 < packageActivationUsd(pickPackage);
+  }, [pickPackage, subscription, depositCreditUsd]);
 
   const loadAll = useCallback(async () => {
     try {
-      const [pkgRes, subRes] = await Promise.all([
-        miningPackagesAPI.list(),
-        isAuthenticated ? miningUserAPI.subscription().catch(() => ({ data: { subscription: null } })) : Promise.resolve({ data: { subscription: null } }),
-      ]);
+      const pkgRes = await miningPackagesAPI.list();
       setPackages(pkgRes.data?.packages ?? []);
-      setSubscription(subRes.data?.subscription ?? null);
+      if (isAuthenticated) {
+        const [subRes, balRes] = await Promise.all([
+          miningUserAPI.subscription().catch(() => ({ data: { subscription: null } })),
+          creditWalletAPI.balances().catch(() => null),
+        ]);
+        setSubscription(subRes.data?.subscription ?? null);
+        setDepositCreditUsd(Number(balRes?.data?.balances?.depositCreditUsd ?? 0));
+      } else {
+        setSubscription(null);
+        setDepositCreditUsd(0);
+      }
       setLoadError(null);
     } catch {
       setLoadError('Could not load mining packages.');
@@ -112,6 +145,20 @@ export default function MiningClbScreen({ navigation }: { navigation: any }) {
       Alert.alert('Sign in required', 'Log in to activate a mining machine.');
       return;
     }
+    if (willChargeActivation(subscription, p)) {
+      const price = packageActivationUsd(p);
+      if (depositCreditUsd + 1e-9 < price) {
+        Alert.alert(
+          'Not enough deposit credit',
+          `This machine costs $${price.toFixed(2)} from your deposit wallet only (loan credit is not used). You have $${depositCreditUsd.toFixed(2)}. Add USDT via Receive.`,
+          [
+            { text: 'OK', style: 'cancel' },
+            { text: 'Receive', onPress: () => navigation.navigate('DepositReceive') },
+          ],
+        );
+        return;
+      }
+    }
     setPickPackage(p);
     setPayoutInput(user?.walletAddress?.trim() ?? '');
     setModalOpen(true);
@@ -128,6 +175,10 @@ export default function MiningClbScreen({ navigation }: { navigation: any }) {
     try {
       const res = await miningUserAPI.subscribe({ packageId: pickPackage.id, payoutAddress: addr });
       setSubscription(res.data?.subscription ?? null);
+      const b = res.data?.balances;
+      if (b) {
+        setDepositCreditUsd(b.depositCreditUsd);
+      }
       setModalOpen(false);
       setPickPackage(null);
       const msg = res.data?.upgraded ? 'Your mining machine was upgraded.' : 'Mining machine is now active.';
@@ -345,6 +396,17 @@ export default function MiningClbScreen({ navigation }: { navigation: any }) {
             </Text>
             {pickPackage ? (
               <>
+                {willChargeActivation(subscription, pickPackage) ? (
+                  <Text style={styles.modalCredit}>
+                    Cost ${packageActivationUsd(pickPackage).toFixed(2)} from your deposit wallet only (loan credit is
+                    not used). You have ${depositCreditUsd.toFixed(2)} deposit credit.
+                  </Text>
+                ) : null}
+                {!pickPackage.isFree && packageActivationUsd(pickPackage) <= 0 ? (
+                  <Text style={styles.modalWarn}>
+                    This paid tier has no USD price configured — activation will fail until an admin sets priceUsd.
+                  </Text>
+                ) : null}
                 <Text style={styles.inputLabel}>Payout address (BSC)</Text>
                 <TextInput
                   style={styles.input}
@@ -355,10 +417,22 @@ export default function MiningClbScreen({ navigation }: { navigation: any }) {
                   autoCapitalize="none"
                   autoCorrect={false}
                 />
+                {subscribeModalCantAfford ? (
+                  <TouchableOpacity
+                    style={styles.modalSecondaryLink}
+                    onPress={() => {
+                      setModalOpen(false);
+                      setPickPackage(null);
+                      navigation.navigate('DepositReceive');
+                    }}
+                  >
+                    <Text style={styles.modalSecondaryLinkText}>Receive USDT for deposit credit</Text>
+                  </TouchableOpacity>
+                ) : null}
                 <TouchableOpacity
-                  style={styles.modalPrimary}
+                  style={[styles.modalPrimary, subscribeModalCantAfford && styles.modalPrimaryDisabled]}
                   onPress={confirmSubscribe}
-                  disabled={submitting}
+                  disabled={submitting || subscribeModalCantAfford}
                 >
                   {submitting ? (
                     <ActivityIndicator color="#000" />
@@ -597,6 +671,16 @@ const styles = StyleSheet.create({
   },
   modalTitle: { fontSize: 18, fontWeight: '800', color: Colors.textPrimary },
   modalSub: { fontSize: 13, color: Colors.textMuted, marginTop: 8, lineHeight: 19 },
+  modalCredit: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+    marginTop: Spacing.sm,
+    lineHeight: 18,
+  },
+  modalWarn: { fontSize: 12, fontWeight: '600', color: '#FF4757', marginTop: Spacing.sm, lineHeight: 18 },
+  modalSecondaryLink: { marginTop: Spacing.md, alignSelf: 'flex-start', paddingVertical: 4 },
+  modalSecondaryLinkText: { fontSize: 14, fontWeight: '700', color: Colors.primary },
   inputLabel: { fontSize: 12, fontWeight: '700', color: Colors.textSecondary, marginTop: Spacing.md },
   input: {
     marginTop: 6,
@@ -616,6 +700,7 @@ const styles = StyleSheet.create({
     borderRadius: Radius.md,
     alignItems: 'center',
   },
+  modalPrimaryDisabled: { opacity: 0.45 },
   modalPrimaryText: { fontSize: 16, fontWeight: '800', color: '#000' },
   modalCancel: { marginTop: Spacing.md, alignItems: 'center', padding: Spacing.sm },
   modalCancelText: { fontSize: 15, fontWeight: '700', color: Colors.textMuted },

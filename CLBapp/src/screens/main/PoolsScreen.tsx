@@ -87,7 +87,8 @@ export default function PoolsScreen({ navigation }: any) {
 
   const totalTvl = useMemo(() => pools.reduce((sum: number, p: any) => sum + (Number(p.totalStaked) || 0), 0), [pools]);
 
-  const spendableForClaimFee = depositBalance + loanCreditBalance;
+  /** Deposit wallet only — pool & mining claim fees do not use loan credit. */
+  const spendableForClaimFee = depositBalance;
 
   const load = useCallback(async () => {
     try {
@@ -151,12 +152,12 @@ export default function PoolsScreen({ navigation }: any) {
               <Text style={styles.depositBannerStrong}>${depositBalance.toLocaleString(undefined, { maximumFractionDigits: 2 })}</Text>
               <Text style={styles.depositBannerNote}> · si Loan credit</Text>
             </Text>
-            <Text style={styles.loanBannerLine}>
+              <Text style={styles.loanBannerLine}>
               Loan credit:{' '}
               <Text style={styles.depositBannerStrong}>${loanCreditBalance.toLocaleString(undefined, { maximumFractionDigits: 2 })}</Text>
               <Text style={styles.depositBannerNote}>
                 {' '}
-                · Jumla kwa ada ya Claim: ${spendableForClaimFee.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                · Ada ya Claim: deposit pekee ${spendableForClaimFee.toLocaleString(undefined, { maximumFractionDigits: 2 })}
               </Text>
             </Text>
           </View>
@@ -375,7 +376,7 @@ export default function PoolsScreen({ navigation }: any) {
                           : canClaimNow
                             ? 'Fungua screen kudhibitisha — ada itatolewa kwenye Deposit wallet (USDT).'
                             : needMore
-                              ? `Una jumla $${spendableForClaimFee.toFixed(2)} (Deposit + Loan) — unahitaji angalau $${fee} kwa ada.`
+                              ? `Deposit wallet $${spendableForClaimFee.toFixed(2)} — unahitaji angalau $${fee} kwa ada (Deposit pekee).`
                               : `In-app claim · ada $${fee} · loan ${loanStr}.`}
                     </Text>
                   </View>

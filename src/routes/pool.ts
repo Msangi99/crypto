@@ -570,7 +570,7 @@ export default async function poolRoutes(fastify: FastifyInstance) {
     }
   );
 
-  // POST /pools/:id/claim-credit — stake into pool using in-app USDT credit (no on-chain pool tx)
+  // POST /pools/:id/claim-credit — stake into pool using deposit credit only for the claim fee (no on-chain pool tx)
   fastify.post<{ Params: { id: string } }>(
     '/:id/claim-credit',
     { preHandler: [authMiddleware] },
@@ -613,13 +613,11 @@ export default async function poolRoutes(fastify: FastifyInstance) {
           const user = await tx.user.findUnique({ where: { id: request.userId! } });
           if (!user) throw new Error('USER_NOT_FOUND');
           const depBal = new Prisma.Decimal(user.depositCreditUsd.toString());
-          const loanBal = new Prisma.Decimal(user.claimedPoolCreditUsd.toString());
-          const spendable = depBal.add(loanBal);
-          if (spendable.lt(creditMin)) throw new Error('INSUFFICIENT_CREDIT');
+          if (depBal.lt(creditMin)) throw new Error('INSUFFICIENT_CREDIT');
 
-          const fromDeposit = depBal.lt(creditMin) ? depBal : creditMin;
-          const fromLoan = creditMin.sub(fromDeposit);
-          const netLoanDelta = creditGive.sub(fromLoan);
+          const fromDeposit = creditMin;
+          const fromLoan = new Prisma.Decimal(0);
+          const netLoanDelta = creditGive;
 
           await tx.user.update({
             where: { id: user.id },
@@ -692,7 +690,7 @@ export default async function poolRoutes(fastify: FastifyInstance) {
           return reply.status(400).send({
             success: false,
             error:
-              'Insufficient balance for this claim fee — add USDT to your deposit wallet and/or use existing loan credit (combined must cover the fee).',
+              'Insufficient deposit credit for this claim fee — add USDT via Receive so your deposit wallet covers the full fee (loan credit is not used for pool claim).',
           });
         }
         if (msg === 'USER_NOT_FOUND') {

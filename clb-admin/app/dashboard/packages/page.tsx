@@ -382,7 +382,7 @@ export default function PackagesPage() {
                       <Wallet className="w-4 h-4 text-[#F0B90B]" />
                       <div>
                         <p className="text-sm font-semibold text-white">In-app claim (deposit balance)</p>
-                        <p className="text-xs text-[#888]">User pays claim fee from USDT deposit credit; loan line increases by loan credit.</p>
+                        <p className="text-xs text-[#888]">User pays claim fee from USDT deposit credit only; loan line increases by configured loan credit.</p>
                       </div>
                     </div>
                     <Switch

@@ -237,10 +237,12 @@ export const miningUserAPI = {
   subscription: () =>
     api.get<{ success: boolean; subscription: MiningSubscriptionDto | null }>('/api/mining/subscription'),
   subscribe: (body: { packageId: string; payoutAddress: string }) =>
-    api.post<{ success: boolean; subscription: MiningSubscriptionDto | null; upgraded?: boolean }>(
-      '/api/mining/subscribe',
-      body,
-    ),
+    api.post<{
+      success: boolean;
+      subscription: MiningSubscriptionDto | null;
+      upgraded?: boolean;
+      balances?: { depositCreditUsd: number; claimedPoolCreditUsd: number };
+    }>('/api/mining/subscribe', body),
   claim: () =>
     api.post<{
       success: boolean;
