@@ -6,3 +6,11 @@ dist/
 package-lock.json
 package.json
 .expo/
+
+# CLBapp — exclude from EAS upload
+CLBapp/node_modules/
+CLBapp/ios/
+CLBapp/.expo/
+CLBapp/dist/
+CLBapp/build/
+CLBapp/web-build/
