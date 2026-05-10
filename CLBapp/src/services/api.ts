@@ -157,7 +157,8 @@ export const creditWalletAPI = {
         name: string;
         supportsAppCredit: boolean;
         creditMinUsd: number;
-        creditCreditedUsd: number;
+        creditCreditedUsd: number | null;
+        packageMisconfigured?: boolean;
         canClaimWithCredit: boolean;
       }>;
     }>('/api/credit-wallet/pool-eligibility'),

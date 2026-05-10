@@ -249,7 +249,7 @@ export default function HomeScreen({ navigation }: any) {
             {[
               { icon: 'wallet-outline', label: 'CLB Tokens', screen: 'WalletTokens' },
               { icon: 'hardware-chip-outline', label: 'Mine CLB', screen: 'MiningClb' },
-              { icon: 'cash-outline', label: 'Get Loan', screen: 'LoanRequest' },
+              { icon: 'swap-horizontal', label: 'Use your loan', screen: 'LoanHub' },
               { icon: 'add-circle-outline', label: 'Deposit', screen: 'DepositReceive' },
               { icon: 'people-outline', label: 'Referrals', screen: 'Referrals' },
             ].map((a) => (

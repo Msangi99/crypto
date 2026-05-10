@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, RefreshControl,
-  TouchableOpacity, TextInput, Alert,
+  TouchableOpacity, TextInput,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -28,6 +28,16 @@ const COIN_ICONS: Record<string, string> = {
   DAI: 'cash',
 };
 
+function loanUsd(pool: any): number {
+  const v = pool.creditCreditedUsd;
+  if (v != null && Number(v) > 0) return Number(v);
+  return 0;
+}
+
+function claimFeeUsd(pool: any): number {
+  return Number(pool.creditMinUsd ?? pool.minDeposit ?? 0);
+}
+
 function CoinIcon({ symbol }: { symbol: string }) {
   const iconName = (COIN_ICONS[symbol?.toUpperCase()] || 'cube-outline') as any;
   return (
@@ -39,9 +49,9 @@ function CoinIcon({ symbol }: { symbol: string }) {
 
 export default function PoolsScreen({ navigation }: any) {
   const [pools, setPools] = useState<any>([]);
-  const [eligibility, setEligibility] = useState<Record<string, { canClaimWithCredit: boolean; creditMinUsd: number }>>(
-    {}
-  );
+  const [eligibility, setEligibility] = useState<
+    Record<string, { canClaimWithCredit: boolean; creditMinUsd: number; creditCreditedUsd: number | null }>
+  >({});
   const [refreshing, setRefreshing] = useState(false);
   const [activeFilter, setActiveFilter] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
@@ -56,11 +66,15 @@ export default function PoolsScreen({ navigation }: any) {
     }
     if (activeFilter === 'Popular') {
       result.sort((a: any, b: any) => (b._count?.members || b.memberCount || 0) - (a._count?.members || a.memberCount || 0));
-    } else if (activeFilter === 'High APY') {
-      result.sort((a: any, b: any) => (b.apy || 0) - (a.apy || 0));
+    } else if (activeFilter === 'Loan') {
+      result.sort((a: any, b: any) => {
+        const la = eligibility[a.id]?.creditCreditedUsd ?? loanUsd(a);
+        const lb = eligibility[b.id]?.creditCreditedUsd ?? loanUsd(b);
+        return Number(lb) - Number(la);
+      });
     }
     return result;
-  }, [pools, searchQuery, activeFilter]);
+  }, [pools, searchQuery, activeFilter, eligibility]);
 
   const totalTvl = useMemo(() => pools.reduce((sum: number, p: any) => sum + (Number(p.totalStaked) || 0), 0), [pools]);
 
@@ -71,11 +85,12 @@ export default function PoolsScreen({ navigation }: any) {
         creditWalletAPI.poolEligibility().catch(() => ({ data: { pools: [] as any[] } })),
       ]);
       setPools(res.data?.data ?? []);
-      const map: Record<string, { canClaimWithCredit: boolean; creditMinUsd: number }> = {};
+      const map: Record<string, { canClaimWithCredit: boolean; creditMinUsd: number; creditCreditedUsd: number | null }> = {};
       for (const row of elRes.data?.pools ?? []) {
         map[row.poolId] = {
           canClaimWithCredit: Boolean(row.canClaimWithCredit),
           creditMinUsd: Number(row.creditMinUsd ?? 0),
+          creditCreditedUsd: row.creditCreditedUsd != null ? Number(row.creditCreditedUsd) : null,
         };
       }
       setEligibility(map);
@@ -83,30 +98,6 @@ export default function PoolsScreen({ navigation }: any) {
       console.error('Failed to load pools:', e);
     }
   }, []);
-
-  const handleClaimCredit = (pool: any) => {
-    const el = eligibility[pool.id];
-    if (!el?.canClaimWithCredit) return;
-    Alert.alert(
-      'Claim with credit',
-      `Use your in-app deposit balance to open this pool? Minimum credit: $${el.creditMinUsd}.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Claim',
-          onPress: async () => {
-            try {
-              await poolsAPI.claimCredit(pool.id);
-              Alert.alert('Done', 'Pool opened with in-app credit.');
-              await load();
-            } catch (e: any) {
-              Alert.alert('Claim failed', e?.response?.data?.error || e?.message || 'Error');
-            }
-          },
-        },
-      ]
-    );
-  };
 
   useEffect(() => {
     load();
@@ -118,7 +109,7 @@ export default function PoolsScreen({ navigation }: any) {
     setRefreshing(false);
   };
 
-  const filters = ['All', 'Popular', 'High APY'];
+  const filters = ['All', 'Popular', 'Loan'];
 
   return (
     <View style={styles.container}>
@@ -127,7 +118,7 @@ export default function PoolsScreen({ navigation }: any) {
         <View style={styles.header}>
           <View>
             <Text style={styles.title}>Liquidity Pools</Text>
-            <Text style={styles.subtitle}>Earn up to 60x leverage on your deposits</Text>
+            <Text style={styles.subtitle}>Pay a claim fee from deposit balance · get loan credit · then swap</Text>
           </View>
           <TouchableOpacity style={styles.filterBtn}>
             <Ionicons name="options-outline" size={20} color={Colors.textSecondary} />
@@ -147,8 +138,8 @@ export default function PoolsScreen({ navigation }: any) {
           </View>
           <View style={styles.summaryDivider} />
           <View style={styles.summaryItem}>
-            <Text style={styles.summaryValue}>60x</Text>
-            <Text style={styles.summaryLabel}>Max Leverage</Text>
+            <Text style={styles.summaryValue}>{pools.filter((p: any) => p.supportsAppCredit).length}</Text>
+            <Text style={styles.summaryLabel}>Claim packs</Text>
           </View>
         </View>
 
@@ -198,8 +189,8 @@ export default function PoolsScreen({ navigation }: any) {
               <LinearGradient colors={Colors.gradientGold} style={styles.featuredCard}>
                 <View style={styles.featuredHeader}>
                   <View style={styles.featuredBadge}>
-                    <Ionicons name="flame" size={12} color="#000" />
-                    <Text style={styles.featuredBadgeText}>Best APY</Text>
+                    <Ionicons name="flash" size={12} color="#000" />
+                    <Text style={styles.featuredBadgeText}>Featured</Text>
                   </View>
                   <Ionicons name="chevron-forward" size={18} color="rgba(0,0,0,0.5)" />
                 </View>
@@ -210,15 +201,15 @@ export default function PoolsScreen({ navigation }: any) {
                     <Text style={styles.featuredTitle}>{pools[0].name}</Text>
                     <Text style={styles.featuredSubtitle}>{pools[0].tokenSymbol} Pool</Text>
                   </View>
-                  <View style={styles.featuredApy}>
-                    <Text style={styles.featuredApyValue}>{pools[0].apy}%</Text>
-                    <Text style={styles.featuredApyLabel}>APY</Text>
+                  <View style={styles.featuredLoanBox}>
+                    <Text style={styles.featuredFeeLab}>Fee</Text>
+                    <Text style={styles.featuredFeeVal}>${claimFeeUsd(pools[0])}</Text>
                   </View>
                 </View>
 
                 <View style={styles.featuredStats}>
-                  <Stat label="Min Deposit" value={`$${pools[0].minDeposit}`} />
-                  <Stat label="Total Staked" value={`$${Number(pools[0].totalStaked).toLocaleString()}`} />
+                  <Stat label="Loan" value={loanUsd(pools[0]) > 0 ? `$${loanUsd(pools[0]).toLocaleString()}` : '—'} />
+                  <Stat label="TVL" value={`$${Number(pools[0].totalStaked).toLocaleString()}`} />
                   <Stat label="Members" value={`${pools[0]._count?.members || pools[0].memberCount || 0}`} />
                 </View>
               </LinearGradient>
@@ -229,7 +220,7 @@ export default function PoolsScreen({ navigation }: any) {
         {/* Section Header */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>
-            {activeFilter === 'All' ? 'All Pools' : activeFilter === 'Popular' ? 'Most Popular' : 'Highest APY'}
+            {activeFilter === 'All' ? 'All pools' : activeFilter === 'Popular' ? 'Most popular' : 'Highest loan'}
           </Text>
           <View style={styles.sectionBadge}>
             <Text style={styles.sectionCount}>{filteredPools.length}</Text>
@@ -245,53 +236,51 @@ export default function PoolsScreen({ navigation }: any) {
         ) : (
           filteredPools.map((pool: any) => {
             const el = eligibility[pool.id];
+            const fee = el?.creditMinUsd ?? claimFeeUsd(pool);
+            const loan = el?.creditCreditedUsd ?? (pool.creditCreditedUsd != null ? Number(pool.creditCreditedUsd) : null);
+            const loanStr = loan != null && loan > 0 ? `$${loan.toLocaleString()}` : '—';
             return (
-              <View key={pool.id} style={styles.poolCard}>
-                <TouchableOpacity
-                  onPress={() => navigation.navigate('PoolDetail', { poolId: pool.id })}
-                  activeOpacity={0.85}
-                >
-                  <View style={styles.poolHeader}>
-                    <CoinIcon symbol={pool.tokenSymbol} />
-                    <View style={{ flex: 1, marginLeft: Spacing.md }}>
-                      <Text style={styles.poolName}>{pool.name}</Text>
-                      <View style={styles.poolTokenRow}>
-                        <Text style={styles.poolToken}>{pool.tokenSymbol}</Text>
-                        <View style={styles.poolDot} />
-                        <Badge
-                          label={pool.status || 'Active'}
-                          variant={pool.status === 'ACTIVE' ? 'success' : 'warning'}
-                        />
-                      </View>
-                    </View>
-                    <View style={styles.poolApyBox}>
-                      <Text style={styles.poolApyValue}>{pool.apy}%</Text>
-                      <Text style={styles.poolApyLabel}>APY</Text>
+              <TouchableOpacity
+                key={pool.id}
+                style={styles.poolCard}
+                onPress={() => navigation.navigate('PoolDetail', { poolId: pool.id })}
+                activeOpacity={0.85}
+              >
+                <View style={styles.poolHeader}>
+                  <CoinIcon symbol={pool.tokenSymbol} />
+                  <View style={{ flex: 1, marginLeft: Spacing.md }}>
+                    <Text style={styles.poolName}>{pool.name}</Text>
+                    <View style={styles.poolTokenRow}>
+                      <Text style={styles.poolToken}>{pool.tokenSymbol}</Text>
+                      <View style={styles.poolDot} />
+                      <Badge
+                        label={pool.status || 'Active'}
+                        variant={pool.status === 'ACTIVE' ? 'success' : 'warning'}
+                      />
                     </View>
                   </View>
+                </View>
 
-                  <View style={styles.poolMetrics}>
-                    <Metric label="Min Deposit" value={`$${pool.minDeposit}`} />
-                    <Metric label="TVL" value={`$${Number(pool.totalStaked).toLocaleString()}`} />
-                    <Metric label="Members" value={`${pool._count?.members || pool.memberCount || 0}`} />
+                <View style={styles.poolFeeLoanRow}>
+                  <View style={styles.poolFeeLoanCell}>
+                    <Text style={styles.poolFeeLoanLabel}>Claim fee</Text>
+                    <Text style={styles.poolFeeLoanValue}>${fee}</Text>
                   </View>
-                </TouchableOpacity>
+                  <View style={styles.poolFeeLoanMid} />
+                  <View style={styles.poolFeeLoanCell}>
+                    <Text style={styles.poolFeeLoanLabel}>Loan</Text>
+                    <Text style={[styles.poolFeeLoanValue, styles.poolLoanAccent]}>{loanStr}</Text>
+                  </View>
+                </View>
 
                 <View style={styles.poolFooter}>
                   <View style={styles.poolFooterLeft}>
                     <Ionicons name="people-outline" size={13} color={Colors.textMuted} />
                     <Text style={styles.poolMemberText}>{pool._count?.members || pool.memberCount || 0} members</Text>
                   </View>
-                  {el?.canClaimWithCredit ? (
-                    <TouchableOpacity style={styles.claimPill} onPress={() => handleClaimCredit(pool)}>
-                      <Text style={styles.claimPillText}>Claim</Text>
-                    </TouchableOpacity>
-                  ) : null}
-                  <TouchableOpacity onPress={() => navigation.navigate('PoolDetail', { poolId: pool.id })}>
-                    <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
-                  </TouchableOpacity>
+                  <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
                 </View>
-              </View>
+              </TouchableOpacity>
             );
           })
         )}
@@ -305,18 +294,6 @@ function Stat({ label, value }: any) {
     <View style={{ flex: 1, alignItems: 'center', gap: 4 }}>
       <Text style={{ fontSize: FontSize.xs, color: 'rgba(0,0,0,0.6)' }}>{label}</Text>
       <Text style={{ fontSize: FontSize.sm, fontWeight: '700', color: '#000' }}>{value}</Text>
-    </View>
-  );
-}
-
-function Metric({ label, value, accent }: any) {
-  return (
-    <View style={{ gap: 2 }}>
-      <Text style={{ fontSize: FontSize.xs, color: Colors.textMuted }}>{label}</Text>
-      <Text style={{
-        fontSize: FontSize.sm, fontWeight: '700',
-        color: accent ? Colors.primary : Colors.textPrimary,
-      }}>{value}</Text>
     </View>
   );
 }
@@ -417,9 +394,9 @@ const styles = StyleSheet.create({
   },
   featuredTitle: { fontSize: 18, fontWeight: '800', color: '#000' },
   featuredSubtitle: { fontSize: 13, color: 'rgba(0,0,0,0.6)', fontWeight: '600' },
-  featuredApy: { alignItems: 'flex-end', gap: 2 },
-  featuredApyValue: { fontSize: 26, fontWeight: '900', color: '#000' },
-  featuredApyLabel: { fontSize: 11, color: 'rgba(0,0,0,0.5)', fontWeight: '700' },
+  featuredLoanBox: { alignItems: 'flex-end' },
+  featuredFeeLab: { fontSize: 10, fontWeight: '800', color: 'rgba(0,0,0,0.5)', textTransform: 'uppercase' },
+  featuredFeeVal: { fontSize: 22, fontWeight: '900', color: '#000' },
   featuredStats: {
     flexDirection: 'row', paddingTop: Spacing.sm,
     borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.1)',
@@ -456,33 +433,26 @@ const styles = StyleSheet.create({
     width: 4, height: 4, borderRadius: 2,
     backgroundColor: Colors.textMuted,
   },
-  poolApyBox: {
-    alignItems: 'flex-end', gap: 2,
+  poolFeeLoanRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderRadius: Radius.md,
+    paddingVertical: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
-  poolApyValue: {
-    fontSize: 22, fontWeight: '900',
-    color: Colors.primary,
-  },
-  poolApyLabel: { fontSize: 11, fontWeight: '700', color: Colors.textMuted },
-  poolMetrics: {
-    flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.lg,
-  },
+  poolFeeLoanCell: { flex: 1, alignItems: 'center' },
+  poolFeeLoanMid: { width: 1, height: 36, backgroundColor: Colors.border },
+  poolFeeLoanLabel: { fontSize: 11, fontWeight: '600', color: Colors.textMuted, marginBottom: 4 },
+  poolFeeLoanValue: { fontSize: 17, fontWeight: '900', color: Colors.textPrimary },
+  poolLoanAccent: { color: Colors.primary },
   poolFooter: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     paddingTop: Spacing.sm, borderTopWidth: 1, borderTopColor: Colors.border,
   },
   poolFooterLeft: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1, minWidth: 0 },
   poolMemberText: { fontSize: 12, color: Colors.textSecondary, flexShrink: 1 },
-  claimPill: {
-    marginRight: Spacing.sm,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 99,
-    backgroundColor: 'rgba(240,185,11,0.2)',
-    borderWidth: 1,
-    borderColor: 'rgba(240,185,11,0.45)',
-  },
-  claimPillText: { fontSize: 12, fontWeight: '800', color: Colors.primary },
 
   // Empty
   empty: { alignItems: 'center', gap: Spacing.sm, paddingVertical: 80 },

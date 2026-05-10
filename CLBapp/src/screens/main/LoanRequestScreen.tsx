@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput, Alert,
   ScrollView, KeyboardAvoidingView, Platform,
@@ -21,12 +22,26 @@ const TOKEN_META: Record<string, { name: string; color: string }> = {
   CLB: { name: 'CLB', color: '#3B82F6' },
 };
 
-export default function LoanRequestScreen({ navigation }: any) {
-  const [selectedChain, setSelectedChain] = useState(CHAINS[0]);
+function chainForSymbol(sym?: string) {
+  if (!sym) return CHAINS[0];
+  const u = sym.toUpperCase();
+  return CHAINS.find((c) => c.symbol === u) || CHAINS[0];
+}
+
+export default function LoanRequestScreen({ navigation, route }: any) {
+  const preferred = route?.params?.preferredAsset as string | undefined;
+  const [selectedChain, setSelectedChain] = useState(() => chainForSymbol(preferred));
   const [amount, setAmount] = useState('');
   const [price, setPrice] = useState(0);
   const [tiers, setTiers] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      const p = route?.params?.preferredAsset as string | undefined;
+      if (p) setSelectedChain(chainForSymbol(p));
+    }, [route?.params?.preferredAsset])
+  );
 
   useEffect(() => {
     fetchData();
