@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>CryptoLoanBoost dApp — Analytics Dashboard</title>
-  <meta name="description" content="CryptoLoanBoost dApp analytics dashboard with live pools, prices, system health, and on-chain data." />
+  <title>CryptoLoanBoost — Your portfolio</title>
+  <meta name="description" content="Connect your BEP-20 wallet to view your CryptoLoanBoost portfolio, balances, mining, and referrals on BSC." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
@@ -255,6 +255,39 @@
     .chip.mint { border-color: rgba(5,214,143,0.3); background: var(--mint-bg); color: var(--mint); }
     .chip.violet { border-color: rgba(124,92,252,0.35); background: var(--violet-bg); color: var(--violet); }
 
+    /* Connect hero card */
+    .connect-surface { margin-top: 4px; }
+    .connect-card { position: relative; border-radius: 24px; padding: 1px;
+      background: linear-gradient(125deg, rgba(246,183,59,0.55), rgba(124,92,252,0.45), rgba(5,214,143,0.4));
+      box-shadow: 0 24px 80px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.06) inset;
+    }
+    .connect-card-glow {
+      position: absolute; inset: -40% -20% auto -20%; height: 60%; pointer-events: none;
+      background: radial-gradient(ellipse 70% 50% at 50% 0%, rgba(246,183,59,0.15), transparent 70%);
+    }
+    .connect-card-inner { position: relative; border-radius: 23px; background: linear-gradient(168deg, #1a1d38 0%, #12142b 55%, #0f1124 100%); padding: 32px 28px 28px; }
+    .connect-eyebrow { font-size: 11px; text-transform: uppercase; letter-spacing: 0.16em; color: var(--gold); font-weight: 700; margin-bottom: 10px; }
+    .connect-title { font-family: 'Bricolage Grotesque', sans-serif; font-size: clamp(26px, 4.2vw, 38px); font-weight: 800; line-height: 1.12; margin-bottom: 14px; letter-spacing: -0.5px; }
+    .connect-lead { color: var(--muted); font-size: 15px; line-height: 1.7; max-width: 680px; margin-bottom: 22px; }
+    .wallet-display { font-family: 'DM Mono', monospace; font-size: 14px; word-break: break-all; padding: 16px 18px; border-radius: 14px; border: 1px solid var(--border2); background: rgba(0,0,0,0.35); color: var(--ink); }
+    .connect-meta-grid { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 12px; margin-top: 16px; }
+    .connect-meta { padding: 14px 16px; border-radius: 14px; border: 1px solid var(--border); background: rgba(255,255,255,0.03); }
+    .connect-meta-label { display: block; font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px; font-weight: 600; }
+    .connect-meta-value { font-weight: 700; font-size: 14px; line-height: 1.45; display: block; }
+    .connect-meta-hint { display: block; font-size: 11px; color: var(--faint); margin-top: 10px; line-height: 1.5; }
+
+    .user-hub .sec-title { letter-spacing: -0.5px; }
+    .uh-glow-panel {
+      border-radius: 20px; padding: 1px;
+      background: linear-gradient(135deg, rgba(5,214,143,0.35), rgba(246,183,59,0.2), rgba(167,139,250,0.25));
+    }
+    .uh-glow-panel > .panel { border: none; border-radius: 19px; background: linear-gradient(165deg, #232746, #1a1d38); }
+
+    .about-split { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 4px; }
+    .about-card { padding: 22px; border-radius: 16px; border: 1px solid var(--border); background: linear-gradient(160deg, var(--card), var(--lift)); font-size: 14px; color: var(--muted); line-height: 1.75; }
+    .about-card strong { color: var(--ink); }
+    .about-card-gold { border-color: rgba(246,183,59,0.35); background: linear-gradient(165deg, rgba(246,183,59,0.1), var(--card)); }
+
     /* KPI strip */
     .kpi-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 20px; }
     .kpi {
@@ -334,11 +367,11 @@
     /* Responsive */
     @media (max-width: 960px) {
       .grid-4 { grid-template-columns: repeat(2, 1fr); }
-      .kpi-strip { grid-template-columns: repeat(2, 1fr); }
     }
     @media (max-width: 720px) {
       .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
-      .kpi-strip { grid-template-columns: 1fr; }
+      .connect-meta-grid { grid-template-columns: 1fr; }
+      .about-split { grid-template-columns: 1fr; }
       #desktopNav { display: none; }
       .hamburger { display: flex; }
       .hero-inner { flex-direction: column; }
@@ -371,8 +404,7 @@
       <div class="brand-name">Crypto<span>Loan</span>Boost</div>
     </div>
     <div class="nav-actions" id="desktopNav">
-      <a id="apiDocsLink" class="btn btn-ghost btn-sm" href="#" target="_blank" rel="noreferrer">API Docs</a>
-      <button id="refreshBtn" class="btn btn-ghost btn-sm">Refresh Data</button>
+      <button id="refreshBtn" class="btn btn-ghost btn-sm">Sync</button>
       <button id="disconnectBtn" class="btn btn-danger btn-sm" type="button" style="display:none">Sign out</button>
       <button id="connectBtn" class="btn btn-primary">Connect Wallet</button>
     </div>
@@ -381,8 +413,7 @@
     </button>
   </nav>
   <div class="mobile-menu" id="mobileMenu">
-    <a id="mobileApiDocsLink" class="btn btn-ghost" href="#" target="_blank" rel="noreferrer">API Docs</a>
-    <button id="mobileRefreshBtn" class="btn btn-ghost">Refresh Data</button>
+    <button id="mobileRefreshBtn" class="btn btn-ghost">Sync</button>
     <button id="mobileDisconnectBtn" class="btn btn-danger" type="button" style="display:none">Sign out</button>
     <button id="mobileConnectBtn" class="btn btn-primary">Connect Wallet</button>
   </div>
@@ -394,14 +425,13 @@
       <div class="hero-orb2"></div>
       <div class="hero-inner">
         <div class="hero-text">
-          <div class="hero-label">CLB Protocol</div>
-          <h1>Borrow smarter. <em>Earn on-chain.</em> Move faster.</h1>
-          <p>Professional DeFi gateway on BSC: connect your BEP-20 wallet, sign once, and your CLB pools, balances, mining, and referrals load here — same account as the mobile app.</p>
+          <div class="hero-label">CryptoLoanBoost</div>
+          <h1>Your CLB world, <em>in one view.</em></h1>
+          <p>Open from Trust Wallet, MetaMask, or Binance Web3 on BSC. Connect the same address you use in the app — then see your positions, balances, mining, and referrals in a layout built for you, not for admin dashboards.</p>
           <div class="hero-chips">
-            <span class="chip gold">BSC Ready</span>
-            <span class="chip mint">Wallet Auth</span>
-            <span class="chip violet">Live Analytics</span>
-            <span class="chip">APY Tracking</span>
+            <span class="chip gold">BSC · BEP-20</span>
+            <span class="chip mint">Sign once</span>
+            <span class="chip violet">Your data only</span>
           </div>
         </div>
         <div class="hero-visual">
@@ -412,216 +442,54 @@
       </div>
     </section>
 
-    <!-- KPIs -->
-    <section class="section kpi-strip" id="kpiStrip">
-      <div class="kpi">
-        <div class="kpi-n" id="kpiPools">—</div>
-        <div class="kpi-l">Total Pools</div>
-        <div class="kpi-delta up" id="kpiPoolsDelta">+0 active</div>
-      </div>
-      <div class="kpi">
-        <div class="kpi-n" id="kpiTVL">—</div>
-        <div class="kpi-l">Total Value Locked</div>
-        <div class="kpi-delta up" id="kpiTVLDelta">BNB pooled</div>
-      </div>
-      <div class="kpi">
-        <div class="kpi-n" id="kpiMembers">—</div>
-        <div class="kpi-l">Pool Members</div>
-        <div class="kpi-delta up" id="kpiMembersDelta">unique stakers</div>
-      </div>
-      <div class="kpi">
-        <div class="kpi-n" id="kpiHealth">—</div>
-        <div class="kpi-l">System Health</div>
-        <div class="kpi-delta up" id="kpiHealthDelta">API status</div>
-      </div>
-    </section>
-
-    <!-- Live Prices -->
-    <section class="section">
-      <div class="sec-head">
-        <span class="sec-badge sb-gold">Live</span>
-        <h2 class="sec-title">Crypto Prices</h2>
-      </div>
-      <div class="grid-3" id="pricesGrid">
-        <!-- Injected by JS -->
-      </div>
-    </section>
-
-    <!-- Charts: TVL + Price Trends -->
-    <section class="section">
-      <div class="sec-head">
-        <span class="sec-badge sb-viol">Analytics</span>
-        <h2 class="sec-title">Protocol Analytics</h2>
-      </div>
-      <div class="grid-2">
-        <div class="panel">
-          <div class="panel-title">Pool TVL Distribution</div>
-          <div class="chart-wrap sm"><canvas id="tvlChart"></canvas></div>
-        </div>
-        <div class="panel">
-          <div class="panel-title">24h Price Change (%)</div>
-          <div class="chart-wrap sm"><canvas id="changeChart"></canvas></div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Pools Table -->
-    <section class="section">
-      <div class="sec-head">
-        <span class="sec-badge sb-mint">Pools</span>
-        <h2 class="sec-title">Active Pools</h2>
-      </div>
-      <div class="panel table-wrap">
-        <table>
-          <thead>
-            <tr><th>Pool</th><th>Token</th><th>APY</th><th>Min Deposit</th><th>TVL</th><th>Members</th><th>Status</th></tr>
-          </thead>
-          <tbody id="poolsTableBody">
-            <tr><td colspan="7" style="text-align:center;color:var(--muted)">Loading pools…</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- How It Works -->
-    <section class="section">
-      <div class="sec-head">
-        <span class="sec-badge sb-gold">Mechanics</span>
-        <h2 class="sec-title">How The System Works</h2>
-      </div>
-      <div class="grid-3">
-        <div class="step">
-          <div class="num">1</div>
-          <h4>Deposit & Lock</h4>
-          <p>Stake BNB into a pool. Your deposit is locked as collateral and mints a soulbound BEP-20 receipt token.</p>
-        </div>
-        <div class="step">
-          <div class="num">2</div>
-          <h4>Leveraged Loan</h4>
-          <p>The protocol issues a leveraged loan in CLB tokens based on your tier. Higher deposits unlock higher leverage.</p>
-          <div class="tier-grid" id="tierGrid"></div>
-        </div>
-        <div class="step">
-          <div class="num">3</div>
-          <h4>Auto-Liquidation</h4>
-          <p>When BTC/ETH hits target prices, positions auto-liquidate in two phases: 40% at soft target, 60% at main target. You keep 85% of profits.</p>
-        </div>
-      </div>
-    </section>
-
-    <!-- About / Description -->
-    <section class="section">
-      <div class="sec-head">
-        <span class="sec-badge sb-viol">About</span>
-        <h2 class="sec-title">Why CryptoLoanBoost</h2>
-      </div>
-      <div class="grid-2">
-        <div class="panel">
-          <p style="line-height:1.8;color:var(--muted);font-size:14px;margin-bottom:14px;">
-            CryptoLoanBoost (CLB) is a decentralized finance protocol built on the Binance Smart Chain that bridges the gap between traditional lending and leveraged crypto investing. By depositing BNB into one of our staking pools, you gain access to instant leveraged loans denominated in CLB tokens, allowing you to amplify your exposure to Bitcoin and Ethereum price movements without selling your underlying collateral.
-          </p>
-          <p style="line-height:1.8;color:var(--muted);font-size:14px;">
-            The protocol operates through a series of smart contracts that automatically manage collateral, issue loans, and execute liquidations when target prices are reached. Every deposit is secured on-chain and backed by a soulbound BEP-20 receipt token that represents your position. Whether the market moves up or down, your original deposit remains protected, and profits are distributed transparently between you and the protocol.
-          </p>
-        </div>
-        <div class="panel">
-          <p style="line-height:1.8;color:var(--muted);font-size:14px;margin-bottom:14px;">
-            Our tiered leverage system is designed to reward commitment. Starting from just $100, you can unlock 10x leverage, scaling all the way up to 60x leverage at the $1,000 tier. This structure ensures that both small and large investors can participate proportionally. The CLB token serves as the native currency of the ecosystem, used for loan issuance, fee payments, and reward distribution across our 5-level referral program.
-          </p>
-          <p style="line-height:1.8;color:var(--muted);font-size:14px;">
-            Security and transparency are at the core of everything we build. All transactions are recorded on the BSC blockchain and verifiable through BscScan. The protocol's auto-liquidation engine runs continuously, monitoring BTC and ETH prices in real-time to ensure positions are settled fairly when targets are hit. With wallet-based authentication, PIN protection, and biometric unlock options in our mobile app, your assets and data remain under your control at all times.
-          </p>
-        </div>
-      </div>
-    </section>
-
-    <!-- CLB Token Showcase -->
-    <section class="section">
-      <div class="sec-head">
-        <span class="sec-badge sb-gold">Token</span>
-        <h2 class="sec-title">The CLB Coin</h2>
-      </div>
-      <div class="panel token-showcase">
-        <div class="token-visual">
-          <img src="./images/Gemini_Generated_Image_ghl656ghl656ghl6 (1).png" alt="CLB Coin Stack" class="img-glow-mint float-slower" />
-        </div>
-        <div class="token-info">
-          <p style="line-height:1.8;color:var(--muted);font-size:14px;margin-bottom:14px;">
-            The CryptoLoanBoost Coin (CLB) is the native utility token powering the entire CLB ecosystem. Designed as a BEP-20 asset on the Binance Smart Chain, CLB is used to issue leveraged loans, distribute referral rewards, pay protocol fees, and govern future upgrades. Every deposit into a CLB pool automatically mints receipt tokens that represent your share of the pool and unlock proportional leverage.
-          </p>
-          <p style="line-height:1.8;color:var(--muted);font-size:14px;margin-bottom:14px;">
-            CLB holders benefit from multiple revenue streams: staking rewards from pool APYs, commissions from the 5-level referral tree, and profit shares from auto-liquidated positions. The token's deflationary mechanics ensure that a portion of every fee is burned, creating long-term scarcity while rewarding active participants.
-          </p>
-          <p style="line-height:1.8;color:var(--muted);font-size:14px;">
-            With a fixed total supply and transparent on-chain economics, CLB represents more than just a utility token — it is your key to accessing institutional-grade leveraged crypto products, backed by the speed and low costs of the BSC network. Trade it, stake it, or simply hold it to grow your share of the protocol's success.
-          </p>
-        </div>
-      </div>
-    </section>
-
-    <!-- Wallet + System -->
-    <section class="section">
-      <div class="sec-head">
-        <span class="sec-badge sb-viol">System</span>
-        <h2 class="sec-title">Connection & Status</h2>
-      </div>
-      <div class="grid-2">
-        <div class="panel">
-          <div class="panel-title">Wallet Overview</div>
-          <div style="font-size:18px;font-weight:700;word-break:break-all;margin-bottom:10px;" id="walletAddress">Not connected</div>
-          <div class="grid-3" style="gap:10px;">
-            <div class="metric" style="border:1px solid var(--border);border-radius:12px;padding:10px;background:rgba(255,255,255,0.02);">
-              <div style="color:var(--muted);font-size:12px;">Network</div>
-              <div style="font-weight:700;margin-top:4px;font-size:12px;line-height:1.35;" id="network">Not connected</div>
-              <div style="color:var(--faint);font-size:11px;margin-top:6px;line-height:1.4;">Same 0x address on Ethereum &amp; BSC — CLB tokens &amp; pools use <strong style="color:var(--muted);">BSC (BEP-20)</strong>.</div>
+    <!-- Connect -->
+    <section class="section connect-surface">
+      <div class="connect-card">
+        <div class="connect-card-glow"></div>
+        <div class="connect-card-inner">
+          <p class="connect-eyebrow">Your wallet</p>
+          <h2 class="connect-title display">Your CLB portfolio</h2>
+          <p class="connect-lead">Use the same BEP-20 address as in the CLB app. Tap <strong>Connect Wallet</strong> above, switch to <strong>BNB Smart Chain</strong> when the wallet asks, then sign once. Your personal overview appears in the next section — no global admin totals on this page.</p>
+          <div class="wallet-display" id="walletAddress">Not connected</div>
+          <div class="connect-meta-grid">
+            <div class="connect-meta">
+              <span class="connect-meta-label">Network</span>
+              <span class="connect-meta-value" id="network">—</span>
+              <span class="connect-meta-hint">Your <span class="mono">0x…</span> address is the same on Ethereum and BSC. CLB tokens and pools use <strong>BSC</strong>.</span>
             </div>
-            <div class="metric" style="border:1px solid var(--border);border-radius:12px;padding:10px;background:rgba(255,255,255,0.02);">
-              <div style="color:var(--muted);font-size:12px;">Connection</div>
-              <div style="font-weight:700;margin-top:4px;" id="walletStatus">Disconnected</div>
-            </div>
-            <div class="metric" style="border:1px solid var(--border);border-radius:12px;padding:10px;background:rgba(255,255,255,0.02);">
-              <div style="color:var(--muted);font-size:12px;">Backend</div>
-              <div style="font-weight:700;margin-top:4px;" id="healthText">Checking…</div>
+            <div class="connect-meta">
+              <span class="connect-meta-label">Status</span>
+              <span class="connect-meta-value" id="walletStatus">Disconnected</span>
+              <span class="connect-meta-hint">One signature links this browser to your CLB account.</span>
             </div>
           </div>
-        </div>
-        <div class="panel">
-          <div class="panel-title">System Access</div>
-          <div class="grid-2" style="gap:10px;">
-            <div class="metric" style="border:1px solid var(--border);border-radius:12px;padding:10px;background:rgba(255,255,255,0.02);">
-              <div style="color:var(--muted);font-size:12px;">API Base URL</div>
-              <div style="font-size:13px;font-family:'DM Mono',monospace;word-break:break-all;margin-top:4px;" id="apiBaseValue">—</div>
-            </div>
-            <div class="metric" style="border:1px solid var(--border);border-radius:12px;padding:10px;background:rgba(255,255,255,0.02);">
-              <div style="color:var(--muted);font-size:12px;">Environment</div>
-              <div style="font-weight:700;margin-top:4px;" id="envValue">Production</div>
-            </div>
-          </div>
-          <div id="statusBox" class="status" style="margin-top:12px;">Platform ready.</div>
+          <div id="statusBox" class="status ok" style="margin-top:16px;">Ready — tap Connect Wallet when you want to load your data.</div>
         </div>
       </div>
     </section>
 
-    <!-- Wallet-linked CLB account -->
+    <!-- Signed-in portfolio -->
     <section class="section user-hub" id="userHub" hidden>
       <div class="sec-head">
-        <span class="sec-badge sb-mint">Your account</span>
-        <h2 class="sec-title">CLB dashboard</h2>
+        <span class="sec-badge sb-mint">You</span>
+        <h2 class="sec-title">Your overview</h2>
       </div>
-      <div class="panel" style="margin-bottom:14px;">
-        <div class="uh-head">
-          <div>
-            <div class="uh-title" id="uhGreeting">Welcome</div>
-            <p class="uh-sub" id="uhWalletLine">Wallet-linked view — data from CLB API.</p>
-            <p class="uh-sub" style="margin-top:10px;">Referral code: <span class="uh-code" id="uhReferralCode">—</span></p>
+      <div class="uh-glow-panel" style="margin-bottom:14px;">
+        <div class="panel" style="margin:0;">
+          <div class="uh-head">
+            <div>
+              <div class="uh-title" id="uhGreeting">Welcome</div>
+              <p class="uh-sub" id="uhWalletLine">Connect to sync your CLB account.</p>
+              <p class="uh-sub" style="margin-top:10px;">Your referral code: <span class="uh-code" id="uhReferralCode">—</span></p>
+            </div>
+            <div id="uhMiningWrap" style="min-width:200px;"></div>
           </div>
-          <div id="uhMiningWrap" style="min-width:200px;"></div>
+          <div class="uh-kpis" id="uhKpis"></div>
         </div>
-        <div class="uh-kpis" id="uhKpis"></div>
       </div>
       <div class="uh-grid">
         <div class="panel">
-          <div class="panel-title">Pool positions</div>
+          <div class="panel-title">Your pool positions</div>
           <div class="table-wrap" style="margin-top:8px;max-height:320px;overflow:auto;">
             <table class="table-mini">
               <thead><tr><th>Pool</th><th>Asset</th><th>Deposit</th><th>Loan $</th><th>Value $</th><th>PnL $</th></tr></thead>
@@ -630,10 +498,10 @@
           </div>
         </div>
         <div class="panel">
-          <div class="panel-title">Token balances (app ledger)</div>
+          <div class="panel-title">Your token balances</div>
           <div class="table-wrap" style="margin-top:8px;max-height:320px;overflow:auto;">
             <table class="table-mini">
-              <thead><tr><th>Token</th><th>Balance</th><th>Locked</th><th>Mining accr.</th><th>Total ≈ $</th></tr></thead>
+              <thead><tr><th>Token</th><th>Balance</th><th>Locked</th><th>Mining</th><th>≈ USD</th></tr></thead>
               <tbody id="uhBalancesBody"><tr><td colspan="5" style="color:var(--muted);padding:12px;">Loading…</td></tr></tbody>
             </table>
           </div>
@@ -645,27 +513,68 @@
           <div class="data-list" id="uhActivity" style="margin-top:8px;"></div>
         </div>
         <div class="panel">
-          <div class="panel-title">Referral network</div>
-          <p style="font-size:13px;color:var(--muted);margin:8px 0 12px;">Five-level tree summary — mirrors in-app referrals.</p>
+          <div class="panel-title">Your referrals</div>
+          <p style="font-size:13px;color:var(--muted);margin:8px 0 12px;">People in your network by level.</p>
           <div id="uhReferrals"></div>
         </div>
       </div>
     </section>
 
-    <!-- Price History Chart -->
+    <!-- Reference prices (optional context) -->
     <section class="section">
       <div class="sec-head">
-        <span class="sec-badge sb-mint">Trends</span>
-        <h2 class="sec-title">Price History (Simulated Trend)</h2>
+        <span class="sec-badge sb-gold">Markets</span>
+        <h2 class="sec-title">BTC · ETH · BNB</h2>
       </div>
-      <div class="panel">
-        <div class="chart-wrap"><canvas id="historyChart"></canvas></div>
+      <p style="color:var(--muted);font-size:14px;margin:-8px 0 16px;max-width:560px;">Quick reference for assets tied to many CLB positions — not protocol administration data.</p>
+      <div class="grid-3" id="pricesGrid"></div>
+    </section>
+
+    <!-- How It Works -->
+    <section class="section">
+      <div class="sec-head">
+        <span class="sec-badge sb-gold">Mechanics</span>
+        <h2 class="sec-title">How CLB works</h2>
+      </div>
+      <div class="grid-3">
+        <div class="step">
+          <div class="num">1</div>
+          <h4>Deposit &amp; lock</h4>
+          <p>Stake BNB into a pool. Your deposit backs your position and mints a soulbound BEP-20 receipt on BSC.</p>
+        </div>
+        <div class="step">
+          <div class="num">2</div>
+          <h4>Leveraged loan</h4>
+          <p>CLB loans scale with your tier — higher commitment can mean higher leverage in CLB terms.</p>
+          <div class="tier-grid" id="tierGrid"></div>
+        </div>
+        <div class="step">
+          <div class="num">3</div>
+          <h4>Auto-liquidation</h4>
+          <p>When BTC or ETH hit protocol targets, positions can auto-liquidate in phases; a large share of profits is designed to return to you.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Short about -->
+    <section class="section">
+      <div class="sec-head">
+        <span class="sec-badge sb-viol">About</span>
+        <h2 class="sec-title">CryptoLoanBoost</h2>
+      </div>
+      <div class="about-split">
+        <div class="about-card">
+          <strong>Leveraged exposure on BSC.</strong> CLB combines pooled deposits, CLB-denominated loans, and a multi-level referral program. The mobile app is where you open pools, manage security (PIN / biometrics), and move funds end-to-end.
+        </div>
+        <div class="about-card about-card-gold">
+          <strong>CLB token (BEP-20)</strong> is used across the ecosystem for fees, rewards, and loan mechanics. This web page is only your read-only mirror after you connect — it does not replace the app for deposits or sensitive recovery flows.
+        </div>
       </div>
     </section>
 
     <footer class="footer">
-      <span>CryptoLoanBoost dApp — <span class="mono" id="footerApi">—</span></span>
-      <span>Data refreshes every 60s. Prices from CoinGecko.</span>
+      <span>© CryptoLoanBoost</span>
+      <span>Reference prices refresh about every minute. <a id="footerDevLink" href="#" target="_blank" rel="noreferrer" style="color:var(--faint);margin-left:8px;">API docs</a> (developers).</span>
     </footer>
   </main>
 
@@ -675,25 +584,15 @@
       const isProd = hostname === "app.cryptoloanboost.com";
       const apiBase = isProd ? "https://api.cryptoloanboost.com" : window.location.origin;
 
-      document.getElementById("apiDocsLink").href = `${apiBase}/docs`;
-      document.getElementById("apiBaseValue").textContent = apiBase;
-      document.getElementById("envValue").textContent = isProd ? "Production" : "Development";
-      document.getElementById("footerApi").textContent = apiBase;
+      const footerDev = document.getElementById('footerDevLink');
+      if (footerDev) footerDev.href = `${apiBase}/docs`;
 
-      // Demo data fallback
-      const demoPools = [
-        { id: 'p1', name: 'Alpha Boost Pool', tokenSymbol: 'BNB', apy: 12.5, minDeposit: 0.1, totalStaked: 245.8, status: 'ACTIVE', memberCount: 142 },
-        { id: 'p2', name: 'Beta Yield Vault', tokenSymbol: 'BNB', apy: 8.2, minDeposit: 0.05, totalStaked: 89.4, status: 'ACTIVE', memberCount: 78 },
-        { id: 'p3', name: 'Gamma Leverage', tokenSymbol: 'BTCB', apy: 18.0, minDeposit: 0.2, totalStaked: 56.2, status: 'PAUSED', memberCount: 34 },
-        { id: 'p4', name: 'Delta Stable', tokenSymbol: 'ETH', apy: 6.5, minDeposit: 0.05, totalStaked: 120.5, status: 'ACTIVE', memberCount: 95 },
-      ];
       const demoPrices = {
         BTC: { usd: 64230.15, usd_24h_change: 2.34 },
         ETH: { usd: 3450.80, usd_24h_change: -0.85 },
         BNB: { usd: 590.45, usd_24h_change: 1.12 },
       };
 
-      let charts = {};
       const JWT_KEY = 'clb_dapp_jwt';
       const BSC_CHAIN_HEX = '0x38';
       const BSC_CHAIN_DEC = 56;
@@ -849,9 +748,8 @@
         if (!dashR.ok || !dash || !dash.success) {
           const errBody = dash && dash.error ? dash.error : null;
           setStatus(
-            'Could not load dashboard (HTTP ' + dashR.status + '). ' +
-              (errBody || 'Check API / CORS, or deploy latest backend.') +
-              ' API: ' + apiBase,
+            'We could not load your CLB overview (error ' + dashR.status + '). ' +
+              (errBody || 'Check your internet, try Sync, or open again from the app link.'),
             'warn',
           );
         }
@@ -868,8 +766,8 @@
           document.getElementById('walletStatus').textContent = 'Signed in';
         }
         document.getElementById('uhWalletLine').textContent = u && u.walletAddress
-          ? 'BEP-20: ' + u.walletAddress + ' — same address as Trust Wallet / MetaMask when you connected.'
-          : '—';
+          ? 'Linked wallet · ' + u.walletAddress
+          : 'Connect above to sync this overview.';
         document.getElementById('uhReferralCode').textContent = (u && u.referralCode) || '—';
 
         if (st) {
@@ -972,7 +870,7 @@
         clearClbSession();
         document.getElementById('walletAddress').textContent = 'Not connected';
         document.getElementById('walletStatus').textContent = 'Disconnected';
-        document.getElementById('network').textContent = 'Not connected';
+        document.getElementById('network').textContent = '—';
         setStatus('Signed out of CLB on this device.', 'ok');
       }
 
@@ -998,7 +896,11 @@
       Chart.defaults.font.family = "'DM Sans', sans-serif";
 
       function sparklineCanvas(id, data, color) {
-        const ctx = document.getElementById(id).getContext('2d');
+        const el = document.getElementById(id);
+        if (!el) return null;
+        const prev = Chart.getChart(el);
+        if (prev) prev.destroy();
+        const ctx = el.getContext('2d');
         const gradient = ctx.createLinearGradient(0, 0, 0, 60);
         gradient.addColorStop(0, color + '33');
         gradient.addColorStop(1, color + '00');
@@ -1039,55 +941,9 @@
       }
 
       async function loadAll() {
-        const [health, poolStats, pools, prices] = await Promise.all([
-          fetchJSON('/health'),
-          fetchJSON('/api/pools/stats'),
-          fetchJSON('/api/pools'),
-          fetchJSON('/api/prices'),
-        ]);
-
-        // Health
-        const isOnline = health && health.status === 'ok';
-        document.getElementById('healthText').textContent = isOnline ? 'Online' : 'Offline';
-        document.getElementById('kpiHealth').textContent = isOnline ? 'Online' : 'Offline';
-        document.getElementById('kpiHealth').style.color = isOnline ? 'var(--mint)' : 'var(--red)';
-        document.getElementById('kpiHealthDelta').textContent = isOnline ? `DB: ${health.database || '?'}` : 'API unreachable';
-        document.getElementById('kpiHealthDelta').className = 'kpi-delta ' + (isOnline ? 'up' : 'down');
-        setStatus(isOnline ? `Backend online — ${apiBase}` : `Backend offline — ${apiBase}`, isOnline ? 'ok' : 'warn');
-
-        // Pool stats
-        const ps = poolStats && poolStats.success ? poolStats.stats : null;
-        const poolList = pools && pools.success ? pools.data : demoPools;
-        const totalPools = ps ? ps.totalPools : poolList.length;
-        const activePools = ps ? ps.activePools : poolList.filter(p => p.status === 'ACTIVE').length;
-        const tvl = ps ? ps.totalValueLocked : poolList.reduce((s, p) => s + Number(p.totalStaked || 0), 0);
-        const members = ps ? ps.totalMembers : poolList.reduce((s, p) => s + Number(p.memberCount || 0), 0);
-
-        document.getElementById('kpiPools').textContent = totalPools;
-        document.getElementById('kpiPoolsDelta').textContent = `${activePools} active / ${totalPools} total`;
-        document.getElementById('kpiTVL').textContent = fmt(tvl, 2) + ' BNB';
-        document.getElementById('kpiTVLDelta').textContent = 'Total Value Locked';
-        document.getElementById('kpiMembers').textContent = members;
-        document.getElementById('kpiMembersDelta').textContent = 'unique stakers';
-
-        // Pools table
-        const tbody = document.getElementById('poolsTableBody');
-        tbody.innerHTML = poolList.map(p => `
-          <tr>
-            <td><strong>${p.name}</strong></td>
-            <td>${p.tokenSymbol}</td>
-            <td>${p.apy}%</td>
-            <td>${p.minDeposit} ${p.tokenSymbol}</td>
-            <td class="mono">${fmt(p.totalStaked, 2)}</td>
-            <td>${p.memberCount}</td>
-            <td><span class="tag ${p.status.toLowerCase()}">${p.status}</span></td>
-          </tr>
-        `).join('');
-
-        // Prices
+        const prices = await fetchJSON('/api/prices');
         const pr = prices && prices.success ? prices.prices : demoPrices;
         renderPrices(pr);
-        renderCharts(poolList, pr);
         loadUserHub();
       }
 
@@ -1098,6 +954,13 @@
           { s: 'BNB', n: 'BNB', i: 'B', c: '#F3BA2F' },
         ];
         const grid = document.getElementById('pricesGrid');
+        coins.forEach(function (c) {
+          const el = document.getElementById('spark-' + c.s);
+          if (el) {
+            const ch = Chart.getChart(el);
+            if (ch) ch.destroy();
+          }
+        });
         grid.innerHTML = coins.map(coin => {
           const data = pr[coin.s] || { usd: 0, usd_24h_change: 0 };
           const up = data.usd_24h_change >= 0;
@@ -1125,72 +988,6 @@
             const trend = generateTrend(data.usd, data.usd_24h_change);
             sparklineCanvas('spark-' + coin.s, trend, coin.c);
           });
-        });
-      }
-
-      function renderCharts(poolList, pr) {
-        // TVL pie
-        const tvlCtx = document.getElementById('tvlChart').getContext('2d');
-        if (charts.tvl) charts.tvl.destroy();
-        const labels = poolList.map(p => p.name);
-        const data = poolList.map(p => Number(p.totalStaked || 0));
-        const colors = ['#F6B73B', '#05D68F', '#7C5CFC', '#FF4F4F', '#3B82F6', '#EC4899'];
-        charts.tvl = new Chart(tvlCtx, {
-          type: 'doughnut',
-          data: { labels, datasets: [{ data, backgroundColor: colors.slice(0, labels.length), borderWidth: 0 }] },
-          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { boxWidth: 10, font: { size: 11 } } } }, cutout: '65%' }
-        });
-
-        // 24h change bar
-        const chgCtx = document.getElementById('changeChart').getContext('2d');
-        if (charts.change) charts.change.destroy();
-        const coinKeys = ['BTC', 'ETH', 'BNB'];
-        const chgData = coinKeys.map(k => (pr[k]?.usd_24h_change || 0));
-        const chgColors = coinKeys.map((_, i) => chgData[i] >= 0 ? '#05D68F' : '#FF4F4F');
-        charts.change = new Chart(chgCtx, {
-          type: 'bar',
-          data: {
-            labels: coinKeys,
-            datasets: [{
-              data: chgData,
-              backgroundColor: chgColors,
-              borderRadius: 6,
-              barThickness: 28,
-            }]
-          },
-          options: {
-            responsive: true, maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: { y: { grid: { color: 'rgba(255,255,255,0.04)' } }, x: { grid: { display: false } } }
-          }
-        });
-
-        // Simulated history line chart
-        const histCtx = document.getElementById('historyChart').getContext('2d');
-        if (charts.history) charts.history.destroy();
-        const histLabels = Array.from({ length: 24 }, (_, i) => `${i}:00`);
-        const baseBTC = pr.BTC?.usd || 64000;
-        const baseETH = pr.ETH?.usd || 3400;
-        const baseBNB = pr.BNB?.usd || 590;
-        charts.history = new Chart(histCtx, {
-          type: 'line',
-          data: {
-            labels: histLabels,
-            datasets: [
-              { label: 'BTC', data: generateTrend(baseBTC, 2.5, 24), borderColor: '#F7931A', backgroundColor: 'transparent', borderWidth: 2, pointRadius: 0, tension: 0.4 },
-              { label: 'ETH', data: generateTrend(baseETH, -1.2, 24), borderColor: '#627EEA', backgroundColor: 'transparent', borderWidth: 2, pointRadius: 0, tension: 0.4 },
-              { label: 'BNB', data: generateTrend(baseBNB, 0.8, 24), borderColor: '#F3BA2F', backgroundColor: 'transparent', borderWidth: 2, pointRadius: 0, tension: 0.4 },
-            ]
-          },
-          options: {
-            responsive: true, maintainAspectRatio: false,
-            plugins: { legend: { position: 'top', labels: { boxWidth: 10, font: { size: 12 } } } },
-            scales: {
-              y: { grid: { color: 'rgba(255,255,255,0.04)' } },
-              x: { grid: { display: false } }
-            },
-            interaction: { mode: 'index', intersect: false }
-          }
         });
       }
 
@@ -1231,7 +1028,7 @@
           const nRes = await fetch(`${apiBase}/api/auth/nonce/${encodeURIComponent(addr)}`, { headers: { Accept: 'application/json' } });
           const nJson = await nRes.json().catch(() => ({}));
           if (!nRes.ok || !nJson.success || !nJson.nonce) {
-            setStatus('Could not get auth nonce from API: ' + (nJson.error || nRes.statusText), 'warn');
+            setStatus('Sign-in could not start: ' + (nJson.error || nRes.statusText || 'check connection'), 'warn');
             document.getElementById('walletStatus').textContent = 'Nonce failed';
             return;
           }
@@ -1300,7 +1097,6 @@
         hamburger.classList.remove('active');
         mobileMenu.classList.remove('open');
       });
-      document.getElementById('mobileApiDocsLink').href = `${apiBase}/docs`;
 
       if (getClbToken()) {
         updateAuthUi(true);
