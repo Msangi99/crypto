@@ -15,48 +15,14 @@ const schemas = {
   listPools: {
     tags: ['Pools'],
     summary: 'List all pools',
-    description: 'Returns a paginated list of liquidity/staking pools',
+    description:
+      'Returns a paginated list of pools. Response is not narrowed by schema so fields like supportsAppCredit, creditMinUsd, and creditCreditedUsd are preserved for the mobile app (fast-json-stringify would strip undeclared keys).',
     querystring: {
       type: 'object',
       properties: {
         page: { type: 'integer', default: 1, minimum: 1 },
         limit: { type: 'integer', default: 10, minimum: 1, maximum: 100 },
         status: { type: 'string', enum: ['ACTIVE', 'PAUSED', 'COMPLETED', 'CANCELLED'] },
-      },
-    },
-    response: {
-      200: {
-        type: 'object',
-        properties: {
-          success: { type: 'boolean' },
-          data: {
-            type: 'array',
-            items: {
-              type: 'object',
-              properties: {
-                id: { type: 'string' },
-                name: { type: 'string' },
-                description: { type: 'string', nullable: true },
-                tokenSymbol: { type: 'string' },
-                minDeposit: { type: 'number' },
-                apy: { type: 'number' },
-                totalStaked: { type: 'number' },
-                status: { type: 'string' },
-                startDate: { type: 'string' },
-                memberCount: { type: 'integer' },
-              },
-            },
-          },
-          pagination: {
-            type: 'object',
-            properties: {
-              page: { type: 'integer' },
-              limit: { type: 'integer' },
-              total: { type: 'integer' },
-              totalPages: { type: 'integer' },
-            },
-          },
-        },
       },
     },
   },
