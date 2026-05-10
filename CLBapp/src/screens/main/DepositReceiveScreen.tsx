@@ -79,7 +79,7 @@ export default function DepositReceiveScreen({ navigation }: any) {
       if (res.data?.success) {
         Alert.alert(
           'Credited',
-          `USDT received. Your deposit balance is now $${Number(res.data.newDepositCreditUsd ?? 0).toFixed(2)}.`,
+          `USDT received. Your Deposit wallet (USDT) is now $${Number(res.data.newDepositCreditUsd ?? 0).toFixed(2)}.`,
           [{ text: 'OK', onPress: () => navigation.goBack() }]
         );
         return;

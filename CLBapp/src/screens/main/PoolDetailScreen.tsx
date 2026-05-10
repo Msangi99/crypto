@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, FontSize, Spacing, Radius } from '../../constants/theme';
+import { CreditWalletCopy } from '../../constants/creditWalletCopy';
 import Badge from '../../components/ui/Badge';
 import { poolsAPI, creditWalletAPI } from '../../services/api';
 
@@ -106,7 +107,7 @@ export default function PoolDetailScreen({ route, navigation }: any) {
     const loan = loanCredit ?? 0;
     Alert.alert(
       'Claim this package?',
-      `Spend $${fee} from your in-app deposit balance and receive $${loan.toLocaleString()} loan credit. You can then use it under “Use your loan” on Home.`,
+      `Spend $${fee} from your Deposit wallet (USDT) and receive $${loan.toLocaleString()} Loan credit. Then open “Use your loan” on Home.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -189,7 +190,7 @@ export default function PoolDetailScreen({ route, navigation }: any) {
                 <Text style={styles.loanHeroValue}>
                   ${loanCredit.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                 </Text>
-                <Text style={styles.loanHeroSub}>Claim fee from deposit balance: ${claimFee}</Text>
+                <Text style={styles.loanHeroSub}>Claim fee from Deposit wallet: ${claimFee}</Text>
               </View>
             ) : (
               <View style={styles.loanHeroMuted}>
@@ -219,7 +220,7 @@ export default function PoolDetailScreen({ route, navigation }: any) {
                   <View style={styles.statCell}>
                     <Ionicons name="wallet-outline" size={16} color={Colors.primary} />
                     <Text style={styles.statVal}>${depositCredit.toFixed(0)}</Text>
-                    <Text style={styles.statLab}>Your deposit</Text>
+                    <Text style={styles.statLab}>{CreditWalletCopy.poolDetailDepositStat}</Text>
                   </View>
                 </>
               ) : null}
@@ -242,12 +243,12 @@ export default function PoolDetailScreen({ route, navigation }: any) {
                 {packageMisconfigured
                   ? 'This pack is missing loan credit in admin settings — claim is blocked.'
                   : claimReady
-                    ? `Ready to claim — $${depositCredit.toFixed(2)} deposit balance · fee $${claimFee}.`
+                    ? `Ready to claim — Deposit wallet $${depositCredit.toFixed(2)} · fee $${claimFee}.`
                     : needDeposit
-                      ? `Deposit balance $${depositCredit.toFixed(2)} — add funds to reach $${claimFee} fee.`
+                      ? `Deposit wallet $${depositCredit.toFixed(2)} — ongeza USDT hadi fee $${claimFee}.`
                       : canClaim
                         ? 'You can claim from this screen (see button below).'
-                        : `Deposit $${depositCredit.toFixed(2)} — waiting for eligibility sync; pull down to refresh.`}
+                        : `Deposit wallet $${depositCredit.toFixed(2)} — sync eligibility; pull down to refresh.`}
               </Text>
             </View>
           </View>
@@ -261,13 +262,13 @@ export default function PoolDetailScreen({ route, navigation }: any) {
                 <View style={styles.stepRow}>
                   <View style={styles.stepNum}><Text style={styles.stepNumText}>1</Text></View>
                   <Text style={styles.stepText}>
-                    Deposit USDT (BEP-20) in the app so you have enough deposit balance (min ${claimFee} for this package).
+                    {`Deposit USDT (BEP-20) so your Deposit wallet reaches at least $${claimFee} for this package.`}
                   </Text>
                 </View>
                 <View style={styles.stepRow}>
                   <View style={styles.stepNum}><Text style={styles.stepNumText}>2</Text></View>
                   <Text style={styles.stepText}>
-                    Return here and tap Claim. We deduct the fee from deposit balance and credit your loan balance.
+                    Return here and tap Claim. Fee is taken from Deposit wallet; Loan credit goes to the Loan tab on Home.
                   </Text>
                 </View>
                 <View style={styles.stepRow}>
@@ -315,7 +316,7 @@ export default function PoolDetailScreen({ route, navigation }: any) {
             <TouchableOpacity style={styles.btnPrimary} onPress={goDeposit} activeOpacity={0.9}>
               <Ionicons name="add-circle-outline" size={22} color="#000" />
               <Text style={styles.btnPrimaryText}>Add deposit</Text>
-              <Text style={styles.btnSub}>Need ${claimFee}+ in deposit balance · min ${claimFee}</Text>
+              <Text style={styles.btnSub}>Need ${claimFee}+ in Deposit wallet · min ${claimFee}</Text>
             </TouchableOpacity>
           ) : (
             <TouchableOpacity
@@ -335,7 +336,7 @@ export default function PoolDetailScreen({ route, navigation }: any) {
                       ? 'Package misconfigured'
                       : canClaim
                         ? `Fee $${claimFee} → Loan $${loanCredit?.toLocaleString() ?? '—'}`
-                        : `Need $${claimFee} deposit balance (have $${depositCredit.toFixed(2)})`}
+                        : `Need $${claimFee} in Deposit wallet (have $${depositCredit.toFixed(2)})`}
                   </Text>
                 </>
               )}

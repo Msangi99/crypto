@@ -116,7 +116,7 @@ export const poolsAPI = {
     api.post(`/api/pools/${poolId}/claim-credit`),
 };
 
-// ─── Credit wallet (BEP-20 USDT receive → in-app balance; pool claim) ───
+// ─── Credit wallet API (depositCreditUsd = Deposit wallet; claimedPoolCreditUsd = Loan credit) ───
 export const creditWalletAPI = {
   config: () =>
     api.get<{

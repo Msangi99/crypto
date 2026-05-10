@@ -6,6 +6,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, FontSize, Spacing, Radius } from '../../constants/theme';
+import { CreditWalletCopy } from '../../constants/creditWalletCopy';
 import Badge from '../../components/ui/Badge';
 import { userAPI, notificationsAPI, creditWalletAPI } from '../../services/api';
 import { useAuthStore } from '../../store/authStore';
@@ -140,7 +141,11 @@ export default function HomeScreen({ navigation }: any) {
         ? creditBalances?.claimedPoolCreditUsd ?? 0
         : swappedTabUsd;
   const tabLabel =
-    balanceTab === 'deposit' ? 'Deposit balance' : balanceTab === 'loan' ? 'Loan balance' : 'Swapped hold';
+    balanceTab === 'deposit'
+      ? CreditWalletCopy.depositTabFull
+      : balanceTab === 'loan'
+        ? CreditWalletCopy.loanTabFull
+        : CreditWalletCopy.swapTabFull;
 
   return (
     <View style={styles.container}>
@@ -177,9 +182,9 @@ export default function HomeScreen({ navigation }: any) {
             <View style={styles.balanceTabs}>
               {(
                 [
-                  { key: 'swap' as const, short: 'Swapped', full: 'Swapped hold' },
-                  { key: 'loan' as const, short: 'Loan', full: 'Loan balance' },
-                  { key: 'deposit' as const, short: 'Deposit', full: 'Deposit balance' },
+                  { key: 'swap' as const, short: CreditWalletCopy.swapTabShort, full: CreditWalletCopy.swapTabFull },
+                  { key: 'loan' as const, short: CreditWalletCopy.loanTabShort, full: CreditWalletCopy.loanTabFull },
+                  { key: 'deposit' as const, short: CreditWalletCopy.depositTabShort, full: CreditWalletCopy.depositTabFull },
                 ]
               ).map((t) => (
                 <TouchableOpacity
@@ -205,6 +210,11 @@ export default function HomeScreen({ navigation }: any) {
                 ? `$${tabAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                 : '••••••'}
             </Text>
+            {balanceVisible && balanceTab === 'deposit' ? (
+              <Text style={styles.balanceBucketHint}>{CreditWalletCopy.depositHint}</Text>
+            ) : balanceVisible && balanceTab === 'loan' ? (
+              <Text style={styles.balanceBucketHint}>{CreditWalletCopy.loanHint}</Text>
+            ) : null}
             <Text style={styles.balancePortfolioFoot}>
               {balanceVisible
                 ? `Portfolio total $${totalValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -250,7 +260,7 @@ export default function HomeScreen({ navigation }: any) {
               { icon: 'wallet-outline', label: 'CLB Tokens', screen: 'WalletTokens' },
               { icon: 'hardware-chip-outline', label: 'Mine CLB', screen: 'MiningClb' },
               { icon: 'swap-horizontal', label: 'Use your loan', screen: 'LoanHub' },
-              { icon: 'add-circle-outline', label: 'Deposit', screen: 'DepositReceive' },
+              { icon: 'add-circle-outline', label: 'USDT deposit', screen: 'DepositReceive' },
               { icon: 'people-outline', label: 'Referrals', screen: 'Referrals' },
             ].map((a) => (
               <TouchableOpacity key={a.label} style={styles.qaItem} onPress={() => navigation.navigate(a.screen)}>
@@ -518,6 +528,16 @@ const styles = StyleSheet.create({
   balanceTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%' },
   balanceLabel: { fontSize: 13, fontWeight: '600', color: Colors.textMuted },
   balanceValue: { fontSize: 40, fontWeight: '900', color: Colors.textPrimary, letterSpacing: -1 },
+  balanceBucketHint: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: Colors.textMuted,
+    textAlign: 'center',
+    lineHeight: 15,
+    marginTop: 6,
+    paddingHorizontal: Spacing.md,
+    opacity: 0.95,
+  },
   balancePortfolioFoot: {
     fontSize: 12,
     fontWeight: '600',
