@@ -474,16 +474,21 @@ export default async function adminRoutes(fastify: FastifyInstance) {
     async () => {
       const rows = await prisma.pool.findMany({
         orderBy: { updatedAt: 'desc' },
+        include: { _count: { select: { members: true } } },
       });
-      const pools = rows.map((p) => ({
-        ...p,
-        minDeposit: Number(p.minDeposit),
-        maxDeposit: p.maxDeposit != null ? Number(p.maxDeposit) : null,
-        apy: Number(p.apy),
-        totalStaked: Number(p.totalStaked),
-        creditMinUsd: p.creditMinUsd != null ? Number(p.creditMinUsd) : null,
-        creditCreditedUsd: p.creditCreditedUsd != null ? Number(p.creditCreditedUsd) : null,
-      }));
+      const pools = rows.map((p) => {
+        const { _count, ...rest } = p;
+        return {
+          ...rest,
+          memberCount: _count.members,
+          minDeposit: Number(p.minDeposit),
+          maxDeposit: p.maxDeposit != null ? Number(p.maxDeposit) : null,
+          apy: Number(p.apy),
+          totalStaked: Number(p.totalStaked),
+          creditMinUsd: p.creditMinUsd != null ? Number(p.creditMinUsd) : null,
+          creditCreditedUsd: p.creditCreditedUsd != null ? Number(p.creditCreditedUsd) : null,
+        };
+      });
       return { success: true, count: pools.length, pools };
     }
   );

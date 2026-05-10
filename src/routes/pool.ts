@@ -392,6 +392,7 @@ export default async function poolRoutes(fastify: FastifyInstance) {
       name?: string; description?: string; tokenSymbol?: string;
       minDeposit?: number; maxDeposit?: number; apy?: number;
       status?: string; endDate?: string;
+      contractAddress?: string | null;
       supportsAppCredit?: boolean;
       creditMinUsd?: number | null;
       creditCreditedUsd?: number | null;
@@ -419,6 +420,7 @@ export default async function poolRoutes(fastify: FastifyInstance) {
         apy,
         status,
         endDate,
+        contractAddress,
         supportsAppCredit,
         creditMinUsd,
         creditCreditedUsd,
@@ -445,6 +447,7 @@ export default async function poolRoutes(fastify: FastifyInstance) {
           ...(apy !== undefined && { apy }),
           ...(status !== undefined && { status: status as 'ACTIVE' | 'PAUSED' | 'COMPLETED' | 'CANCELLED' }),
           ...(endDate !== undefined && { endDate: new Date(endDate) }),
+          ...(contractAddress !== undefined && { contractAddress }),
           ...(supportsAppCredit !== undefined && { supportsAppCredit }),
           ...(creditMinUsd !== undefined && {
             creditMinUsd: creditMinUsd === null ? null : new Prisma.Decimal(creditMinUsd),

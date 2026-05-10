@@ -136,6 +136,9 @@ export const api = {
     apy?: number;
     contractAddress?: string;
     endDate?: string;
+    supportsAppCredit?: boolean;
+    creditMinUsd?: number | null;
+    creditCreditedUsd?: number | null;
   }) =>
     request<{ success: boolean; pool: Record<string, unknown> }>("/api/pools", {
       method: "POST",
@@ -146,11 +149,41 @@ export const api = {
     name?: string; description?: string; tokenSymbol?: string;
     minDeposit?: number; maxDeposit?: number; apy?: number;
     status?: string; endDate?: string;
+    contractAddress?: string | null;
+    supportsAppCredit?: boolean;
+    creditMinUsd?: number | null;
+    creditCreditedUsd?: number | null;
   }) =>
     request<{ success: boolean; pool: Record<string, unknown> }>(`/api/pools/${id}`, {
       method: "PUT",
       body: JSON.stringify(data),
     }),
+
+  getAdminPoolPackages: () =>
+    request<{
+      success: boolean;
+      count: number;
+      pools: Array<{
+        id: string;
+        name: string;
+        description: string | null;
+        tokenSymbol: string;
+        minDeposit: number;
+        maxDeposit: number | null;
+        apy: number;
+        totalStaked: number;
+        status: string;
+        startDate: string;
+        endDate: string | null;
+        contractAddress: string | null;
+        supportsAppCredit: boolean;
+        creditMinUsd: number | null;
+        creditCreditedUsd: number | null;
+        createdAt: string;
+        updatedAt: string;
+        memberCount: number;
+      }>;
+    }>("/api/admin/pool-packages"),
   deletePool: (id: string) =>
     request<{ success: boolean; message: string }>(`/api/pools/${id}`, {
       method: "DELETE",
