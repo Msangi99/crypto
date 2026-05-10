@@ -198,6 +198,39 @@
     .btn-ghost { color: #d9e3f7; border-color: #374760; background: #1a2333; }
     .btn-ghost:hover { border-color: #50658a; }
     .btn-sm { padding: 7px 11px; font-size: 12px; }
+    .btn-danger { color: #ffd4d4; border-color: rgba(255,79,79,0.45); background: var(--red-bg); }
+    .btn-danger:hover { border-color: #ff6b6b; background: rgba(255,79,79,0.22); }
+
+    /* Signed-in hub */
+    .user-hub { margin-top: 8px; }
+    .user-hub[hidden] { display: none !important; }
+    .uh-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+    .uh-title { font-family: 'Bricolage Grotesque', sans-serif; font-size: 22px; font-weight: 800; letter-spacing: 0.3px; }
+    .uh-sub { color: var(--muted); font-size: 14px; margin-top: 6px; line-height: 1.5; max-width: 640px; }
+    .uh-code { font-family: 'DM Mono', monospace; font-size: 13px; padding: 6px 10px; border-radius: 8px; background: rgba(246,183,59,0.12); border: 1px solid rgba(246,183,59,0.28); color: var(--gold); }
+    .uh-kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin-bottom: 18px; }
+    .uh-kpi {
+      border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px;
+      background: rgba(255,255,255,0.03);
+    }
+    .uh-kpi .l { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; }
+    .uh-kpi .v { font-family: 'Bricolage Grotesque', sans-serif; font-size: 17px; font-weight: 700; margin-top: 6px; }
+    .uh-kpi .d { font-size: 11px; color: var(--faint); margin-top: 4px; }
+    .uh-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    @media (max-width: 900px) { .uh-grid { grid-template-columns: 1fr; } }
+    .data-list { display: flex; flex-direction: column; gap: 8px; max-height: 280px; overflow-y: auto; }
+    .data-row {
+      display: flex; justify-content: space-between; align-items: center; gap: 10px;
+      padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); background: rgba(0,0,0,0.15);
+      font-size: 13px;
+    }
+    .data-row .l { color: var(--muted); font-size: 12px; }
+    .ref-level { margin-bottom: 12px; }
+    .ref-level h5 { font-size: 12px; color: var(--muted); margin-bottom: 6px; font-weight: 600; }
+    .mining-pill { display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 999px; background: var(--mint-bg); border: 1px solid rgba(5,214,143,0.35); font-size: 13px; }
+    .table-mini { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .table-mini th, .table-mini td { padding: 8px 6px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.06); }
+    .table-mini th { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
 
     /* Layout */
     .container { max-width: 1200px; margin: 0 auto; padding: 24px 20px 48px; }
@@ -340,6 +373,7 @@
     <div class="nav-actions" id="desktopNav">
       <a id="apiDocsLink" class="btn btn-ghost btn-sm" href="#" target="_blank" rel="noreferrer">API Docs</a>
       <button id="refreshBtn" class="btn btn-ghost btn-sm">Refresh Data</button>
+      <button id="disconnectBtn" class="btn btn-danger btn-sm" type="button" style="display:none">Sign out</button>
       <button id="connectBtn" class="btn btn-primary">Connect Wallet</button>
     </div>
     <button class="hamburger" id="hamburger" aria-label="Menu">
@@ -349,6 +383,7 @@
   <div class="mobile-menu" id="mobileMenu">
     <a id="mobileApiDocsLink" class="btn btn-ghost" href="#" target="_blank" rel="noreferrer">API Docs</a>
     <button id="mobileRefreshBtn" class="btn btn-ghost">Refresh Data</button>
+    <button id="mobileDisconnectBtn" class="btn btn-danger" type="button" style="display:none">Sign out</button>
     <button id="mobileConnectBtn" class="btn btn-primary">Connect Wallet</button>
   </div>
 
@@ -361,7 +396,7 @@
         <div class="hero-text">
           <div class="hero-label">CLB Protocol</div>
           <h1>Borrow smarter. <em>Earn on-chain.</em> Move faster.</h1>
-          <p>Professional DeFi gateway connecting wallets to leveraged crypto pools, auto-liquidation mechanics, and a 5-level referral rewards system on BSC.</p>
+          <p>Professional DeFi gateway on BSC: connect your BEP-20 wallet, sign once, and your CLB pools, balances, mining, and referrals load here — same account as the mobile app.</p>
           <div class="hero-chips">
             <span class="chip gold">BSC Ready</span>
             <span class="chip mint">Wallet Auth</span>
@@ -566,6 +601,56 @@
       </div>
     </section>
 
+    <!-- Wallet-linked CLB account -->
+    <section class="section user-hub" id="userHub" hidden>
+      <div class="sec-head">
+        <span class="sec-badge sb-mint">Your account</span>
+        <h2 class="sec-title">CLB dashboard</h2>
+      </div>
+      <div class="panel" style="margin-bottom:14px;">
+        <div class="uh-head">
+          <div>
+            <div class="uh-title" id="uhGreeting">Welcome</div>
+            <p class="uh-sub" id="uhWalletLine">Wallet-linked view — data from CLB API.</p>
+            <p class="uh-sub" style="margin-top:10px;">Referral code: <span class="uh-code" id="uhReferralCode">—</span></p>
+          </div>
+          <div id="uhMiningWrap" style="min-width:200px;"></div>
+        </div>
+        <div class="uh-kpis" id="uhKpis"></div>
+      </div>
+      <div class="uh-grid">
+        <div class="panel">
+          <div class="panel-title">Pool positions</div>
+          <div class="table-wrap" style="margin-top:8px;max-height:320px;overflow:auto;">
+            <table class="table-mini">
+              <thead><tr><th>Pool</th><th>Asset</th><th>Deposit</th><th>Loan $</th><th>Value $</th><th>PnL $</th></tr></thead>
+              <tbody id="uhPortfolioBody"><tr><td colspan="6" style="color:var(--muted);padding:12px;">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-title">Token balances (app ledger)</div>
+          <div class="table-wrap" style="margin-top:8px;max-height:320px;overflow:auto;">
+            <table class="table-mini">
+              <thead><tr><th>Token</th><th>Balance</th><th>Locked</th><th>Mining accr.</th><th>Total ≈ $</th></tr></thead>
+              <tbody id="uhBalancesBody"><tr><td colspan="5" style="color:var(--muted);padding:12px;">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="uh-grid" style="margin-top:14px;">
+        <div class="panel">
+          <div class="panel-title">Recent activity</div>
+          <div class="data-list" id="uhActivity" style="margin-top:8px;"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-title">Referral network</div>
+          <p style="font-size:13px;color:var(--muted);margin:8px 0 12px;">Five-level tree summary — mirrors in-app referrals.</p>
+          <div id="uhReferrals"></div>
+        </div>
+      </div>
+    </section>
+
     <!-- Price History Chart -->
     <section class="section">
       <div class="sec-head">
@@ -608,6 +693,207 @@
       };
 
       let charts = {};
+      const JWT_KEY = 'clb_dapp_jwt';
+      const BSC_CHAIN_HEX = '0x38';
+
+      function getClbToken() {
+        try { return localStorage.getItem(JWT_KEY); } catch (_) { return null; }
+      }
+      function setClbToken(t) {
+        try {
+          if (t) localStorage.setItem(JWT_KEY, t);
+          else localStorage.removeItem(JWT_KEY);
+        } catch (_) {}
+      }
+      function clearClbSession() {
+        setClbToken(null);
+        updateAuthUi(false);
+        const hub = document.getElementById('userHub');
+        if (hub) hub.hidden = true;
+      }
+      function shortAddr(a) {
+        if (!a || a.length < 12) return a || '—';
+        return a.slice(0, 6) + '…' + a.slice(-4);
+      }
+      function updateAuthUi(signedIn) {
+        const d = document.getElementById('disconnectBtn');
+        const m = document.getElementById('mobileDisconnectBtn');
+        if (d) d.style.display = signedIn ? 'inline-flex' : 'none';
+        if (m) m.style.display = signedIn ? 'flex' : 'none';
+      }
+
+      async function ensureBsc(eth) {
+        try {
+          await eth.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: BSC_CHAIN_HEX }] });
+        } catch (e) {
+          if (e && e.code === 4902) {
+            try {
+              await eth.request({
+                method: 'wallet_addEthereumChain',
+                params: [{
+                  chainId: BSC_CHAIN_HEX,
+                  chainName: 'BNB Smart Chain',
+                  nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
+                  rpcUrls: ['https://bsc-dataseed.binance.org'],
+                  blockExplorerUrls: ['https://bscscan.com'],
+                }],
+              });
+            } catch (_) {}
+          }
+        }
+      }
+
+      async function authFetch(path, opts) {
+        const token = getClbToken();
+        const headers = Object.assign({ Accept: 'application/json' }, opts && opts.headers);
+        if (token) headers.Authorization = 'Bearer ' + token;
+        return fetch(`${apiBase}${path}`, Object.assign({}, opts, { headers }));
+      }
+
+      async function loadUserHub() {
+        const hub = document.getElementById('userHub');
+        const token = getClbToken();
+        if (!token || !hub) {
+          if (hub) hub.hidden = true;
+          return;
+        }
+        hub.hidden = false;
+        const [dashR, portR, balR, minR, refR] = await Promise.all([
+          authFetch('/api/user/dashboard'),
+          authFetch('/api/user/portfolio'),
+          authFetch('/api/tokens/balances'),
+          authFetch('/api/mining/subscription'),
+          authFetch('/api/user/referrals/tree'),
+        ]);
+        if (dashR.status === 401) {
+          clearClbSession();
+          setStatus('Session expired — connect and sign again.', 'warn');
+          return;
+        }
+        const dash = dashR.ok ? await dashR.json() : null;
+        const port = portR.ok ? await portR.json() : null;
+        const bal = balR.ok ? await balR.json() : null;
+        const min = minR.ok ? await minR.json() : null;
+        const ref = refR.ok ? await refR.json() : null;
+
+        const d = dash && dash.success ? dash.dashboard : null;
+        const u = d && d.user;
+        const st = d && d.stats;
+
+        document.getElementById('uhGreeting').textContent = u && u.username
+          ? 'Hi, ' + u.username
+          : 'Your wallet';
+        if (u && u.walletAddress) {
+          document.getElementById('walletAddress').textContent = u.walletAddress;
+          document.getElementById('walletStatus').textContent = 'Signed in';
+        }
+        document.getElementById('uhWalletLine').textContent = u && u.walletAddress
+          ? 'BEP-20: ' + u.walletAddress + ' — same address as Trust Wallet / MetaMask when you connected.'
+          : '—';
+        document.getElementById('uhReferralCode').textContent = (u && u.referralCode) || '—';
+
+        if (st) {
+          document.getElementById('uhKpis').innerHTML = [
+            { l: 'Deposited (BNB)', v: fmt(st.totalDeposited, 4), d: '~$' + fmt(st.totalDepositedUsd, 2) },
+            { l: 'Portfolio (est.)', v: '$' + fmt(st.portfolioValueUsd, 2), d: 'Leveraged positions' },
+            { l: 'Unrealized PnL', v: '$' + fmt(st.unrealizedPnlUsd, 2), d: 'vs loan notional' },
+            { l: 'Active pools', v: String(st.activePools), d: st.totalPools + ' memberships' },
+            { l: 'Referrals', v: String(st.referralCount), d: 'earned ' + fmt(st.referralEarnings, 4) + ' CLB' },
+            { l: 'Confirmed deposits', v: String(st.totalDeposits), d: 'on-chain receipts' },
+          ].map(k => `
+            <div class="uh-kpi"><div class="l">${k.l}</div><div class="v">${k.v}</div><div class="d">${k.d}</div></div>
+          `).join('');
+        } else {
+          document.getElementById('uhKpis').innerHTML = '<div class="uh-kpi"><div class="l">Dashboard</div><div class="v">—</div></div>';
+        }
+
+        const pos = port && port.success && port.positions ? port.positions : [];
+        const ptbody = document.getElementById('uhPortfolioBody');
+        if (!pos.length) {
+          ptbody.innerHTML = '<tr><td colspan="6" style="color:var(--muted);padding:12px;">No pool memberships yet. Open the CLB app to join a pool.</td></tr>';
+        } else {
+          ptbody.innerHTML = pos.map(p => `
+            <tr>
+              <td><strong>${p.poolName}</strong></td>
+              <td>${p.asset}</td>
+              <td class="mono">${fmt(p.depositAmount, 4)}</td>
+              <td>$${fmt(p.loanUsd, 2)}</td>
+              <td>$${fmt(p.currentValueUsd, 2)}</td>
+              <td style="color:${p.unrealizedPnlUsd >= 0 ? 'var(--mint)' : 'var(--red)'}">$${fmt(p.unrealizedPnlUsd, 2)}</td>
+            </tr>
+          `).join('');
+        }
+
+        const rows = bal && bal.success && bal.balances ? bal.balances : [];
+        const btbody = document.getElementById('uhBalancesBody');
+        if (!rows.length) {
+          btbody.innerHTML = '<tr><td colspan="5" style="color:var(--muted);padding:12px;">No balances loaded.</td></tr>';
+        } else {
+          btbody.innerHTML = rows.map(r => `
+            <tr>
+              <td><strong>${r.token}</strong></td>
+              <td class="mono">${fmt(r.totalBalance, 6)}</td>
+              <td class="mono">${fmt(r.locked, 6)}</td>
+              <td class="mono">${fmt(r.miningAccrued, 6)}</td>
+              <td>$${fmt(r.valueUsdTotal, 2)}</td>
+            </tr>
+          `).join('');
+        }
+
+        const act = d && d.recentActivity ? d.recentActivity : [];
+        const actEl = document.getElementById('uhActivity');
+        if (!act.length) {
+          actEl.innerHTML = '<div class="data-row"><span class="l">No recent transactions</span></div>';
+        } else {
+          actEl.innerHTML = act.map(a => `
+            <div class="data-row">
+              <span><strong>${a.type}</strong><br/><span class="l">${new Date(a.createdAt).toLocaleString()}</span></span>
+              <span class="mono">${fmt(a.amount, 4)}</span>
+            </div>
+          `).join('');
+        }
+
+        const refEl = document.getElementById('uhReferrals');
+        if (ref && ref.success && ref.levels) {
+          refEl.innerHTML = ref.levels.map(lv => `
+            <div class="ref-level">
+              <h5>Level ${lv.level} · ${lv.commissionRate} · ${lv.totalMembers} members · ${fmt(lv.totalEarnings, 4)} earned</h5>
+              <div class="data-list" style="max-height:120px;">
+                ${lv.members.length ? lv.members.slice(0, 8).map(m => `
+                  <div class="data-row">
+                    <span class="mono">${shortAddr(m.walletAddress)}</span>
+                    <span>${fmt(m.reward, 4)}</span>
+                  </div>
+                `).join('') : '<div class="data-row"><span class="l">No members at this level</span></div>'}
+              </div>
+            </div>
+          `).join('') + (ref.totalNetwork != null ? `<p style="font-size:12px;color:var(--muted);margin-top:8px;">Network total: ${ref.totalNetwork} · Tree earnings: ${fmt(ref.totalEarnings, 4)}</p>` : '');
+        } else {
+          refEl.innerHTML = '<p style="color:var(--muted);font-size:13px;">Referral data unavailable.</p>';
+        }
+
+        const mw = document.getElementById('uhMiningWrap');
+        if (min && min.success && min.subscription) {
+          const s = min.subscription;
+          mw.innerHTML = `
+            <div class="mining-pill">
+              <span>Mining</span>
+              <strong>${s.tokenSymbol || ''}</strong>
+            </div>
+            <p style="font-size:12px;color:var(--muted);margin-top:8px;">Accrued: <span class="mono">${fmt(s.accruedTokens, 6)}</span> · cycle ${fmt(s.periodProgressPct, 1)}%</p>
+          `;
+        } else {
+          mw.innerHTML = '<p style="font-size:13px;color:var(--muted);">No active mining package (same as app if not subscribed).</p>';
+        }
+      }
+
+      function disconnectWallet() {
+        clearClbSession();
+        document.getElementById('walletAddress').textContent = 'Not connected';
+        document.getElementById('walletStatus').textContent = 'Disconnected';
+        document.getElementById('network').textContent = 'Unknown';
+        setStatus('Signed out of CLB on this device.', 'ok');
+      }
 
       function fmt(n, digits = 2) {
         if (n === undefined || n === null) return '—';
@@ -721,6 +1007,7 @@
         const pr = prices && prices.success ? prices.prices : demoPrices;
         renderPrices(pr);
         renderCharts(poolList, pr);
+        loadUserHub();
       }
 
       function renderPrices(pr) {
@@ -839,20 +1126,67 @@
         </div>
       `).join('');
 
-      // Wallet connect
+      // Wallet connect + sign-in (nonce → personal_sign → verify JWT)
       async function connectWallet() {
-        if (!window.ethereum) { setStatus('No wallet detected. Install MetaMask first.', 'warn'); return; }
+        const eth = window.ethereum;
+        if (!eth) {
+          setStatus('No injected wallet (MetaMask / Trust / Binance Web3). Open this page inside your wallet browser, or install an extension.', 'warn');
+          return;
+        }
         try {
-          const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-          const chainId = await window.ethereum.request({ method: 'eth_chainId' });
-          document.getElementById('walletAddress').textContent = accounts[0] || 'No account';
-          document.getElementById('network').textContent = chainId;
-          document.getElementById('walletStatus').textContent = 'Connected';
-          setStatus('Wallet connected successfully.', 'ok');
-        } catch (err) { setStatus('Wallet connect failed: ' + err.message, 'warn'); }
+          setStatus('Connecting wallet…', 'ok');
+          const accounts = await eth.request({ method: 'eth_requestAccounts' });
+          const addr = (accounts[0] || '').trim();
+          if (!addr) {
+            setStatus('No account returned from the wallet.', 'warn');
+            return;
+          }
+          await ensureBsc(eth);
+          const chainId = await eth.request({ method: 'eth_chainId' });
+          document.getElementById('walletAddress').textContent = addr;
+          document.getElementById('network').textContent = String(chainId) + (String(chainId).toLowerCase() === BSC_CHAIN_HEX ? ' (BSC)' : ' — switch to BSC for transactions');
+          document.getElementById('walletStatus').textContent = 'Awaiting signature…';
+
+          const nRes = await fetch(`${apiBase}/api/auth/nonce/${encodeURIComponent(addr)}`, { headers: { Accept: 'application/json' } });
+          const nJson = await nRes.json().catch(() => ({}));
+          if (!nRes.ok || !nJson.success || !nJson.nonce) {
+            setStatus('Could not get auth nonce from API: ' + (nJson.error || nRes.statusText), 'warn');
+            document.getElementById('walletStatus').textContent = 'Nonce failed';
+            return;
+          }
+          const message = 'Sign this message to authenticate.\nNonce: ' + nJson.nonce;
+          let signature;
+          try {
+            signature = await eth.request({ method: 'personal_sign', params: [message, addr] });
+          } catch (e1) {
+            const hexMsg = '0x' + Array.from(new TextEncoder().encode(message)).map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');
+            signature = await eth.request({ method: 'personal_sign', params: [hexMsg, addr] });
+          }
+
+          const vRes = await fetch(`${apiBase}/api/auth/verify`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({ walletAddress: addr, signature }),
+          });
+          const vJson = await vRes.json().catch(() => ({}));
+          if (!vRes.ok || !vJson.success || !vJson.token) {
+            setStatus('Sign-in failed: ' + (vJson.error || vRes.statusText), 'warn');
+            document.getElementById('walletStatus').textContent = 'Sign-in failed';
+            return;
+          }
+          setClbToken(vJson.token);
+          updateAuthUi(true);
+          document.getElementById('walletStatus').textContent = 'Connected · signed in';
+          setStatus('Wallet linked to CLB — loading your pools, balances, and referrals.', 'ok');
+          await loadUserHub();
+        } catch (err) {
+          setStatus('Wallet / sign-in error: ' + (err && err.message ? err.message : String(err)), 'warn');
+          document.getElementById('walletStatus').textContent = 'Error';
+        }
       }
       document.getElementById('connectBtn').addEventListener('click', connectWallet);
       document.getElementById('refreshBtn').addEventListener('click', loadAll);
+      document.getElementById('disconnectBtn').addEventListener('click', disconnectWallet);
 
       // Mobile nav toggle
       const hamburger = document.getElementById('hamburger');
@@ -860,6 +1194,11 @@
       hamburger.addEventListener('click', () => {
         hamburger.classList.toggle('active');
         mobileMenu.classList.toggle('open');
+      });
+      document.getElementById('mobileDisconnectBtn').addEventListener('click', () => {
+        disconnectWallet();
+        hamburger.classList.remove('active');
+        mobileMenu.classList.remove('open');
       });
       document.getElementById('mobileConnectBtn').addEventListener('click', () => {
         connectWallet();
@@ -872,6 +1211,14 @@
         mobileMenu.classList.remove('open');
       });
       document.getElementById('mobileApiDocsLink').href = `${apiBase}/docs`;
+
+      if (getClbToken()) {
+        updateAuthUi(true);
+        document.getElementById('walletStatus').textContent = 'Restoring session…';
+        loadUserHub().then(function () {
+          document.getElementById('walletStatus').textContent = 'Session restored';
+        });
+      }
 
       // Initial load + interval
       loadAll();

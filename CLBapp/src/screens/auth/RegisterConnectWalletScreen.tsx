@@ -61,6 +61,14 @@ export default function RegisterConnectWalletScreen({ navigation, route }: any) 
   /** Complete valid BEP-20 in the field (pasted or after generate). Used for copy / mismatch messaging. */
   const hasValidBep20Field = useMemo(() => isValidBep20Address(walletAddress), [walletAddress]);
 
+  /** Address-only path: no 12-word UI; restore later with address + account password + PIN. */
+  useEffect(() => {
+    if (hasValidBep20Field) {
+      setPhrase('');
+      setBackupConfirmed(false);
+    }
+  }, [hasValidBep20Field]);
+
   /** WalletConnect only fills the address field when it is empty — never overwrites your pasted BEP-20. */
   useEffect(() => {
     if (!isConnected || !connectedAddress) return;
@@ -120,39 +128,43 @@ export default function RegisterConnectWalletScreen({ navigation, route }: any) 
   };
 
   const handleSubmit = async () => {
-    if (wordCount < 12) {
-      Alert.alert(
-        'Recovery phrase',
-        hasValidBep20Field
-          ? 'Bandika maneno 12 kutoka Trust / MetaMask / Binance kwa anwari uliyoiweka hapo juu.'
-          : 'Paste 12 words or generate a phrase on this phone, then match the address field.'
-      );
-      return;
-    }
     if (!backupConfirmed) {
-      Alert.alert('Confirmation', 'Confirm that you have saved your recovery phrase.');
-      return;
-    }
-
-    let addr: string;
-    let recoveryPhrase: string;
-    try {
-      addr = mnemonicToAccount(phrase.trim()).address.toLowerCase();
-      recoveryPhrase = phrase.trim();
-    } catch {
-      Alert.alert('Recovery phrase', 'These words are not a valid BIP39 phrase. Check spelling and order.');
+      Alert.alert('Thibitisho', 'Tafadhali weka tiki ya uthibitisho kabla ya kuendelea.');
       return;
     }
 
     const pasted = walletAddress.trim().toLowerCase();
-    if (pasted !== addr) {
-      Alert.alert(
-        'Phrase does not match this address',
-        hasValidBep20Field
-          ? 'Maneno hayo si ya anwari uliyoiweka. Bandika recovery phrase sahihi kutoka Trust / MetaMask / Binance kwa account hiyo.'
-          : 'The phrase and BEP-20 field must be the same wallet. Tap “Use address from this phrase” or fix the words.'
-      );
-      return;
+
+    if (hasValidBep20Field) {
+      if (!accountPassword || accountPassword.length < 8) {
+        Alert.alert(
+          'Nenosiri la akaunti',
+          'Rudi hatua ya kwanza ya usajili ujaze nenosiri la akaunti — linahitajika kurejesha akaunti hii pamoja na anwari na PIN.'
+        );
+        return;
+      }
+    } else {
+      if (wordCount < 12) {
+        Alert.alert(
+          'Recovery phrase',
+          'Bandika maneno 12 au tumia Generate phrase ukiwa anwari bado tupu.'
+        );
+        return;
+      }
+      let addr: string;
+      try {
+        addr = mnemonicToAccount(phrase.trim()).address.toLowerCase();
+      } catch {
+        Alert.alert('Recovery phrase', 'Maneno si halali. Angalia spelling na mpangilio.');
+        return;
+      }
+      if (pasted !== addr) {
+        Alert.alert(
+          'Phrase na anwari',
+          'Maneno lazima yalingane na anwari uliyoandika. Tumia “Use address from this phrase” au rekebisha.'
+        );
+        return;
+      }
     }
 
     if (addressAvail === 'taken') {
@@ -177,8 +189,9 @@ export default function RegisterConnectWalletScreen({ navigation, route }: any) 
 
       const res = await authAPI.devLogin(pasted, {
         email: email || undefined,
-        recoveryPhrase,
-        ...(accountPassword ? { accountPassword } : {}),
+        ...(hasValidBep20Field
+          ? { accountPassword }
+          : { recoveryPhrase: phrase.trim(), ...(accountPassword ? { accountPassword } : {}) }),
       });
       const { token, user } = res.data;
       await setAuth(token, {
@@ -232,9 +245,8 @@ export default function RegisterConnectWalletScreen({ navigation, route }: any) 
             <Image source={LOGO} style={styles.logo} resizeMode="contain" />
             <Text style={styles.title}>Unganisha pochi na CLB</Text>
             <Text style={styles.subtitle}>
-              Hatudanganyi: anwari unayoingiza ni njia ya kuunganisha pochi yako na akaunti ya CLB. Maneno 12
-              unayoyaona hapa ndiyo utakayotumia ndani ya CLB kurejesha akaunti hii (kwa “Nina wallet tayari”) —
-              hayazingani na anwari pekee bila maneno.
+              Anwari halali: weka tiki na endelea PIN — hatuhitaji kuandika maneno 12 hapa; kurejesha utatumia anwari
+              + nenosiri la akaunti + PIN. Anwari tupu: andika maneno 12 au Generate kisha endelea.
             </Text>
           </LinearGradient>
 
@@ -251,19 +263,15 @@ export default function RegisterConnectWalletScreen({ navigation, route }: any) 
                 ikiwa tayari inatumika).
               </Text>
               <Text style={styles.truthLine}>
-                2) <Text style={styles.truthEm}>Maneno 12</Text> au <Text style={styles.truthEm}>nenosiri la akaunti</Text>{' '}
-                (lile baada ya email) + <Text style={styles.truthEm}>PIN</Text> = njia za kurejesha ndani ya “Nina
-                wallet tayari” (nenosiri na PIN zimhifadhiwa kwa hash kwenye server).
+                2) Ukiwa tayari ume<Text style={styles.truthEm}>bandika BEP-20</Text>: skrini hii haionyeshi kisanduku cha
+                maneno 12 — utathibitisha na kwenda PIN. Kurejesha: <Text style={styles.truthEm}>anwari + nenosiri la
+                  akaunti + PIN
+                </Text>{' '}
+                (“Nina wallet tayari”).
               </Text>
               <Text style={styles.truthLine}>
-                3) Uki<Text style={styles.truthEm}>bandika</Text> phrase kutoka Trust/Meta/Binance kwa anwari ile ile =
-                ni maneno halisi ya wallet yako; tunayahifadhi kwa usajili / restore wa CLB.
-              </Text>
-              <Text style={styles.truthLine}>
-                4) <Text style={styles.truthEm}>Generate phrase</Text> huonekana tu ukiwa umeacha sehemu ya anwari{' '}
-                <Text style={styles.truthEm}>tupu</Text> — kinaunda wallet mpya ya CLB (maneno + anwari). Ukiwa
-                tayari umebandika BEP-20 ya Trust/Meta/Binance, <Text style={styles.truthEm}>hakuna Generate</Text> —
-                lazima ubandike maneno kutoka app hiyo.
+                3) Uki<Text style={styles.truthEm}>acha anwari tupu</Text>: utaona maneno 12 na Generate — wallet mpya
+                ya simu; kurejesha utatumia maneno hayo + PIN.
               </Text>
             </View>
 
@@ -329,7 +337,7 @@ export default function RegisterConnectWalletScreen({ navigation, route }: any) 
                 <Text style={styles.availText}>
                   {addressAvail === 'checking' && 'Checking if this address is already registered…'}
                   {addressAvail === 'available' &&
-                    'Anwari hii bado haijatumika. Bandika maneno 12 kutoka Trust / MetaMask / Binance kwa account inayoonyesha anwari hii.'}
+                    'Anwari hii bado haijatumika. Thibitisha chini na endelea PIN — hatuhitaji maneno 12 hapa.'}
                   {addressAvail === 'taken' && 'This address is already in use. Use another BEP-20 wallet or sign in with “I already have a wallet”.'}
                   {addressAvail === 'invalid_fmt' && 'Enter a valid BEP-20 address: 0x plus 40 hexadecimal characters.'}
                   {addressAvail === 'error' && 'Could not check online. You can still try Continue — we verify again on submit.'}
@@ -337,57 +345,59 @@ export default function RegisterConnectWalletScreen({ navigation, route }: any) 
               </View>
             )}
 
-            <View style={styles.phraseCard}>
-              <View style={styles.phraseHeader}>
-                <Text style={styles.label}>Maneno 12 ya kurejesha CLB</Text>
-                <TouchableOpacity onPress={() => setShowPhrase(!showPhrase)}>
-                  <Ionicons
-                    name={showPhrase ? 'eye-off-outline' : 'eye-outline'}
-                    size={20}
-                    color={Colors.textMuted}
-                  />
-                </TouchableOpacity>
-              </View>
-              <Text style={styles.phraseHint}>
-                {hasValidBep20Field
-                  ? 'Bandika tu maneno 12 kutoka Trust / MetaMask / Binance kwa anwari uliyoiweka juu. (Generate haipo anwari ikipo — ili kuepuka utangamano.)'
-                  : 'Paste 12 words from your wallet, or leave the address empty and tap Generate to create a new phrase on this phone — then use “Use address from this phrase” to fill the BEP-20 field.'}
-              </Text>
-              <TextInput
-                value={phrase}
-                onChangeText={(t) => {
-                  setPhrase(t);
-                  setBackupConfirmed(false);
-                }}
-                placeholder="word1 word2 … word12"
-                placeholderTextColor={Colors.textMuted}
-                style={styles.phraseInput}
-                autoCapitalize="none"
-                autoCorrect={false}
-                multiline
-                secureTextEntry={!showPhrase}
-                textAlignVertical="top"
-              />
-              <View style={styles.phraseFooter}>
-                <Text style={[styles.wordCount, wordCount >= 12 && styles.wordCountOk]}>
-                  {wordCount}/12+ words
+            {hasValidBep20Field ? (
+              <View style={styles.addressOnlyCard}>
+                <Ionicons name="checkmark-done-circle" size={22} color="#00D6A1" />
+                <Text style={styles.addressOnlyText}>
+                  Umeunganisha anwari yako. Chini thibitisha tiki kisha <Text style={styles.truthEm}>Endelea PIN</Text>
+                  . Hatuna kisanduku cha maneno 12 hapa — kurejesha: anwari + nenosiri la akaunti (hatua ya email) +
+                  PIN.
                 </Text>
-                {!hasValidBep20Field && (
+              </View>
+            ) : (
+              <View style={styles.phraseCard}>
+                <View style={styles.phraseHeader}>
+                  <Text style={styles.label}>Maneno 12 ya kurejesha CLB</Text>
+                  <TouchableOpacity onPress={() => setShowPhrase(!showPhrase)}>
+                    <Ionicons
+                      name={showPhrase ? 'eye-off-outline' : 'eye-outline'}
+                      size={20}
+                      color={Colors.textMuted}
+                    />
+                  </TouchableOpacity>
+                </View>
+                <Text style={styles.phraseHint}>
+                  Bandika maneno kutoka wallet yako, au acha anwari tupu na ubonyeze Generate, kisha “Use address from
+                  this phrase”.
+                </Text>
+                <TextInput
+                  value={phrase}
+                  onChangeText={(t) => {
+                    setPhrase(t);
+                    setBackupConfirmed(false);
+                  }}
+                  placeholder="word1 word2 … word12"
+                  placeholderTextColor={Colors.textMuted}
+                  style={styles.phraseInput}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  multiline
+                  secureTextEntry={!showPhrase}
+                  textAlignVertical="top"
+                />
+                <View style={styles.phraseFooter}>
+                  <Text style={[styles.wordCount, wordCount >= 12 && styles.wordCountOk]}>
+                    {wordCount}/12+ words
+                  </Text>
                   <TouchableOpacity style={styles.genBtn} onPress={handleGeneratePhrase}>
                     <Ionicons name="refresh-outline" size={16} color="#000" />
                     <Text style={styles.genBtnText}>Generate phrase on device</Text>
                   </TouchableOpacity>
-                )}
+                </View>
               </View>
-              {hasValidBep20Field && (
-                <Text style={styles.noGenNote}>
-                  Generate phrase haionyeshwi kwa sababu tayari una anwari ya nje — bandika recovery phrase kutoka
-                  app ile ile. Ikiwa ulikusudia wallet mpya ya simu pekee, futa anwari juu.
-                </Text>
-              )}
-            </View>
+            )}
 
-            {wordCount >= 12 && !derivedFromPhrase && (
+            {!hasValidBep20Field && wordCount >= 12 && !derivedFromPhrase && (
               <View style={[styles.availBanner, styles.availBad]}>
                 <Text style={styles.availText}>
                   These 12+ words are not a valid recovery phrase. Check spelling and word order.
@@ -395,7 +405,7 @@ export default function RegisterConnectWalletScreen({ navigation, route }: any) 
               </View>
             )}
 
-            {derivedFromPhrase && (
+            {!hasValidBep20Field && derivedFromPhrase && (
               <View style={styles.derivedRow}>
                 {walletAddress.trim().toLowerCase() === derivedFromPhrase ? (
                   <View style={styles.derivedMatchRow}>
@@ -403,26 +413,6 @@ export default function RegisterConnectWalletScreen({ navigation, route }: any) 
                     <Text style={styles.derivedMatch}>
                       Anwari na maneno vinalingana — hivi ndivyo utakavyovitumia kurejesha akaunti ya CLB.
                     </Text>
-                  </View>
-                ) : hasValidBep20Field ? (
-                  <View>
-                    <Text style={styles.derivedMismatch}>
-                      Maneno hayo si ya anwari uliyoiweka. Yanamiliki wallet tofauti (
-                      <Text style={styles.derivedMono}>
-                        {derivedFromPhrase.slice(0, 8)}…{derivedFromPhrase.slice(-6)}
-                      </Text>
-                      ). Bandika recovery phrase sahihi kutoka Trust / Meta / Binance kwa anwari uliyoiweka.
-                    </Text>
-                    <TouchableOpacity
-                      style={styles.clearPhraseBtn}
-                      onPress={() => {
-                        setPhrase('');
-                        setBackupConfirmed(false);
-                      }}
-                      activeOpacity={0.85}
-                    >
-                      <Text style={styles.clearPhraseText}>Clear phrase and try again</Text>
-                    </TouchableOpacity>
                   </View>
                 ) : (
                   <>
@@ -454,8 +444,9 @@ export default function RegisterConnectWalletScreen({ navigation, route }: any) 
                 color={backupConfirmed ? Colors.primary : Colors.textMuted}
               />
               <Text style={styles.checkText}>
-                Nimeandika maneno 12 na naelewa ndiyo nitakazotumia ndani ya CLB kurejesha akaunti hii (kwa “Nina
-                wallet tayari”), pamoja na anwari inayoonekana hapo juu.
+                {hasValidBep20Field
+                  ? 'Naelewa nitarejesha akaunti kwa anwari hii + nenosiri la akaunti (hatua ya email) + PIN ya CLB — bila kuandika maneno 12 kwenye skrini hii.'
+                  : 'Nimeandika / nimehifadhi maneno 12 na naelewa nitayatumia ndani ya CLB kurejesha (“Nina wallet tayari”), pamoja na anwari inayoendana.'}
               </Text>
             </TouchableOpacity>
 
@@ -469,17 +460,19 @@ export default function RegisterConnectWalletScreen({ navigation, route }: any) 
                 addressAvail === 'invalid_fmt' ||
                 addressAvail === 'checking' ||
                 !backupConfirmed ||
-                wordCount < 12 ||
-                !derivedFromPhrase ||
-                walletAddress.trim().toLowerCase() !== derivedFromPhrase ||
-                (addressAvail !== 'available' && addressAvail !== 'error')
+                (addressAvail !== 'available' && addressAvail !== 'error') ||
+                (hasValidBep20Field
+                  ? false
+                  : !derivedFromPhrase ||
+                    wordCount < 12 ||
+                    walletAddress.trim().toLowerCase() !== derivedFromPhrase)
               }
               fullWidth
             />
 
             <Text style={styles.footerNote}>
-              Tayari una akaunti ya CLB? Rudi nyuma → “Nina wallet tayari” (maneno 12 uliyohifadhi hapa + PIN) au
-              “Connect with address” kwa simu nyingine.
+              Tayari una akaunti? “Nina wallet tayari”: anwari + nenosiri la akaunti + PIN (au maneno 12 ukiwa
+              ulijisajili kwa njia ya phrase). “Connect with address” kwa simu nyingine.
             </Text>
           </View>
         </ScrollView>
@@ -599,6 +592,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     paddingRight: Spacing.md,
   },
+  addressOnlyCard: {
+    flexDirection: 'row',
+    gap: 12,
+    padding: Spacing.md,
+    borderRadius: Radius.lg,
+    backgroundColor: 'rgba(0,214,161,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(0,214,161,0.28)',
+    alignItems: 'flex-start',
+  },
+  addressOnlyText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+    lineHeight: 19,
+  },
   phraseCard: {
     backgroundColor: Colors.bgCard,
     borderRadius: Radius.lg,
@@ -625,13 +635,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     flexWrap: 'wrap',
     gap: 8,
-  },
-  noGenNote: {
-    marginTop: Spacing.sm,
-    fontSize: 11,
-    fontWeight: '600',
-    color: Colors.textMuted,
-    lineHeight: 16,
   },
   wordCount: { fontSize: 12, color: Colors.textMuted, fontWeight: '600' },
   wordCountOk: { color: '#00D6A1' },
