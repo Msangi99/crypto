@@ -9,6 +9,7 @@ import {
   claimFeeUsd,
   loanCreditUsdOrThrow,
 } from '../services/poolPackageConfig';
+import { serializePoolPublic } from '../services/poolSerialization';
 
 // Swagger schemas
 const schemas = {
@@ -29,23 +30,14 @@ const schemas = {
   getPool: {
     tags: ['Pools'],
     summary: 'Get pool by ID',
-    description: 'Returns detailed info for a single pool, including on-chain data if available',
+    description:
+      'Returns detailed info for a single pool. No response schema on pool payload so all fields (supportsAppCredit, creditMinUsd, creditCreditedUsd) are preserved.',
     params: {
       type: 'object',
       properties: {
         id: { type: 'string', description: 'Pool UUID' },
       },
       required: ['id'],
-    },
-    response: {
-      200: {
-        type: 'object',
-        properties: {
-          success: { type: 'boolean' },
-          pool: { type: 'object' },
-          onChain: { type: 'object', nullable: true },
-        },
-      },
     },
   },
   createPool: {
@@ -72,15 +64,6 @@ const schemas = {
         },
       },
       required: ['name'],
-    },
-    response: {
-      201: {
-        type: 'object',
-        properties: {
-          success: { type: 'boolean' },
-          pool: { type: 'object' },
-        },
-      },
     },
   },
   deposit: {
@@ -167,11 +150,7 @@ export default async function poolRoutes(fastify: FastifyInstance) {
         prisma.pool.count({ where }),
       ]);
 
-      const data = pools.map((p) => ({
-        ...p,
-        memberCount: p._count.members,
-        _count: undefined,
-      }));
+      const data = pools.map((p) => serializePoolPublic(p));
 
       return {
         success: true,
@@ -259,7 +238,7 @@ export default async function poolRoutes(fastify: FastifyInstance) {
         }
       }
 
-      return { success: true, pool, onChain };
+      return { success: true, pool: serializePoolPublic(pool), onChain };
     }
   );
 
@@ -316,38 +295,61 @@ export default async function poolRoutes(fastify: FastifyInstance) {
         creditCreditedUsd,
       } = request.body;
 
+      const minDep = minDeposit ?? 0;
+      /** In-app claim defaults ON when min entry > 0 unless admin explicitly sends supportsAppCredit: false. */
+      const explicitOff = supportsAppCredit === false;
+      const explicitOn = supportsAppCredit === true;
+      const effectiveSupports = explicitOff ? false : explicitOn ? true : minDep > 0;
+
+      let feeIn: number | null | undefined = creditMinUsd ?? undefined;
+      let loanIn: number | null | undefined = creditCreditedUsd ?? undefined;
+      if (effectiveSupports && minDep > 0) {
+        if (feeIn == null || !Number.isFinite(feeIn) || feeIn <= 0) feeIn = minDep;
+        if (loanIn == null || !Number.isFinite(loanIn) || loanIn <= 0) loanIn = minDep * 10;
+      } else {
+        feeIn = undefined;
+        loanIn = undefined;
+      }
+
       const v = validatePoolCreditPackage({
-        supportsAppCredit: Boolean(supportsAppCredit),
-        creditMinUsd,
-        creditCreditedUsd,
-        minDeposit: minDeposit ?? 0,
+        supportsAppCredit: effectiveSupports,
+        creditMinUsd: feeIn,
+        creditCreditedUsd: loanIn,
+        minDeposit: minDep,
       });
       if (!v.ok) {
         return reply.status(400).send({ success: false, error: v.error });
       }
 
-      const pool = await prisma.pool.create({
+      const created = await prisma.pool.create({
         data: {
           name,
           description,
           tokenSymbol: tokenSymbol || 'BNB',
-          minDeposit: minDeposit ?? 0,
+          minDeposit: minDep,
           maxDeposit,
           apy: apy ?? 0,
           contractAddress,
           endDate: endDate ? new Date(endDate) : undefined,
-          supportsAppCredit: Boolean(supportsAppCredit),
-          ...(Boolean(supportsAppCredit) && {
-            creditMinUsd:
-              creditMinUsd != null && creditMinUsd > 0
-                ? new Prisma.Decimal(creditMinUsd)
-                : undefined,
-            creditCreditedUsd: new Prisma.Decimal(creditCreditedUsd!),
-          }),
+          supportsAppCredit: effectiveSupports,
+          ...(effectiveSupports
+            ? {
+                creditMinUsd: new Prisma.Decimal(feeIn!),
+                creditCreditedUsd: new Prisma.Decimal(loanIn!),
+              }
+            : {
+                creditMinUsd: null,
+                creditCreditedUsd: null,
+              }),
         },
       });
 
-      return reply.status(201).send({ success: true, pool });
+      const pool = await prisma.pool.findUnique({
+        where: { id: created.id },
+        include: { _count: { select: { members: true } } },
+      });
+
+      return reply.status(201).send({ success: true, pool: serializePoolPublic(pool!) });
     }
   );
 
@@ -422,9 +424,10 @@ export default async function poolRoutes(fastify: FastifyInstance) {
             creditCreditedUsd: creditCreditedUsd === null ? null : new Prisma.Decimal(creditCreditedUsd),
           }),
         },
+        include: { _count: { select: { members: true } } },
       });
 
-      return { success: true, pool };
+      return { success: true, pool: serializePoolPublic(pool) };
     }
   );
 

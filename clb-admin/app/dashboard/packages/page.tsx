@@ -89,9 +89,9 @@ export default function PackagesPage() {
     status: "ACTIVE",
     tokenSymbol: "BTCB",
     contractAddress: "",
-    supportsAppCredit: false,
-    creditMinUsd: "",
-    creditCreditedUsd: "",
+    supportsAppCredit: true,
+    creditMinUsd: "100",
+    creditCreditedUsd: "1000",
   });
   const [form, setForm] = useState(emptyCreateForm);
 

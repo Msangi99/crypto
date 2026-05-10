@@ -79,7 +79,7 @@ model Pool {
   updatedAt       DateTime    @updatedAt
 
   /// When true, user can claim this package from in-app deposit credit (no fixed pool count — admin creates as many as needed).
-  supportsAppCredit   Boolean  @default(false)
+  supportsAppCredit   Boolean  @default(true)
   /// Claim fee in USD deducted from depositCreditUsd (e.g. 100). If null, minDeposit is used as the fee.
   creditMinUsd        Decimal? @db.Decimal(36, 18)
   /// Loan line credited to claimedPoolCreditUsd after claim (e.g. 1000 when fee is 100). Required when supportsAppCredit is true.

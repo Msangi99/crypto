@@ -3,6 +3,7 @@ import { Prisma, LoanStatus } from '@prisma/client';
 import prisma from '../config/db';
 import { authMiddleware } from '../middleware/auth';
 import { liquidationService } from '../services/liquidationService';
+import { serializePoolPublic } from '../services/poolSerialization';
 import { serializeMiningPackage } from './miningPackages';
 import type { MiningPackagePeriodUnit } from '@prisma/client';
 
@@ -932,19 +933,7 @@ export default async function adminRoutes(fastify: FastifyInstance) {
         orderBy: { updatedAt: 'desc' },
         include: { _count: { select: { members: true } } },
       });
-      const pools = rows.map((p) => {
-        const { _count, ...rest } = p;
-        return {
-          ...rest,
-          memberCount: _count.members,
-          minDeposit: Number(p.minDeposit),
-          maxDeposit: p.maxDeposit != null ? Number(p.maxDeposit) : null,
-          apy: Number(p.apy),
-          totalStaked: Number(p.totalStaked),
-          creditMinUsd: p.creditMinUsd != null ? Number(p.creditMinUsd) : null,
-          creditCreditedUsd: p.creditCreditedUsd != null ? Number(p.creditCreditedUsd) : null,
-        };
-      });
+      const pools = rows.map((p) => serializePoolPublic(p));
       return { success: true, count: pools.length, pools };
     }
   );
