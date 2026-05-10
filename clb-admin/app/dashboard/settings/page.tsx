@@ -19,8 +19,11 @@ export default function SettingsPage() {
   const [username, setUsername] = useState(user?.username || "");
   const [email, setEmail] = useState(user?.email || "");
   const [freePoolsEnabled, setFreePoolsEnabled] = useState(false);
+  const [depositTreasuryAddress, setDepositTreasuryAddress] = useState("");
+  const [usdtBep20Address, setUsdtBep20Address] = useState("");
   const [loadingSettings, setLoadingSettings] = useState(true);
   const [savingSettings, setSavingSettings] = useState(false);
+  const [savingDeposit, setSavingDeposit] = useState(false);
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -28,6 +31,8 @@ export default function SettingsPage() {
       try {
         const res = await api.getAdminSettings();
         setFreePoolsEnabled(Boolean(res.settings.freePoolsEnabled));
+        setDepositTreasuryAddress(res.settings.depositTreasuryAddress?.trim() || "");
+        setUsdtBep20Address(res.settings.usdtBep20Address?.trim() || "");
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Failed to load system settings");
       } finally {
@@ -57,11 +62,36 @@ export default function SettingsPage() {
     setSavingSettings(true);
     try {
       await api.updateAdminSettings({ freePoolsEnabled });
-      toast.success("System settings updated!");
+      toast.success("Pool access mode updated!");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to update system settings");
     } finally {
       setSavingSettings(false);
+    }
+  };
+
+  const handleSaveDepositReceive = async () => {
+    const raw = depositTreasuryAddress.trim();
+    if (raw && (!raw.startsWith("0x") || raw.length !== 42)) {
+      toast.error("Treasury must be a valid BEP-20 address (0x + 40 hex characters).");
+      return;
+    }
+    const contractRaw = usdtBep20Address.trim();
+    if (contractRaw && (!contractRaw.startsWith("0x") || contractRaw.length !== 42)) {
+      toast.error("USDT contract must be a valid address or left empty.");
+      return;
+    }
+    setSavingDeposit(true);
+    try {
+      await api.updateAdminSettings({
+        depositTreasuryAddress: raw || null,
+        usdtBep20Address: contractRaw || null,
+      });
+      toast.success("USDT receive settings saved. Mobile app will show QR + address.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save deposit settings");
+    } finally {
+      setSavingDeposit(false);
     }
   };
 
@@ -145,6 +175,62 @@ export default function SettingsPage() {
               <p className="text-[#F0B90B]">L1: 20% · L2: 8% · L3: 5% · L4: 3% · L5: 1%</p>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card className="bg-[#1A1A1A] border-[#2A2A2A]">
+        <CardHeader>
+          <CardTitle className="text-white flex items-center gap-2">
+            <Globe className="w-5 h-5 text-[#F0B90B]" />
+            USDT deposit receive (mobile app)
+          </CardTitle>
+          <CardDescription className="text-[#999]">
+            Users tap Deposit in the CLB app, choose BEP-20 USDT, and send to this treasury address. The app shows a QR code
+            and copy button only after you save a valid address here. Must match your API server chain (BSC mainnet 56 or testnet 97).
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {loadingSettings ? (
+            <div className="flex items-center gap-2 text-[#999] text-sm">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Loading…
+            </div>
+          ) : (
+            <>
+              <div className="space-y-2">
+                <Label>Treasury wallet (BEP-20) — where users send USDT *</Label>
+                <Input
+                  placeholder="0x… your platform hot wallet on BSC"
+                  value={depositTreasuryAddress}
+                  onChange={(e) => setDepositTreasuryAddress(e.target.value)}
+                  className="bg-[#0D0D0D] border-[#2A2A2A] font-mono text-xs"
+                />
+                <p className="text-xs text-[#666]">
+                  This is the &quot;receive&quot; address shown in the app. Without it, the app shows &quot;Not configured&quot;.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label>USDT contract (optional)</Label>
+                <Input
+                  placeholder="Leave empty → use server .env USDT_BEP20_ADDRESS"
+                  value={usdtBep20Address}
+                  onChange={(e) => setUsdtBep20Address(e.target.value)}
+                  className="bg-[#0D0D0D] border-[#2A2A2A] font-mono text-xs"
+                />
+                <p className="text-xs text-[#666]">
+                  Override only if your USDT token address differs from the default for your chain.
+                </p>
+              </div>
+              <Button
+                onClick={handleSaveDepositReceive}
+                disabled={loadingSettings || savingDeposit}
+                className="bg-[#00C853] text-white hover:bg-[#00E676] font-semibold"
+              >
+                {savingDeposit ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+                Save USDT receive settings
+              </Button>
+            </>
+          )}
         </CardContent>
       </Card>
 

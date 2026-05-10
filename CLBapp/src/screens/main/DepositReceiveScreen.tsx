@@ -22,16 +22,31 @@ export default function DepositReceiveScreen({ navigation }: any) {
   const [step, setStep] = useState<Step>('pick');
   const [loading, setLoading] = useState(true);
   const [config, setConfig] = useState<any>(null);
+  const [configError, setConfigError] = useState<string | null>(null);
   const [txHash, setTxHash] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const loadConfig = useCallback(async () => {
     setLoading(true);
+    setConfigError(null);
     try {
       const res = await creditWalletAPI.config();
-      setConfig(res.data?.config ?? null);
-    } catch {
+      if (res.data?.success && res.data?.config) {
+        setConfig(res.data.config);
+      } else {
+        setConfig(null);
+        setConfigError(
+          (res.data as any)?.error ||
+            'Could not load deposit configuration. Check that the API has USDT_BEP20 in .env or admin settings.'
+        );
+      }
+    } catch (e: any) {
       setConfig(null);
+      const msg =
+        e?.response?.data?.error ||
+        e?.message ||
+        'Network error loading deposit config. Check NEXT_PUBLIC_API_URL / API server.';
+      setConfigError(msg);
     } finally {
       setLoading(false);
     }
@@ -99,13 +114,38 @@ export default function DepositReceiveScreen({ navigation }: any) {
         {step === 'pick' && (
           <>
             <Text style={styles.lead}>Choose network and asset (Receive)</Text>
+            {configError ? (
+              <View style={styles.errorBanner}>
+                <Ionicons name="alert-circle" size={20} color="#FF4757" />
+                <Text style={styles.errorBannerText}>{configError}</Text>
+              </View>
+            ) : null}
+            {!configError && config && !config.treasuryConfigured ? (
+              <View style={styles.warnBanner}>
+                <Ionicons name="information-circle" size={20} color={Colors.primary} />
+                <Text style={styles.warnBannerText}>
+                  Haijawekwa bado: anwani ya pokea USDT (treasury) haijasetishwa kwenye database. Msimamizi aingie Admin →
+                  Settings → &quot;USDT deposit receive&quot;, aweke anwani ya BEP-20, kisha Save.{'\n\n'}
+                  Not configured: the BEP-20 treasury address is empty. Admin: Dashboard → Settings → save &quot;Treasury
+                  wallet&quot; so the app can show QR + address.
+                </Text>
+              </View>
+            ) : null}
             <TouchableOpacity
-              style={styles.assetCard}
+              style={[styles.assetCard, (!config?.treasuryConfigured || configError) && styles.assetCardDisabled]}
               onPress={() => {
+                if (configError) {
+                  Alert.alert(
+                    'Deposit haipatikani',
+                    `${configError}\n\nMsimamizi: weka treasury kwenye admin settings.`,
+                  );
+                  return;
+                }
                 if (!config?.treasuryConfigured) {
                   Alert.alert(
-                    'Not configured',
-                    'The platform treasury address is not set yet. Ask an admin to add the BEP-20 USDT receive address in admin settings.',
+                    'Haijawekwa / Not configured',
+                    'Anwani ya pokea USDT (BEP-20 treasury) bado haijawekwa.\n\n' +
+                      'Admin: fungua CLB Admin Dashboard → Settings → sehemu ya "USDT deposit receive" → weka anwani ya wallet ya BSC → Save.',
                   );
                   return;
                 }
@@ -227,6 +267,31 @@ const styles = StyleSheet.create({
   assetName: { fontSize: 16, fontWeight: '800', color: Colors.textPrimary },
   assetSub: { fontSize: 12, color: Colors.textMuted, marginTop: 2 },
   hint: { fontSize: 12, color: Colors.textMuted, marginTop: Spacing.md, lineHeight: 18 },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    backgroundColor: 'rgba(255,71,87,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,71,87,0.35)',
+    borderRadius: Radius.md,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+  },
+  errorBannerText: { flex: 1, fontSize: 13, color: '#FF8A94', lineHeight: 19 },
+  warnBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    backgroundColor: 'rgba(240,185,11,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(240,185,11,0.35)',
+    borderRadius: Radius.md,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+  },
+  warnBannerText: { flex: 1, fontSize: 12, color: Colors.textSecondary, lineHeight: 18 },
+  assetCardDisabled: { opacity: 0.65 },
   sectionLabel: {
     fontSize: 13,
     fontWeight: '700',

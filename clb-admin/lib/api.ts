@@ -203,9 +203,27 @@ export const api = {
   getAdminStats: () =>
     request<{ success: boolean; stats: { totalUsers: number; activeUsers: number; totalPools: number; totalTransactions: number; totalDeposits: number } }>("/api/admin/stats"),
   getAdminSettings: () =>
-    request<{ success: boolean; settings: { freePoolsEnabled: boolean } }>("/api/admin/settings"),
-  updateAdminSettings: (data: { freePoolsEnabled: boolean }) =>
-    request<{ success: boolean; settings: { freePoolsEnabled: boolean } }>("/api/admin/settings", {
+    request<{
+      success: boolean;
+      settings: {
+        freePoolsEnabled: boolean;
+        depositTreasuryAddress: string | null;
+        usdtBep20Address: string | null;
+      };
+    }>("/api/admin/settings"),
+  updateAdminSettings: (data: {
+    freePoolsEnabled?: boolean;
+    depositTreasuryAddress?: string | null;
+    usdtBep20Address?: string | null;
+  }) =>
+    request<{
+      success: boolean;
+      settings: {
+        freePoolsEnabled: boolean;
+        depositTreasuryAddress: string | null;
+        usdtBep20Address: string | null;
+      };
+    }>("/api/admin/settings", {
       method: "PUT",
       body: JSON.stringify(data),
     }),
