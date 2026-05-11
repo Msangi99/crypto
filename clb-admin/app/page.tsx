@@ -310,8 +310,8 @@ function CryptoLanding() {
         this.r = Math.random() * 1.5 + 0.3;
         this.vx = (Math.random() - 0.5) * 0.3;
         this.vy = (Math.random() - 0.5) * 0.3;
-        this.alpha = Math.random() * 0.3 + 0.05;
-        this.color = Math.random() > 0.7 ? "#F0A500" : "#0D0F14";
+        this.alpha = Math.random() * 0.25 + 0.04;
+        this.color = Math.random() > 0.6 ? "#00c853" : "#0a2010";
       }
 
       update() {
@@ -343,8 +343,8 @@ function CryptoLanding() {
             g.beginPath();
             g.moveTo(particles[i].x, particles[i].y);
             g.lineTo(particles[j].x, particles[j].y);
-            g.strokeStyle = "#0D0F14";
-            g.globalAlpha = (1 - dist / 90) * 0.04;
+            g.strokeStyle = "#00c853";
+            g.globalAlpha = (1 - dist / 90) * 0.06;
             g.lineWidth = 0.5;
             g.stroke();
             g.globalAlpha = 1;
