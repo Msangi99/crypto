@@ -361,8 +361,8 @@ export default function HomeScreen({ navigation }: any) {
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.marketScroll}>
             {liveCoins.length
-              ? liveCoins.slice(0, 8).map((coin: any) => (
-                  <MarketChip key={coin.symbol} coin={coin} />
+              ? liveCoins.slice(0, 8).map((coin: any, idx: number) => (
+                  <MarketChip key={`${coin.symbol}-${idx}`} coin={coin} />
                 ))
               : ['BTC', 'ETH', 'BNB'].map((c) => <MarketChipSkeleton key={c} label={c} />)}
           </ScrollView>
@@ -383,9 +383,9 @@ export default function HomeScreen({ navigation }: any) {
             </TouchableOpacity>
           </View>
           {swappedHoldings.length > 0 ? (
-            swappedHoldings.map((row) => (
+            swappedHoldings.map((row, idx) => (
               <LiveCryptoCard 
-                key={row.symbol} 
+                key={`${row.symbol}-${idx}`} 
                 row={row} 
                 livePrice={livePrices[row.symbol]?.price}
               />

@@ -185,8 +185,8 @@ export default function MarketScreen() {
               <Text style={styles.sectionTitle}>🔥 Top Gainers</Text>
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.trendingScroll}>
-              {gainers.map((coin: any) => (
-                <TrendingChip key={coin.symbol} coin={coin} />
+              {gainers.map((coin: any, idx: number) => (
+                <TrendingChip key={`${coin.symbol}-${idx}`} coin={coin} />
               ))}
             </ScrollView>
           </View>
@@ -200,7 +200,7 @@ export default function MarketScreen() {
 
         {/* Coin List */}
         {filteredCoins.map((coin: any, index: number) => (
-          <CoinRow key={coin.symbol} coin={coin} rank={index + 1} />
+          <CoinRow key={`${coin.symbol}-${index}`} coin={coin} rank={index + 1} />
         ))}
 
         {/* Liquidation Targets */}
