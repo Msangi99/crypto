@@ -105,9 +105,6 @@ export default async function tokenRoutes(fastify: FastifyInstance) {
       chainId: 56,
       contracts: [
         { token: 'CLB', name: 'CryptoLoanBoost', address: addresses.CLB, decimals: 18 },
-        { token: 'CLBg', name: 'CryptoLoanBoost Gold', address: addresses.CLBg, decimals: 18 },
-        { token: 'CLBs', name: 'CryptoLoanBoost Silver', address: addresses.CLBs, decimals: 18 },
-        { token: 'GLM', name: 'Golem', address: addresses.GLM, decimals: 18 },
       ],
       instructions: [
         'Open Trust Wallet',

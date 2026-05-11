@@ -12,7 +12,7 @@ import { useLivePrices } from './useLivePrices';
  * using:
  *   - Binance WS live ticker for BNB (via `useLivePrices`)
  *   - Hard $1 peg for known stablecoins (USDT, BUSD)
- *   - Backend `/api/tokens/prices` for CLB / CLBg / CLBs
+ *   - Backend `/api/tokens/prices` for CLB
  *
  * No private keys are ever touched — this is a pure read.
  */

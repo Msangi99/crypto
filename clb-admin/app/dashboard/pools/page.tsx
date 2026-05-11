@@ -152,7 +152,7 @@ export default function PoolsPage() {
             <div className="space-y-4 mt-4">
               <div className="space-y-2">
                 <Label>Pool Name *</Label>
-                <Input placeholder="e.g. CLB Gold Pool" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="bg-[#0D0D0D] border-[#2A2A2A]" />
+                <Input placeholder="e.g. CLB Pool" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="bg-[#0D0D0D] border-[#2A2A2A]" />
               </div>
               <div className="space-y-2">
                 <Label>Description</Label>

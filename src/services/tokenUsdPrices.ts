@@ -4,12 +4,9 @@ import { tokenService } from './tokenService';
 /** Used when CoinGecko has no listing, RPC fails, or addresses are unset. */
 const FALLBACK_USD: Record<string, number> = {
   CLB: 1.0,
-  CLBg: 5.0,
-  CLBs: 2.5,
-  GLM: 0.0,
 };
 
-const TRACKED_TOKENS = ['CLB', 'CLBg', 'CLBs', 'GLM'] as const;
+const TRACKED_TOKENS = ['CLB'] as const;
 
 export type TokenUsdQuote = {
   priceUsd: number;

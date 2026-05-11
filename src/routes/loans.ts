@@ -5,16 +5,12 @@ import { tokenService } from '../services/tokenService';
 import { creditLineService } from '../services/creditLineService';
 import { priceService } from '../services/priceService';
 
-// CLB Token tiers based on collateral value
+// CLB loan tier (single tier; only CLB token is issued)
 const TOKEN_TIERS: Record<string, { minUsd: number; token: string; ltv: number; interest: number }> = {
-  CLBg: { minUsd: 5000, token: 'CLBg', ltv: 60, interest: 5 },   // Gold tier: $5k+
-  CLBs: { minUsd: 1000, token: 'CLBs', ltv: 50, interest: 8 },   // Silver tier: $1k+
-  CLB:  { minUsd: 100,  token: 'CLB',  ltv: 40, interest: 12 },   // Standard tier: $100+
+  CLB: { minUsd: 100, token: 'CLB', ltv: 40, interest: 12 }, // Standard tier: $100+
 };
 
-function getTier(usdValue: number): typeof TOKEN_TIERS[string] {
-  if (usdValue >= 5000) return TOKEN_TIERS.CLBg;
-  if (usdValue >= 1000) return TOKEN_TIERS.CLBs;
+function getTier(_usdValue: number): typeof TOKEN_TIERS[string] {
   return TOKEN_TIERS.CLB;
 }
 
@@ -333,12 +329,12 @@ export default async function loanRoutes(fastify: FastifyInstance) {
   fastify.get('/tiers', async () => {
     return {
       success: true,
-      tiers: Object.entries(TOKEN_TIERS).map(([key, t]) => ({
+      tiers: Object.values(TOKEN_TIERS).map((t) => ({
         token: t.token,
         minUsd: t.minUsd,
         ltv: t.ltv,
         interestRate: t.interest,
-        description: key === 'CLBg' ? 'Gold Tier' : key === 'CLBs' ? 'Silver Tier' : 'Standard Tier',
+        description: 'Standard Tier',
       })),
     };
   });

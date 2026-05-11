@@ -17,8 +17,6 @@ const CHAINS = [
 ];
 
 const TOKEN_META: Record<string, { name: string; color: string }> = {
-  CLBg: { name: 'CLB Gold', color: '#F0B90B' },
-  CLBs: { name: 'CLB Silver', color: '#C0C0C0' },
   CLB: { name: 'CLB', color: '#3B82F6' },
 };
 
@@ -67,9 +65,9 @@ export default function LoanRequestScreen({ navigation, route }: any) {
   useEffect(() => { fetchData(); }, [selectedChain]);
 
   const collateralValue = parseFloat(amount || '0') * price;
-  const tier = collateralValue >= 5000 ? 'CLBg' : collateralValue >= 1000 ? 'CLBs' : 'CLB';
+  const tier = 'CLB';
   const tierInfo = tiers.find((t) => t.token === tier);
-  const ltv = tierInfo?.ltv || (tier === 'CLBg' ? 60 : tier === 'CLBs' ? 50 : 40);
+  const ltv = tierInfo?.ltv || 40;
   const loanAmount = (collateralValue * ltv) / 100;
   const meta = TOKEN_META[tier];
 
@@ -200,10 +198,8 @@ export default function LoanRequestScreen({ navigation, route }: any) {
 
           {/* Tier Info */}
           <View style={styles.tiersCard}>
-            <Text style={styles.tiersTitle}>Token Tiers</Text>
+            <Text style={styles.tiersTitle}>Loan Tier</Text>
             {[
-              { token: 'CLBg', min: '$5,000+', ltv: '60%', rate: '5%', color: '#F0B90B' },
-              { token: 'CLBs', min: '$1,000+', ltv: '50%', rate: '8%', color: '#C0C0C0' },
               { token: 'CLB', min: '$100+', ltv: '40%', rate: '12%', color: '#3B82F6' },
             ].map((t) => (
               <View key={t.token} style={styles.tierRow}>

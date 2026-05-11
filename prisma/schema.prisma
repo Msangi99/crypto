@@ -265,7 +265,7 @@ model Loan {
   drawnAmount        Decimal    @default(0) // For credit lines: amount actually drawn/borrowed
   availableCredit    Decimal    @default(0) // For credit lines: current available to borrow
 
-  loanToken          String     @default("CLB") // CLB, CLBg, CLBs
+  loanToken          String     @default("CLB") // CLB
   targetPriceUsd     Decimal?   // Price at which loan auto-settles (optional for credit lines)
   ltvPercent         Decimal    @default(50)  // Loan-to-value ratio
   interestRate       Decimal    @default(0)   // Annual interest rate
@@ -340,7 +340,7 @@ enum LoanType {
 model TokenBalance {
   id        String   @id @default(uuid())
   userId    String
-  token     String   // CLB, CLBg, CLBs
+  token     String   // CLB
   balance   Decimal  @default(0)
   locked    Decimal  @default(0)  // Locked in active loans
   updatedAt DateTime @updatedAt
@@ -357,7 +357,7 @@ model TokenTransfer {
   fromUserId  String
   toUserId    String?
   toAddress   String?        // External wallet address
-  token       String         // CLB, CLBg, CLBs
+  token       String         // CLB
   amount      Decimal
   fee         Decimal        @default(0)
   type        TokenTransferType
@@ -392,7 +392,7 @@ enum TokenTxStatus {
 model Withdrawal {
   id           String           @id @default(uuid())
   userId       String
-  token        String           // CLB, CLBg, CLBs or BTC, ETH, BNB
+  token        String           // CLB, BTC, ETH, or BNB
   amount       Decimal
   toAddress    String
   fee          Decimal          @default(0)

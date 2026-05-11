@@ -39,9 +39,6 @@ export const env = {
   POOL_MANAGER_CONTRACT: envValue('POOL_MANAGER_CONTRACT'),
   PRIVATE_KEY: envValue('PRIVATE_KEY'),
   CLB_TOKEN_ADDRESS: envValue('CLB_TOKEN_ADDRESS'),
-  CLBG_TOKEN_ADDRESS: envValue('CLBG_TOKEN_ADDRESS'),
-  CLBS_TOKEN_ADDRESS: envValue('CLBS_TOKEN_ADDRESS'),
-  GLM_TOKEN_ADDRESS: envValue('GLM_TOKEN_ADDRESS'),
   /** Absolute path to CLBToken.json on the server (production VPS / Docker). */
   CLB_TOKEN_ABI_PATH: envValue('CLB_TOKEN_ABI_PATH'),
 

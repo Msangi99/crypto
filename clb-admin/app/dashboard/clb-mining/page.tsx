@@ -184,8 +184,6 @@ export default function ClbMiningPage() {
             </SelectTrigger>
             <SelectContent className="bg-[#1A1A1A] border-[#2A2A2A]">
               <SelectItem value="CLB">CLB</SelectItem>
-              <SelectItem value="CLBg">CLBg</SelectItem>
-              <SelectItem value="CLBs">CLBs</SelectItem>
             </SelectContent>
           </Select>
         </div>

@@ -274,7 +274,7 @@ export const miningUserAPI = {
     }>('/api/mining/claim'),
 };
 
-// ─── Tokens (CLB, CLBg, CLBs) ──────────────────────────────
+// ─── Tokens (CLB) ──────────────────────────────
 export const tokensAPI = {
   balances: () => api.get('/api/tokens/balances'),
   prices: () => api.get('/api/tokens/prices'),

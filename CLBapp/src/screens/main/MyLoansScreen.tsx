@@ -20,8 +20,6 @@ const STATUS_META: Record<string, { color: string; icon: string; label: string }
 };
 
 const TOKEN_COLORS: Record<string, string> = {
-  CLBg: '#F0B90B',
-  CLBs: '#C0C0C0',
   CLB: '#3B82F6',
 };
 

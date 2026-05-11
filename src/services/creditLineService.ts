@@ -168,10 +168,7 @@ export const creditLineService = {
     const newDrawnAmount = Number(loan.drawnAmount) + amount;
     const newAvailableCredit = creditLine.maxCreditLimit - newDrawnAmount;
 
-    // Determine token tier based on collateral value
-    let loanToken = 'CLB';
-    if (creditLine.currentCollateralValue >= 5000) loanToken = 'CLBg';
-    else if (creditLine.currentCollateralValue >= 1000) loanToken = 'CLBs';
+    const loanToken = 'CLB';
 
     // Execute the draw
     await prisma.$transaction(async (tx) => {

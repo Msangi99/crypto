@@ -165,7 +165,7 @@ export async function onMiningPackageBought(
  * Referrer gets 10% of claimed tokens → added to their CLB token balance.
  *
  * @param referredUserId - the user who claimed tokens
- * @param tokenSymbol    - token symbol (e.g., 'CLB', 'CLBg', 'CLBs')
+ * @param tokenSymbol    - token symbol (e.g., 'CLB')
  * @param claimedAmount  - number of tokens claimed
  * @param tx             - optional Prisma transaction client
  */

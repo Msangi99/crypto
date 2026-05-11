@@ -33,9 +33,6 @@ function amountStringForInput(n: number): string {
 
 const TOKENS = [
   { symbol: 'CLB', name: 'CLB Token', color: '#3B82F6', icon: 'cube' },
-  { symbol: 'CLBg', name: 'CLB Gold', color: '#F0B90B', icon: 'diamond' },
-  { symbol: 'CLBs', name: 'CLB Silver', color: '#C0C0C0', icon: 'flash' },
-  { symbol: 'GLM', name: 'Golem', color: '#0F9D58', icon: 'logo-codepen' },
 ];
 
 export default function TransferTokensScreen({ navigation }: any) {

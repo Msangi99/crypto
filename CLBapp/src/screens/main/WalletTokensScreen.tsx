@@ -37,7 +37,7 @@ type AppTokenRow = {
   valueUsdTotal?: number;
 };
 
-const CLB_FAMILY_ORDER = ['CLB', 'CLBs', 'CLBg', 'GLM'] as const;
+const CLB_FAMILY_ORDER = ['CLB'] as const;
 
 const CLB_LOGO = require('../../../assets/clb-token.png');
 
@@ -46,10 +46,7 @@ const ASSET_META: Record<string, { color: string; icon: string }> = {
   USDT: { color: '#26A17B', icon: 'cash' },
   BUSD: { color: '#F0B90B', icon: 'cash' },
   USDC: { color: '#2775CA', icon: 'cash' },
-  CLBg: { color: '#F0B90B', icon: 'diamond' },
-  CLBs: { color: '#C0C0C0', icon: 'flash' },
   CLB:  { color: '#3B82F6', icon: 'cube' },
-  GLM:  { color: '#0F9D58', icon: 'logo-codepen' },
 };
 
 function formatBalance(value: number): string {
@@ -405,12 +402,12 @@ export default function WalletTokensScreen({ navigation }: any) {
                 })
                 : (
                   <Text style={styles.appTokenPlaceholder}>
-                    {isAuthenticated ? 'Loading balances…' : 'Sign in to see CLB, CLBs & CLBg'}
+                    {isAuthenticated ? 'Loading balances…' : 'Sign in to see CLB'}
                   </Text>
                 )}
               {isAuthenticated && appTokenRows ? (
                 <View style={styles.appTokenFooter}>
-                  <Text style={styles.appTokenFooterLabel}>Total CLB family (app)</Text>
+                  <Text style={styles.appTokenFooterLabel}>Total CLB (app)</Text>
                   <Text style={styles.appTokenFooterUsd}>{formatUsd(appTokenTotalUsd)}</Text>
                 </View>
               ) : null}

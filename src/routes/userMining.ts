@@ -229,7 +229,7 @@ export default async function userMiningRoutes(fastify: FastifyInstance) {
       return reply.status(400).send({ success: false, error: 'Nothing to claim yet' });
     }
     const token = p.tokenSymbol;
-    if (!['CLB', 'CLBg', 'CLBs'].includes(token)) {
+    if (token !== 'CLB') {
       return reply.status(400).send({ success: false, error: 'Invalid mining token' });
     }
 

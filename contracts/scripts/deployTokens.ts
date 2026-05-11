@@ -3,19 +3,16 @@ import fs from "fs";
 import path from "path";
 
 /**
- * Deploy all 3 CLB tokens (BEP-20) to BSC:
- * - CLB  (Standard tier)
- * - CLBg (Gold tier)
- * - CLBs (Silver tier)
+ * Deploy the CLB token (BEP-20) to BSC.
  *
- * After deployment, add the contract addresses to Trust Wallet
- * as custom tokens (BEP-20 network) to see balances.
+ * After deployment, add the contract address to Trust Wallet
+ * as a custom token (BEP-20 network) to see balances.
  */
 async function main() {
   const [deployer] = await ethers.getSigners();
 
   console.log("═══════════════════════════════════════════");
-  console.log("  CLB Tokens — Deployment Script");
+  console.log("  CLB Token — Deployment Script");
   console.log("═══════════════════════════════════════════");
   console.log(`  Network:  ${network.name}`);
   console.log(`  Chain ID: ${(await ethers.provider.getNetwork()).chainId}`);
@@ -25,8 +22,6 @@ async function main() {
 
   const tokens = [
     { name: "CryptoLoanBoost", symbol: "CLB", decimals: 18, initialSupply: 1_000_000 },
-    { name: "CryptoLoanBoost Gold", symbol: "CLBg", decimals: 18, initialSupply: 100_000 },
-    { name: "CryptoLoanBoost Silver", symbol: "CLBs", decimals: 18, initialSupply: 500_000 },
   ];
 
   const deployedTokens: Record<string, any> = {};
@@ -88,8 +83,6 @@ async function main() {
 
     const envVars: Record<string, string> = {
       CLB_TOKEN_ADDRESS: deployedTokens.CLB.address,
-      CLBG_TOKEN_ADDRESS: deployedTokens.CLBg.address,
-      CLBS_TOKEN_ADDRESS: deployedTokens.CLBs.address,
     };
 
     for (const [key, value] of Object.entries(envVars)) {
@@ -107,11 +100,9 @@ async function main() {
 
   // ─── Summary ───────────────────────────────────
   console.log("\n═══════════════════════════════════════════");
-  console.log("  ALL TOKENS DEPLOYED!");
+  console.log("  CLB TOKEN DEPLOYED!");
   console.log("═══════════════════════════════════════════");
-  console.log(`  CLB:  ${deployedTokens.CLB.address}`);
-  console.log(`  CLBg: ${deployedTokens.CLBg.address}`);
-  console.log(`  CLBs: ${deployedTokens.CLBs.address}`);
+  console.log(`  CLB: ${deployedTokens.CLB.address}`);
   console.log("═══════════════════════════════════════════");
   console.log("\n📱 Trust Wallet Setup:");
   console.log("  1. Open Trust Wallet → Add Custom Token");

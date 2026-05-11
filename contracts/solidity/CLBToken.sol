@@ -7,12 +7,9 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 
 /**
  * @title CLBToken
- * @dev Standard CLB Token (BEP-20) for the CryptoLoanBoost lending platform.
- * 
- * Token tiers:
- * - CLB  (Standard) — minimum $100 collateral, 40% LTV
- * - CLBg (Gold)     — minimum $5k collateral, 60% LTV  
- * - CLBs (Silver)   — minimum $1k collateral, 50% LTV
+ * @dev CLB Token (BEP-20) for the CryptoLoanBoost lending platform.
+ *
+ * Minimum $100 collateral, 40% LTV.
  *
  * The owner (backend service wallet) can mint tokens when loans are issued
  * and burn tokens when loans are repaid/settled.

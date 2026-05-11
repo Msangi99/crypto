@@ -982,7 +982,7 @@ export default async function adminRoutes(fastify: FastifyInstance) {
   );
 
   const miningPeriodUnits: MiningPackagePeriodUnit[] = ['MINUTE', 'HOUR', 'DAY'];
-  const miningTokens = ['CLB', 'CLBg', 'CLBs'] as const;
+  const miningTokens = ['CLB'] as const;
 
   function parseMiningPeriodUnit(v: string): MiningPackagePeriodUnit | null {
     const u = String(v || '').toUpperCase();
@@ -1088,7 +1088,7 @@ export default async function adminRoutes(fastify: FastifyInstance) {
     if (b.tokenSymbol !== undefined) {
       const sym = b.tokenSymbol.trim();
       if (!miningTokens.includes(sym as (typeof miningTokens)[number])) {
-        return reply.status(400).send({ success: false, error: 'tokenSymbol must be CLB, CLBg, or CLBs' });
+        return reply.status(400).send({ success: false, error: 'tokenSymbol must be CLB' });
       }
       data.tokenSymbol = sym;
     }

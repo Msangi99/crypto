@@ -56,9 +56,6 @@ function trimAddr(v: string): string {
 // Token contract addresses from env
 const TOKEN_ADDRESSES: Record<string, string> = {
   CLB: trimAddr(env.CLB_TOKEN_ADDRESS),
-  CLBg: trimAddr(env.CLBG_TOKEN_ADDRESS),
-  CLBs: trimAddr(env.CLBS_TOKEN_ADDRESS),
-  GLM: trimAddr(env.GLM_TOKEN_ADDRESS),
 };
 
 // BSC provider
@@ -131,8 +128,8 @@ export const tokenService = {
 
   /**
    * Send tokens on-chain using the best available method:
-   * - prefer mint() when contract exposes it (CLB family)
-   * - otherwise fallback to transfer() (standard ERC-20/BEP-20 like GLM)
+   * - prefer mint() when the CLB contract exposes it
+   * - otherwise fall back to transfer() (standard ERC-20/BEP-20)
    */
   async sendOnChain(
     token: string,
@@ -210,7 +207,7 @@ export const tokenService = {
   },
 
   /**
-   * Get all 3 token addresses for Trust Wallet import
+   * Get CLB token address(es) for Trust Wallet import
    */
   getTokenAddresses(): Record<string, string> {
     return { ...TOKEN_ADDRESSES };
