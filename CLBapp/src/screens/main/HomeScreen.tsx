@@ -134,25 +134,34 @@ export default function HomeScreen({ navigation }: any) {
       const hasAmount = Number(l.collateralAmount) > 0;
       return isActive && isValidChain && hasAmount;
     });
-    return validLoans.map((l: any) => {
+    // Aggregate by symbol so multiple BTC loans become one row
+    const bySymbol: Record<string, { amount: number; originalValueUsd: number; entryFeeUsd: number; entryPrice: number; count: number }> = {};
+    validLoans.forEach((l: any) => {
       const symbol = (l.collateralChain || '').toUpperCase();
       const amount = Number(l.collateralAmount || 0);
       const entryPrice = Number(l.collateralPriceUsd || 0);
       const originalValueUsd = Number(l.collateralValueUsd || 0);
       const entryFeeUsd = Number(l.entryFeeUsd || 0);
-      // Use live price to compute current position value, fallback to DB value
+      if (!bySymbol[symbol]) {
+        bySymbol[symbol] = { amount: 0, originalValueUsd: 0, entryFeeUsd: 0, entryPrice, count: 0 };
+      }
+      bySymbol[symbol].amount += amount;
+      bySymbol[symbol].originalValueUsd += originalValueUsd;
+      bySymbol[symbol].entryFeeUsd += entryFeeUsd;
+      bySymbol[symbol].count += 1;
+    });
+    return Object.entries(bySymbol).map(([symbol, agg]) => {
       const livePrice = livePrices[symbol]?.price;
-      const valueUsd = livePrice && amount > 0 ? amount * livePrice : originalValueUsd;
-      // Calculate leverage from original entry data
-      const notionalValue = amount * entryPrice;
-      const leverage = notionalValue > 0 ? Math.round(originalValueUsd / notionalValue) : 10;
+      const valueUsd = livePrice && agg.amount > 0 ? agg.amount * livePrice : agg.originalValueUsd;
+      const notionalValue = agg.amount * agg.entryPrice;
+      const leverage = notionalValue > 0 ? Math.round(agg.originalValueUsd / notionalValue) : 10;
       return {
         symbol,
-        amount,
-        valueUsd,           // live-updated current value
-        originalValueUsd,   // original entry value (from DB)
-        entryPrice,
-        entryFeeUsd,
+        amount: agg.amount,
+        valueUsd,
+        originalValueUsd: agg.originalValueUsd,
+        entryPrice: agg.entryPrice,
+        entryFeeUsd: agg.entryFeeUsd,
         leverage: leverage > 1 ? leverage : 10,
         isLeveraged: true,
       };
