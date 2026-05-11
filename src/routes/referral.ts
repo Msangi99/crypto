@@ -3,6 +3,12 @@ import prisma from '../config/db';
 import { authMiddleware } from '../middleware/auth';
 import crypto from 'crypto';
 
+const REFERRAL_BASE_URL = 'https://cryptoloanboost.com/join?ref=';
+
+function buildReferralLink(code: string): string {
+  return `${REFERRAL_BASE_URL}${code}`;
+}
+
 // Swagger schemas
 const schemas = {
   generateCode: {
@@ -132,17 +138,17 @@ export default async function referralRoutes(fastify: FastifyInstance) {
     async (request: FastifyRequest, reply: FastifyReply) => {
       const userId = request.userId!;
 
-      // Check if user already has a referral code
+      // Return existing code if already set
       const user = await prisma.user.findUnique({ where: { id: userId }, select: { referralCode: true } });
       if (user?.referralCode) {
         return {
           success: true,
           code: user.referralCode,
-          referralLink: `https://clb.app/ref/${user.referralCode}`,
+          referralLink: buildReferralLink(user.referralCode),
         };
       }
 
-      // Generate and persist a unique referral code
+      // Generate and persist a unique CLB-XXXXXXXX referral code
       const code = `CLB-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
       await prisma.user.update({
         where: { id: userId },
@@ -152,7 +158,7 @@ export default async function referralRoutes(fastify: FastifyInstance) {
       return {
         success: true,
         code,
-        referralLink: `https://clb.app/ref/${code}`,
+        referralLink: buildReferralLink(code),
       };
     }
   );
@@ -162,8 +168,13 @@ export default async function referralRoutes(fastify: FastifyInstance) {
     '/apply',
     { schema: schemas.applyReferral, preHandler: [authMiddleware] },
     async (request: FastifyRequest<{ Body: { code: string } }>, reply: FastifyReply) => {
-      const { code } = request.body;
+      // Normalize: uppercase and trim so mobile/web casing differences don't matter
+      const code = (request.body.code || '').trim().toUpperCase();
       const userId = request.userId!;
+
+      if (!code) {
+        return reply.status(400).send({ success: false, error: 'Referral code is required' });
+      }
 
       // Check if already referred
       const existing = await prisma.referral.findUnique({
@@ -173,7 +184,7 @@ export default async function referralRoutes(fastify: FastifyInstance) {
         return reply.status(400).send({ success: false, error: 'You have already been referred' });
       }
 
-      // Find referrer by their stored referral code on User model
+      // Find referrer by their stored referral code (stored uppercase)
       const referrer = await prisma.user.findUnique({
         where: { referralCode: code },
         select: { id: true },
@@ -193,7 +204,7 @@ export default async function referralRoutes(fastify: FastifyInstance) {
         data: {
           referrerId: referrer.id,
           referredId: userId,
-          code: `${code}-${crypto.randomBytes(2).toString('hex')}`,
+          code: `${code}-${crypto.randomBytes(2).toString('hex').toUpperCase()}`,
           status: 'ACTIVE',
         },
       });

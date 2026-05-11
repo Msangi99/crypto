@@ -57,14 +57,9 @@ function generateSecretKey(): string {
   return words.join(' ');
 }
 
-// Generate a 6-character alphanumeric referral code
+// Generate a CLB-XXXXXXXX referral code (8 uppercase hex chars)
 function generateReferralCode(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // No I, O, 0, 1 to avoid confusion
-  let code = '';
-  for (let i = 0; i < 6; i++) {
-    code += chars[crypto.randomInt(0, chars.length)];
-  }
-  return code;
+  return `CLB-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
 }
 
 // Simple encryption for storing secret key (AES-256-GCM)

@@ -13,6 +13,12 @@ import { useAuthStore } from '../../store/authStore';
 const LEVEL_COLORS = [Colors.gold, Colors.primary, Colors.success, Colors.warning, Colors.textSecondary];
 const LEVEL_RATES = ['20%', '8%', '5%', '3%', '1%'];
 
+/** Referral credits are recorded in USD / USDT terms (not BNB). */
+function formatReferralUsdt(n: number) {
+  const v = Number(n) || 0;
+  return `${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT`;
+}
+
 export default function ReferralsScreen() {
   const { user } = useAuthStore();
   const [tree, setTree] = useState<any>(null);
@@ -92,8 +98,8 @@ export default function ReferralsScreen() {
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
             <Ionicons name="wallet-outline" size={16} color={Colors.primary} />
-            <Text style={[styles.statValue, { color: Colors.primary }]}>{(earnings?.earnings?.totalBonusReceived ?? 0).toFixed(4)} BNB</Text>
-            <Text style={styles.statLabel}>Total Earnings</Text>
+            <Text style={[styles.statValue, { color: Colors.primary }]}>{formatReferralUsdt(earnings?.earnings?.totalBonusReceived ?? 0)}</Text>
+            <Text style={styles.statLabel}>Total rewards</Text>
           </View>
         </View>
       </LinearGradient>
@@ -103,7 +109,7 @@ export default function ReferralsScreen() {
         {(['earnings', 'tree'] as const).map((t) => (
           <TouchableOpacity key={t} onPress={() => setTab(t)} style={[styles.tab, tab === t && styles.tabActive]}>
             <Text style={[styles.tabText, tab === t && styles.tabTextActive]}>
-              {t === 'earnings' ? 'Earnings' : 'Network Tree'}
+              {t === 'earnings' ? 'Rewards' : 'Network Tree'}
             </Text>
           </TouchableOpacity>
         ))}
@@ -162,7 +168,7 @@ function EarningsView({ earnings }: { earnings: any }) {
                   <Text style={styles.bonusType}>Referral Bonus</Text>
                   <Text style={styles.bonusDate}>{new Date(bonus.createdAt).toLocaleDateString()}</Text>
                 </View>
-                <Text style={styles.bonusAmount}>+{bonus.amount.toFixed(4)} BNB</Text>
+                <Text style={styles.bonusAmount}>+{formatReferralUsdt(bonus.amount)}</Text>
               </View>
             ))}
           </View>
@@ -187,7 +193,7 @@ function EarningsView({ earnings }: { earnings: any }) {
                     {ref.wallet ? `${ref.wallet.slice(0, 8)}...${ref.wallet.slice(-4)}` : ''}
                   </Text>
                 </View>
-                <Text style={styles.referralReward}>+{ref.reward.toFixed(4)} BNB</Text>
+                <Text style={styles.referralReward}>+{formatReferralUsdt(ref.reward)}</Text>
               </View>
             ))}
           </View>
@@ -215,8 +221,8 @@ function TreeView({ tree }: { tree: any }) {
         <View style={styles.networkDivider} />
         <View style={styles.networkStat}>
           <Ionicons name="wallet-outline" size={20} color={Colors.primary} />
-          <Text style={[styles.networkStatValue, { color: Colors.primary }]}>{totalEarnings.toFixed(4)} BNB</Text>
-          <Text style={styles.networkStatLabel}>Total Earnings</Text>
+          <Text style={[styles.networkStatValue, { color: Colors.primary }]}>{formatReferralUsdt(totalEarnings)}</Text>
+          <Text style={styles.networkStatLabel}>Total rewards</Text>
         </View>
       </View>
 
@@ -237,8 +243,8 @@ function TreeView({ tree }: { tree: any }) {
             </View>
             <View style={styles.levelStatDivider} />
             <View style={styles.levelStatItem}>
-              <Text style={styles.levelStatLabel}>Earnings</Text>
-              <Text style={[styles.levelStatValue, { color: LEVEL_COLORS[i] }]}>{lv.totalEarnings.toFixed(4)}</Text>
+              <Text style={styles.levelStatLabel}>Rewards</Text>
+              <Text style={[styles.levelStatValue, { color: LEVEL_COLORS[i] }]}>{formatReferralUsdt(lv.totalEarnings)}</Text>
             </View>
           </View>
           {lv.members?.length > 0 && (
@@ -257,7 +263,7 @@ function TreeView({ tree }: { tree: any }) {
                     </Text>
                   </View>
                   <Text style={[styles.memberRewardValue, { color: Colors.primary }]}>
-                    {u.reward > 0 ? `+${u.reward.toFixed(4)}` : '—'}
+                    {u.reward > 0 ? `+${formatReferralUsdt(u.reward)}` : '—'}
                   </Text>
                 </View>
               ))}

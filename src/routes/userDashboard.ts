@@ -16,8 +16,13 @@ const LIQUIDATION_TARGETS = {
   ETH: { phase1: 15_000, phase2: 20_000 },
 };
 
-// Referral commission rates by level (from PDF)
-const REFERRAL_RATES = [0.20, 0.08, 0.05, 0.03, 0.01]; // L1–L5
+// Referral commission rates by level L1–L5
+const REFERRAL_RATES = [0.20, 0.08, 0.05, 0.03, 0.01];
+
+const REFERRAL_BASE_URL = 'https://cryptoloanboost.com/join?ref=';
+function buildReferralLink(code: string): string {
+  return `${REFERRAL_BASE_URL}${code}`;
+}
 
 // Profit split
 const USER_PROFIT_SHARE = 0.85;
@@ -504,7 +509,7 @@ export default async function userDashboardRoutes(fastify: FastifyInstance) {
       return {
         success: true,
         referralCode: user?.referralCode || null,
-        referralLink: user?.referralCode ? `https://clb.app/ref/${user.referralCode}` : null,
+        referralLink: user?.referralCode ? buildReferralLink(user.referralCode) : null,
         totalNetwork,
         totalEarnings: parseFloat(totalEarnings.toFixed(6)),
         levels: tree,
@@ -521,14 +526,12 @@ export default async function userDashboardRoutes(fastify: FastifyInstance) {
     async (request: FastifyRequest) => {
       const userId = request.userId!;
 
-      // Get all referral bonus transactions for this user
-      const bonusTx = await prisma.transaction.findMany({
-        where: { userId, type: 'REFERRAL_BONUS' },
-        orderBy: { createdAt: 'desc' },
-      });
-
-      // Get direct referral stats
-      const [directReferrals, totalReward] = await Promise.all([
+      // Fetch all referral bonus transactions and direct referral edges in parallel
+      const [bonusTx, directReferrals] = await Promise.all([
+        prisma.transaction.findMany({
+          where: { userId, type: 'REFERRAL_BONUS' },
+          orderBy: { createdAt: 'desc' },
+        }),
         prisma.referral.findMany({
           where: { referrerId: userId },
           include: {
@@ -536,29 +539,40 @@ export default async function userDashboardRoutes(fastify: FastifyInstance) {
           },
           orderBy: { createdAt: 'desc' },
         }),
-        prisma.referral.aggregate({
-          where: { referrerId: userId },
-          _sum: { reward: true },
-        }),
       ]);
+
+      // Bucket earnings by level using the `level` field stored in transaction metadata
+      const earningsByLevel: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+      for (const tx of bonusTx) {
+        const meta = tx.metadata as Record<string, unknown> | null;
+        const lvl = typeof meta?.level === 'number' && meta.level >= 1 && meta.level <= 5
+          ? meta.level
+          : 1; // legacy rows without level default to L1
+        earningsByLevel[lvl] = (earningsByLevel[lvl] ?? 0) + Number(tx.amount);
+      }
+
+      const totalBonusReceived = bonusTx.reduce((s, t) => s + Number(t.amount), 0);
 
       return {
         success: true,
         earnings: {
-          totalBonusReceived: Number(totalReward._sum.reward || 0),
+          totalBonusReceived: parseFloat(totalBonusReceived.toFixed(6)),
           directReferrals: directReferrals.length,
           commissionRates: REFERRAL_RATES.map((rate, i) => ({
             level: i + 1,
             rate: `${rate * 100}%`,
             description: i === 0 ? 'Direct referrals' : `Level ${i + 1} network`,
+            earned: parseFloat((earningsByLevel[i + 1] ?? 0).toFixed(6)),
           })),
           recentBonuses: bonusTx.slice(0, 20).map(t => ({
             id: t.id,
             amount: Number(t.amount),
+            level: (t.metadata as Record<string, unknown> | null)?.level ?? 1,
+            trigger: (t.metadata as Record<string, unknown> | null)?.trigger ?? null,
+            rewardType: (t.metadata as Record<string, unknown> | null)?.rewardType ?? null,
             status: t.status,
             txHash: t.txHash,
             createdAt: t.createdAt.toISOString(),
-            metadata: t.metadata,
           })),
           referralList: directReferrals.map(r => ({
             id: r.id,

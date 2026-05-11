@@ -30,6 +30,10 @@ const referralLevels = [
 
 const totalCommission = referralLevels.reduce((sum, l) => sum + l.percentage, 0);
 
+function formatReferralUsdt(n: number) {
+  return `${(n ?? 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT`;
+}
+
 // Mock referral tree for visualization
 const mockTree = {
   address: "0xfde8...aafb",
@@ -95,7 +99,7 @@ function TreeBranch({ node, depth = 0 }: { node: TreeNode; depth?: number }) {
           </div>
           {node.earned !== undefined && (
             <Badge className="text-[10px] ml-1" style={{ backgroundColor: `${color}20`, color }}>
-              +{node.earned} BNB
+              +{formatReferralUsdt(node.earned)}
             </Badge>
           )}
         </div>
@@ -142,7 +146,7 @@ export default function ReferralsPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <StatsCard title="Total Referrals" value={stats?.totalReferrals || 0} icon={Users} color="blue" />
-        <StatsCard title="Total Rewards" value={`${stats?.totalRewardsDistributed?.toFixed(4) || "0"} BNB`} icon={Coins} color="gold" />
+        <StatsCard title="Total Rewards" value={formatReferralUsdt(stats?.totalRewardsDistributed ?? 0)} icon={Coins} color="gold" />
         <StatsCard title="Top Referrers" value={stats?.topReferrers?.length || 0} icon={Trophy} color="green" />
         <StatsCard title="Commission Rate" value={`${totalCommission}%`} icon={Percent} color="gold" />
       </div>
@@ -218,8 +222,8 @@ export default function ReferralsPage() {
                   <TableHead className="text-[#999]">Rank</TableHead>
                   <TableHead className="text-[#999]">Wallet</TableHead>
                   <TableHead className="text-[#999]">Referrals</TableHead>
-                  <TableHead className="text-[#999]">L1 Earned</TableHead>
-                  <TableHead className="text-[#999]">Total Earned</TableHead>
+                  <TableHead className="text-[#999]">L1 rewards</TableHead>
+                  <TableHead className="text-[#999]">Total rewards</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -239,8 +243,8 @@ export default function ReferralsPage() {
                       {referrer.walletAddress.slice(0, 6)}...{referrer.walletAddress.slice(-4)}
                     </TableCell>
                     <TableCell className="text-white font-medium">{referrer.count}</TableCell>
-                    <TableCell className="text-[#F0B90B]">{(referrer.totalReward * 0.54).toFixed(4)} BNB</TableCell>
-                    <TableCell className="text-[#00C853] font-medium">{referrer.totalReward.toFixed(4)} BNB</TableCell>
+                    <TableCell className="text-[#F0B90B]">{formatReferralUsdt(referrer.totalReward * 0.54)}</TableCell>
+                    <TableCell className="text-[#00C853] font-medium">{formatReferralUsdt(referrer.totalReward)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

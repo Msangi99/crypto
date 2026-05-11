@@ -317,8 +317,10 @@ export default function HomeScreen({ navigation }: any) {
             </View>
             <View style={styles.quickStatDivider} />
             <View style={styles.quickStatItem}>
-              <Text style={[styles.quickStatValue, { color: Colors.primary }]}>${(stats.referralEarnings ?? 0).toFixed(2)}</Text>
-              <Text style={styles.quickStatLabel}>Referral Earn</Text>
+              <Text style={[styles.quickStatValue, { color: Colors.primary }]}>
+                {(stats.referralEarnings ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT
+              </Text>
+              <Text style={styles.quickStatLabel}>Referral rewards</Text>
             </View>
           </View>
 
@@ -338,13 +340,20 @@ export default function HomeScreen({ navigation }: any) {
             ].map((a) => (
               <TouchableOpacity key={a.label} style={styles.qaItem} onPress={() => navigation.navigate(a.screen)}>
                 <View style={styles.qaIcon}>
-                  <Ionicons name={a.icon as any} size={22} color={Colors.primary} />
+                  <Ionicons name={a.icon as any} size={18} color={Colors.primary} />
                 </View>
                 <Text style={styles.qaLabel} numberOfLines={2}>
                   {a.label}
                 </Text>
               </TouchableOpacity>
             ))}
+            {/* Withdraw referral earnings */}
+            <TouchableOpacity style={styles.qaItem} onPress={() => navigation.navigate('WithdrawReferral')}>
+              <View style={styles.qaWithdrawIcon}>
+                <Ionicons name="arrow-up-circle-outline" size={18} color={Colors.primary} />
+              </View>
+              <Text style={styles.qaLabel} numberOfLines={1}>Withdraw</Text>
+            </TouchableOpacity>
           </ScrollView>
         </LinearGradient>
 
@@ -743,17 +752,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-    gap: 14,
+    paddingVertical: Spacing.sm,
+    gap: 8,
     paddingRight: Spacing.xl,
   },
-  qaItem: { alignItems: 'center', gap: 6, width: 76 },
+  qaItem: { alignItems: 'center', gap: 4, width: 60 },
   qaIcon: {
-    width: 52, height: 52, borderRadius: 16,
+    width: 44, height: 44, borderRadius: 13,
     backgroundColor: 'rgba(240,185,11,0.1)', borderWidth: 1, borderColor: 'rgba(240,185,11,0.2)',
     alignItems: 'center', justifyContent: 'center',
   },
-  qaLabel: { fontSize: 11, fontWeight: '700', color: Colors.textSecondary },
+  qaWithdrawIcon: {
+    width: 44, height: 44, borderRadius: 13,
+    backgroundColor: 'rgba(240,185,11,0.1)', borderWidth: 1, borderColor: 'rgba(240,185,11,0.2)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  qaLabel: { fontSize: 10, fontWeight: '700', color: Colors.textSecondary, textAlign: 'center' },
 
   // Section
   section: { paddingHorizontal: Spacing.lg, marginBottom: Spacing.lg },
