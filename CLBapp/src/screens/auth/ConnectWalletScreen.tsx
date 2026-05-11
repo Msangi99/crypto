@@ -126,7 +126,6 @@ export default function ConnectWalletScreen() {
               <Image source={LOGO} style={styles.logo} resizeMode="contain" />
             </View>
             <Text style={styles.title}>CryptoLoanBoost</Text>
-            <Text style={styles.subtitle}>Sign in with your BEP-20 address (new device / quick access)</Text>
 
             {/* Feature Pills */}
             <View style={styles.pillsRow}>
@@ -139,16 +138,6 @@ export default function ConnectWalletScreen() {
           </LinearGradient>
 
           <View style={styles.content}>
-            {/* Info Banner */}
-            <View style={styles.infoBanner}>
-              <Ionicons name="information-circle-outline" size={16} color={Colors.primary} />
-              <Text style={styles.infoText}>
-                This path does not ask for your 12-word phrase. If you already have a CLB account, use “I already
-                have a wallet” on the welcome screen instead. Here we register a new address or open a lightweight
-                session for the address you enter.
-              </Text>
-            </View>
-
             {/* WalletConnect / AppKit */}
             <TouchableOpacity
               style={[styles.walletConnectBtn, isConnected && styles.walletConnectBtnConnected]}
@@ -323,7 +312,6 @@ const styles = StyleSheet.create({
   logoRow: { marginBottom: Spacing.sm },
   logo: { width: 72, height: 72, borderRadius: 18 },
   title: { fontSize: 28, fontWeight: '900', color: Colors.textPrimary, letterSpacing: 0.5 },
-  subtitle: { fontSize: 14, fontWeight: '600', color: Colors.textMuted, textAlign: 'center' },
 
   // Pills
   pillsRow: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.sm },
@@ -335,14 +323,6 @@ const styles = StyleSheet.create({
 
   // Content
   content: { padding: Spacing.lg, gap: Spacing.lg },
-
-  // Info Banner
-  infoBanner: {
-    flexDirection: 'row', gap: 8,
-    backgroundColor: 'rgba(240,185,11,0.08)', borderWidth: 1, borderColor: 'rgba(240,185,11,0.15)',
-    borderRadius: Radius.lg, padding: Spacing.md, alignItems: 'flex-start',
-  },
-  infoText: { flex: 1, fontSize: 12, fontWeight: '600', color: Colors.textSecondary, lineHeight: 18 },
 
   // Input
   inputGroup: { gap: 8 },

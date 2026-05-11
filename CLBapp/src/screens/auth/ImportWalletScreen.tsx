@@ -141,11 +141,6 @@ export default function ImportWalletScreen({ navigation }: any) {
             </View>
 
             <Text style={styles.title}>I already have a wallet</Text>
-            <Text style={styles.subtitle}>
-              Main option: your BEP-20 address, then <Text style={styles.bold}>12 words</Text> or{' '}
-              <Text style={styles.bold}>account password</Text> (the one created after email), then your CLB PIN.
-              Password and PIN are stored securely as hashes.
-            </Text>
 
             {!phraseOnly && (
               <>
@@ -340,16 +335,6 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 20, fontWeight: '800', color: Colors.textPrimary },
 
   title: { fontSize: 22, fontWeight: '900', color: Colors.textPrimary, textAlign: 'center' },
-  subtitle: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: Colors.textMuted,
-    textAlign: 'center',
-    lineHeight: 19,
-    marginTop: 8,
-    marginBottom: Spacing.lg,
-  },
-  bold: { fontWeight: '800', color: Colors.textSecondary },
 
   inputCard: {
     backgroundColor: Colors.bgCard,

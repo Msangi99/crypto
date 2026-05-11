@@ -382,9 +382,6 @@ export default function HomeScreen({ navigation }: any) {
               <Text style={styles.seeAll}>See all</Text>
             </TouchableOpacity>
           </View>
-          <Text style={styles.swappedSub}>
-            Platform-held crypto from leveraged positions. Updates in real-time with market prices.
-          </Text>
           {swappedHoldings.length > 0 ? (
             swappedHoldings.map((row) => (
               <LiveCryptoCard 
@@ -762,12 +759,6 @@ const styles = StyleSheet.create({
   section: { paddingHorizontal: Spacing.lg, marginBottom: Spacing.lg },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.sm },
   sectionTitle: { fontSize: 18, fontWeight: '800', color: Colors.textPrimary },
-  swappedSub: {
-    fontSize: 12,
-    color: Colors.textMuted,
-    lineHeight: 17,
-    marginBottom: Spacing.md,
-  },
   seeAll: { fontSize: 13, fontWeight: '700', color: Colors.primary },
   liveTitleWrap: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   liveBadge: {

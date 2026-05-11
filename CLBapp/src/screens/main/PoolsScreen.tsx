@@ -7,7 +7,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, FontSize, Spacing, Radius } from '../../constants/theme';
-import { CreditWalletCopy } from '../../constants/creditWalletCopy';
 import Badge from '../../components/ui/Badge';
 import { poolsAPI, creditWalletAPI } from '../../services/api';
 import {
@@ -146,20 +145,6 @@ export default function PoolsScreen({ navigation }: any) {
         <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
           <View style={{ flex: 1, marginRight: Spacing.sm }}>
             <Text style={styles.title}>Liquidity Pools</Text>
-            <Text style={styles.subtitle}>{CreditWalletCopy.poolsSubtitle}</Text>
-            <Text style={styles.depositBanner}>
-              {CreditWalletCopy.poolsDepositLine}:{' '}
-              <Text style={styles.depositBannerStrong}>${depositBalance.toLocaleString(undefined, { maximumFractionDigits: 2 })}</Text>
-              <Text style={styles.depositBannerNote}> · not Loan credit</Text>
-            </Text>
-              <Text style={styles.loanBannerLine}>
-              Loan credit:{' '}
-              <Text style={styles.depositBannerStrong}>${loanCreditBalance.toLocaleString(undefined, { maximumFractionDigits: 2 })}</Text>
-              <Text style={styles.depositBannerNote}>
-                {' '}
-                · Claim fee: deposit only ${spendableForClaimFee.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-              </Text>
-            </Text>
           </View>
           <TouchableOpacity style={styles.filterBtn}>
             <Ionicons name="options-outline" size={20} color={Colors.textSecondary} />
@@ -441,11 +426,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg, paddingBottom: Spacing.md,
   },
   title: { fontSize: 28, fontWeight: '900', color: Colors.textPrimary },
-  subtitle: { fontSize: FontSize.sm, color: Colors.textSecondary, marginTop: 4 },
-  depositBanner: { fontSize: 12, fontWeight: '600', color: Colors.textMuted, marginTop: 8 },
-  loanBannerLine: { fontSize: 11, fontWeight: '600', color: Colors.textMuted, marginTop: 4 },
-  depositBannerStrong: { color: Colors.primary, fontWeight: '800' },
-  depositBannerNote: { color: Colors.textMuted, fontWeight: '600', fontSize: 11 },
   filterBtn: {
     width: 40, height: 40, borderRadius: Radius.md,
     backgroundColor: Colors.bgCard, borderWidth: 1, borderColor: Colors.border,

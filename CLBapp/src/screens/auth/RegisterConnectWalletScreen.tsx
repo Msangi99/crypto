@@ -244,35 +244,12 @@ export default function RegisterConnectWalletScreen({ navigation, route }: any) 
             </TouchableOpacity>
             <Image source={LOGO} style={styles.logo} resizeMode="contain" />
             <Text style={styles.title}>Connect wallet to CLB</Text>
-            <Text style={styles.subtitle}>
-              Valid address: confirm and continue to PIN - no need to type 12 words here; to restore you will use
-              address + account password + PIN. Empty address: enter 12 words or Generate, then continue.
-            </Text>
           </LinearGradient>
 
           <View style={styles.content}>
             <View style={styles.emailPill}>
               <Ionicons name="mail-outline" size={14} color={Colors.primary} />
               <Text style={styles.emailPillText}>{email}</Text>
-            </View>
-
-            <View style={styles.truthCard}>
-              <Text style={styles.truthTitle}>Quick facts (read)</Text>
-              <Text style={styles.truthLine}>
-                1) The <Text style={styles.truthEm}>address</Text> you enter here = the wallet you connect to CLB (we
-                check whether it is already in use).
-              </Text>
-              <Text style={styles.truthLine}>
-                2) If you already <Text style={styles.truthEm}>pasted a BEP-20 address</Text>: this screen does not show
-                the 12-word box - you confirm and go to PIN. Restore with: <Text style={styles.truthEm}>address + account
-                  password + PIN
-                </Text>{' '}
-                ("I already have a wallet").
-              </Text>
-              <Text style={styles.truthLine}>
-                3) If you <Text style={styles.truthEm}>leave address empty</Text>: you will see 12 words and Generate - a
-                new app wallet; restore later with those words + PIN.
-              </Text>
             </View>
 
             <TouchableOpacity
@@ -469,11 +446,6 @@ export default function RegisterConnectWalletScreen({ navigation, route }: any) 
               }
               fullWidth
             />
-
-            <Text style={styles.footerNote}>
-              Already have an account? "I already have a wallet": address + account password + PIN (or 12 words if you
-              registered using phrase mode). Use "Connect with address" on another phone.
-            </Text>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -493,34 +465,7 @@ const styles = StyleSheet.create({
   backBtn: { position: 'absolute', left: Spacing.md, top: 48, zIndex: 2 },
   logo: { width: 56, height: 56, borderRadius: 14, marginBottom: Spacing.sm },
   title: { fontSize: 22, fontWeight: '900', color: Colors.textPrimary, marginBottom: 8 },
-  subtitle: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: Colors.textMuted,
-    textAlign: 'center',
-    lineHeight: 18,
-  },
   content: { padding: Spacing.lg, gap: Spacing.md },
-  truthCard: {
-    padding: Spacing.md,
-    borderRadius: Radius.lg,
-    backgroundColor: 'rgba(59,130,246,0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(59,130,246,0.28)',
-    gap: 8,
-  },
-  truthTitle: {
-    fontSize: 14,
-    fontWeight: '900',
-    color: Colors.textPrimary,
-    marginBottom: 4,
-  },
-  truthLine: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: Colors.textMuted,
-    lineHeight: 18,
-  },
   truthEm: { fontWeight: '900', color: Colors.primary },
   wcHint: {
     fontSize: 11,
@@ -650,13 +595,6 @@ const styles = StyleSheet.create({
   genBtnText: { fontSize: 12, fontWeight: '800', color: '#000' },
   checkRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   checkText: { flex: 1, fontSize: 12, color: Colors.textSecondary, lineHeight: 18 },
-  footerNote: {
-    fontSize: 11,
-    color: Colors.textMuted,
-    textAlign: 'center',
-    lineHeight: 16,
-    marginTop: 4,
-  },
   derivedRow: {
     padding: Spacing.md,
     borderRadius: Radius.lg,

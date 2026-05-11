@@ -63,10 +63,6 @@ export default function RegisterEmailReferralScreen({ navigation }: any) {
         </TouchableOpacity>
         <Image source={LOGO} style={styles.logo} resizeMode="contain" />
         <Text style={styles.title}>Create account</Text>
-        <Text style={styles.subtitle}>
-          New to CLB only. Enter your email, a strong account password, and optional referral code. Next you will paste
-          your BEP-20 address (Trust / MetaMask / Binance) and your 12-word recovery phrase.
-        </Text>
       </LinearGradient>
 
       <KeyboardAvoidingView
@@ -173,13 +169,6 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     marginBottom: 8,
     textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: Colors.textMuted,
-    textAlign: 'center',
-    lineHeight: 20,
   },
   form: { padding: Spacing.lg, gap: Spacing.lg },
   inputGroup: { gap: 8 },

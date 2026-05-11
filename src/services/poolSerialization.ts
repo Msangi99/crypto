@@ -31,6 +31,12 @@ export function serializePoolPublic(p: PoolWithCounts): Record<string, unknown> 
     supportsAppCredit: Boolean(p.supportsAppCredit),
     creditMinUsd: p.creditMinUsd != null ? Number(p.creditMinUsd) : null,
     creditCreditedUsd: p.creditCreditedUsd != null ? Number(p.creditCreditedUsd) : null,
+    heldAsset: p.heldAsset ?? null,
+    leverageRatio: p.leverageRatio != null ? Number(p.leverageRatio) : null,
+    phase1Target: p.phase1Target != null ? Number(p.phase1Target) : null,
+    phase2Target: p.phase2Target != null ? Number(p.phase2Target) : null,
+    profitSplit: p.profitSplit ?? null,
+    entryPrice: p.entryPrice != null ? Number(p.entryPrice) : null,
     memberCount,
     _count: {
       members: memberCount,
