@@ -124,8 +124,6 @@ export default function DepositReceiveScreen({ navigation }: any) {
               <View style={styles.warnBanner}>
                 <Ionicons name="information-circle" size={20} color={Colors.primary} />
                 <Text style={styles.warnBannerText}>
-                  Haijawekwa bado: anwani ya pokea USDT (treasury) haijasetishwa kwenye database. Msimamizi aingie Admin →
-                  Settings → &quot;USDT deposit receive&quot;, aweke anwani ya BEP-20, kisha Save.{'\n\n'}
                   Not configured: the BEP-20 treasury address is empty. Admin: Dashboard → Settings → save &quot;Treasury
                   wallet&quot; so the app can show QR + address.
                 </Text>
@@ -136,16 +134,16 @@ export default function DepositReceiveScreen({ navigation }: any) {
               onPress={() => {
                 if (configError) {
                   Alert.alert(
-                    'Deposit haipatikani',
-                    `${configError}\n\nMsimamizi: weka treasury kwenye admin settings.`,
+                    'Deposit unavailable',
+                    `${configError}\n\nAdmin: set the treasury in admin settings.`,
                   );
                   return;
                 }
                 if (!config?.treasuryConfigured) {
                   Alert.alert(
-                    'Haijawekwa / Not configured',
-                    'Anwani ya pokea USDT (BEP-20 treasury) bado haijawekwa.\n\n' +
-                      'Admin: fungua CLB Admin Dashboard → Settings → sehemu ya "USDT deposit receive" → weka anwani ya wallet ya BSC → Save.',
+                    'Not configured',
+                    'The USDT receive address (BEP-20 treasury) is not set yet.\n\n' +
+                      'Admin: open the CLB Admin Dashboard → Settings → "USDT deposit receive" section → enter the BSC wallet address → Save.',
                   );
                   return;
                 }

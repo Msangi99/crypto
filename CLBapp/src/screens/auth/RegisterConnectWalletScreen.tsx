@@ -106,9 +106,9 @@ export default function RegisterConnectWalletScreen({ navigation, route }: any) 
   const handleGeneratePhrase = () => {
     if (isValidBep20Address(walletAddress)) {
       Alert.alert(
-        'Generate haipatikani',
-        'Umeingiza anwari ya BEP-20 tayari. Maneno 12 lazima yatoke Trust / MetaMask / Binance kwa account ile ile. Ikiwa unataka wallet mpya ya simu pekee, futa anwari kwenye uwanja juu kisha Generate itaonekana tena.',
-        [{ text: 'Sawa' }]
+        'Generate unavailable',
+        'You already entered a BEP-20 address. The 12-word phrase must come from Trust / MetaMask / Binance for the same account. If you want a new app-only wallet, clear the address field above and Generate will appear again.',
+        [{ text: 'OK' }]
       );
       return;
     }
@@ -116,9 +116,9 @@ export default function RegisterConnectWalletScreen({ navigation, route }: any) 
     setPhrase(mnemonic);
     setBackupConfirmed(false);
     Alert.alert(
-      'Maneno 12 ya CLB',
-      'Andika maneno haya kwenye mahali salama. Kisha bonyeza “Use address from this phrase” ili anwari iendane na maneno. Baadaye utakaporudisha akaunti ndani ya CLB, utatumia maneno haya haya kwenye “Nina wallet tayari” — sio anwari pekee bila maneno.',
-      [{ text: 'Nimeelewa' }]
+      'CLB 12-word phrase',
+      'Write these words down somewhere safe. Then tap "Use address from this phrase" so the address matches the phrase. Later, when restoring in CLB, use these same words from "I already have a wallet" - not just the address without the phrase.',
+      [{ text: 'I understand' }]
     );
   };
 
@@ -129,7 +129,7 @@ export default function RegisterConnectWalletScreen({ navigation, route }: any) 
 
   const handleSubmit = async () => {
     if (!backupConfirmed) {
-      Alert.alert('Thibitisho', 'Tafadhali weka tiki ya uthibitisho kabla ya kuendelea.');
+      Alert.alert('Confirmation', 'Please check the confirmation box before continuing.');
       return;
     }
 
@@ -138,8 +138,8 @@ export default function RegisterConnectWalletScreen({ navigation, route }: any) 
     if (hasValidBep20Field) {
       if (!accountPassword || accountPassword.length < 8) {
         Alert.alert(
-          'Nenosiri la akaunti',
-          'Rudi hatua ya kwanza ya usajili ujaze nenosiri la akaunti — linahitajika kurejesha akaunti hii pamoja na anwari na PIN.'
+          'Account password',
+          'Go back to step one of registration and enter your account password - it is required to restore this account together with the address and PIN.'
         );
         return;
       }
@@ -147,7 +147,7 @@ export default function RegisterConnectWalletScreen({ navigation, route }: any) 
       if (wordCount < 12) {
         Alert.alert(
           'Recovery phrase',
-          'Bandika maneno 12 au tumia Generate phrase ukiwa anwari bado tupu.'
+          'Paste the 12 words, or use Generate phrase while the address field is still empty.'
         );
         return;
       }
@@ -155,13 +155,13 @@ export default function RegisterConnectWalletScreen({ navigation, route }: any) 
       try {
         addr = mnemonicToAccount(phrase.trim()).address.toLowerCase();
       } catch {
-        Alert.alert('Recovery phrase', 'Maneno si halali. Angalia spelling na mpangilio.');
+        Alert.alert('Recovery phrase', 'The words are not valid. Check spelling and order.');
         return;
       }
       if (pasted !== addr) {
         Alert.alert(
-          'Phrase na anwari',
-          'Maneno lazima yalingane na anwari uliyoandika. Tumia “Use address from this phrase” au rekebisha.'
+          'Phrase and address',
+          'The phrase must match the address you entered. Use "Use address from this phrase" or correct one of them.'
         );
         return;
       }
@@ -243,10 +243,10 @@ export default function RegisterConnectWalletScreen({ navigation, route }: any) 
               <Ionicons name="arrow-back" size={22} color={Colors.textPrimary} />
             </TouchableOpacity>
             <Image source={LOGO} style={styles.logo} resizeMode="contain" />
-            <Text style={styles.title}>Unganisha pochi na CLB</Text>
+            <Text style={styles.title}>Connect wallet to CLB</Text>
             <Text style={styles.subtitle}>
-              Anwari halali: weka tiki na endelea PIN — hatuhitaji kuandika maneno 12 hapa; kurejesha utatumia anwari
-              + nenosiri la akaunti + PIN. Anwari tupu: andika maneno 12 au Generate kisha endelea.
+              Valid address: confirm and continue to PIN - no need to type 12 words here; to restore you will use
+              address + account password + PIN. Empty address: enter 12 words or Generate, then continue.
             </Text>
           </LinearGradient>
 
@@ -257,21 +257,21 @@ export default function RegisterConnectWalletScreen({ navigation, route }: any) 
             </View>
 
             <View style={styles.truthCard}>
-              <Text style={styles.truthTitle}>Ukweli mfupi (usome)</Text>
+              <Text style={styles.truthTitle}>Quick facts (read)</Text>
               <Text style={styles.truthLine}>
-                1) <Text style={styles.truthEm}>Anwari</Text> unayoandika hapa = pochi unayounganisha na CLB (tunakagua
-                ikiwa tayari inatumika).
+                1) The <Text style={styles.truthEm}>address</Text> you enter here = the wallet you connect to CLB (we
+                check whether it is already in use).
               </Text>
               <Text style={styles.truthLine}>
-                2) Ukiwa tayari ume<Text style={styles.truthEm}>bandika BEP-20</Text>: skrini hii haionyeshi kisanduku cha
-                maneno 12 — utathibitisha na kwenda PIN. Kurejesha: <Text style={styles.truthEm}>anwari + nenosiri la
-                  akaunti + PIN
+                2) If you already <Text style={styles.truthEm}>pasted a BEP-20 address</Text>: this screen does not show
+                the 12-word box - you confirm and go to PIN. Restore with: <Text style={styles.truthEm}>address + account
+                  password + PIN
                 </Text>{' '}
-                (“Nina wallet tayari”).
+                ("I already have a wallet").
               </Text>
               <Text style={styles.truthLine}>
-                3) Uki<Text style={styles.truthEm}>acha anwari tupu</Text>: utaona maneno 12 na Generate — wallet mpya
-                ya simu; kurejesha utatumia maneno hayo + PIN.
+                3) If you <Text style={styles.truthEm}>leave address empty</Text>: you will see 12 words and Generate - a
+                new app wallet; restore later with those words + PIN.
               </Text>
             </View>
 
@@ -337,7 +337,7 @@ export default function RegisterConnectWalletScreen({ navigation, route }: any) 
                 <Text style={styles.availText}>
                   {addressAvail === 'checking' && 'Checking if this address is already registered…'}
                   {addressAvail === 'available' &&
-                    'Anwari hii bado haijatumika. Thibitisha chini na endelea PIN — hatuhitaji maneno 12 hapa.'}
+                    'This address is not used yet. Confirm below and continue to PIN - no 12-word phrase needed here.'}
                   {addressAvail === 'taken' && 'This address is already in use. Use another BEP-20 wallet or sign in with “I already have a wallet”.'}
                   {addressAvail === 'invalid_fmt' && 'Enter a valid BEP-20 address: 0x plus 40 hexadecimal characters.'}
                   {addressAvail === 'error' && 'Could not check online. You can still try Continue — we verify again on submit.'}
@@ -349,15 +349,15 @@ export default function RegisterConnectWalletScreen({ navigation, route }: any) 
               <View style={styles.addressOnlyCard}>
                 <Ionicons name="checkmark-done-circle" size={22} color="#00D6A1" />
                 <Text style={styles.addressOnlyText}>
-                  Umeunganisha anwari yako. Chini thibitisha tiki kisha <Text style={styles.truthEm}>Endelea PIN</Text>
-                  . Hatuna kisanduku cha maneno 12 hapa — kurejesha: anwari + nenosiri la akaunti (hatua ya email) +
-                  PIN.
+                  You have connected your address. Confirm the checkbox below, then <Text style={styles.truthEm}>Continue
+                  to PIN</Text>. There is no 12-word box on this screen - restore with: address + account password (email
+                  step) + PIN.
                 </Text>
               </View>
             ) : (
               <View style={styles.phraseCard}>
                 <View style={styles.phraseHeader}>
-                  <Text style={styles.label}>Maneno 12 ya kurejesha CLB</Text>
+                  <Text style={styles.label}>CLB 12-word recovery phrase</Text>
                   <TouchableOpacity onPress={() => setShowPhrase(!showPhrase)}>
                     <Ionicons
                       name={showPhrase ? 'eye-off-outline' : 'eye-outline'}
@@ -367,8 +367,8 @@ export default function RegisterConnectWalletScreen({ navigation, route }: any) 
                   </TouchableOpacity>
                 </View>
                 <Text style={styles.phraseHint}>
-                  Bandika maneno kutoka wallet yako, au acha anwari tupu na ubonyeze Generate, kisha “Use address from
-                  this phrase”.
+                  Paste words from your wallet, or leave the address empty and tap Generate, then "Use address from this
+                  phrase".
                 </Text>
                 <TextInput
                   value={phrase}
@@ -411,7 +411,7 @@ export default function RegisterConnectWalletScreen({ navigation, route }: any) 
                   <View style={styles.derivedMatchRow}>
                     <Ionicons name="checkmark-circle" size={16} color="#00D6A1" />
                     <Text style={styles.derivedMatch}>
-                      Anwari na maneno vinalingana — hivi ndivyo utakavyovitumia kurejesha akaunti ya CLB.
+                      Address and phrase match - this is how you will restore your CLB account.
                     </Text>
                   </View>
                 ) : (
@@ -445,8 +445,8 @@ export default function RegisterConnectWalletScreen({ navigation, route }: any) 
               />
               <Text style={styles.checkText}>
                 {hasValidBep20Field
-                  ? 'Naelewa nitarejesha akaunti kwa anwari hii + nenosiri la akaunti (hatua ya email) + PIN ya CLB — bila kuandika maneno 12 kwenye skrini hii.'
-                  : 'Nimeandika / nimehifadhi maneno 12 na naelewa nitayatumia ndani ya CLB kurejesha (“Nina wallet tayari”), pamoja na anwari inayoendana.'}
+                  ? 'I understand I will restore this account with this address + account password (email step) + CLB PIN - without entering 12 words on this screen.'
+                  : 'I have written/saved the 12 words and understand I will use them in CLB restore ("I already have a wallet"), together with the matching address.'}
               </Text>
             </TouchableOpacity>
 
@@ -471,8 +471,8 @@ export default function RegisterConnectWalletScreen({ navigation, route }: any) 
             />
 
             <Text style={styles.footerNote}>
-              Tayari una akaunti? “Nina wallet tayari”: anwari + nenosiri la akaunti + PIN (au maneno 12 ukiwa
-              ulijisajili kwa njia ya phrase). “Connect with address” kwa simu nyingine.
+              Already have an account? "I already have a wallet": address + account password + PIN (or 12 words if you
+              registered using phrase mode). Use "Connect with address" on another phone.
             </Text>
           </View>
         </ScrollView>

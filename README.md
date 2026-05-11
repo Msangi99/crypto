@@ -1,6 +1,6 @@
 # CLB DApp Backend
 
-Backend ya CLB — Node.js + Fastify + Prisma (PostgreSQL) + BSC Blockchain
+CLB backend — Node.js + Fastify + Prisma (PostgreSQL) + BSC Blockchain
 
 ## Tech Stack
 
@@ -27,7 +27,7 @@ npx prisma migrate dev --name init
 npm run dev
 ```
 
-Server itaanza kwenye `http://localhost:3000`
+The server will start at `http://localhost:3000`
 Swagger docs: `http://localhost:3000/docs`
 
 ## API Endpoints

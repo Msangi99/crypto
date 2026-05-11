@@ -150,14 +150,14 @@ export default function PoolsScreen({ navigation }: any) {
             <Text style={styles.depositBanner}>
               {CreditWalletCopy.poolsDepositLine}:{' '}
               <Text style={styles.depositBannerStrong}>${depositBalance.toLocaleString(undefined, { maximumFractionDigits: 2 })}</Text>
-              <Text style={styles.depositBannerNote}> · si Loan credit</Text>
+              <Text style={styles.depositBannerNote}> · not Loan credit</Text>
             </Text>
               <Text style={styles.loanBannerLine}>
               Loan credit:{' '}
               <Text style={styles.depositBannerStrong}>${loanCreditBalance.toLocaleString(undefined, { maximumFractionDigits: 2 })}</Text>
               <Text style={styles.depositBannerNote}>
                 {' '}
-                · Ada ya Claim: deposit pekee ${spendableForClaimFee.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                · Claim fee: deposit only ${spendableForClaimFee.toLocaleString(undefined, { maximumFractionDigits: 2 })}
               </Text>
             </Text>
           </View>
@@ -370,13 +370,13 @@ export default function PoolsScreen({ navigation }: any) {
                     />
                     <Text style={styles.poolClaimHintText} numberOfLines={3}>
                       {misconfigured
-                        ? 'Package haijakamilika admin (loan credit haijaset).'
+                        ? 'Package is incomplete in admin settings (loan credit not set).'
                         : !poolActive
-                          ? 'Pool si hai — subiri iwe ACTIVE kisha claim.'
+                          ? 'Pool is not active - wait until it becomes ACTIVE, then claim.'
                           : canClaimNow
-                            ? 'Fungua screen kudhibitisha — ada itatolewa kwenye Deposit wallet (USDT).'
+                            ? 'Open the screen to confirm - fee will be charged from Deposit wallet (USDT).'
                             : needMore
-                              ? `Deposit wallet $${spendableForClaimFee.toFixed(2)} — unahitaji angalau $${fee} kwa ada (Deposit pekee).`
+                              ? `Deposit wallet $${spendableForClaimFee.toFixed(2)} - you need at least $${fee} for the fee (Deposit only).`
                               : `In-app claim · ada $${fee} · loan ${loanStr}.`}
                     </Text>
                   </View>
@@ -398,9 +398,9 @@ export default function PoolsScreen({ navigation }: any) {
                   <View style={styles.poolClaimDisabledBanner}>
                     <Ionicons name="lock-closed-outline" size={15} color={Colors.textMuted} />
                     <Text style={styles.poolClaimDisabledText}>
-                      In-app claim imezimwa kwa mfuko huu (tazama “Claim packs” = 0 juu). Admin awashie “claim from
-                      Deposit wallet” kwenye dashboard — hata ukiwa na salio, Claim haitafanya kazi mpaka hilo
-                      liwashwe.
+                      In-app claim is disabled for this pool (see "Claim packs" = 0 above). Admin must enable "claim from
+                      Deposit wallet" in the dashboard - even if you have balance, Claim will not work until this is
+                      enabled.
                     </Text>
                   </View>
                 ) : null}

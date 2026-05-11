@@ -11,18 +11,18 @@ export const CreditWalletCopy = {
   depositTabShort: 'Deposit',
   depositTabFull: 'Deposit wallet (USDT)',
   depositHint:
-    'Ni USDT uliotuma na kuthibitishwa ndani ya app — hapa ndipo deposit inaonekana. Si loan credit.',
+    'This is the USDT you sent and confirmed in the app - this is where your deposit appears. It is not loan credit.',
 
   loanTabShort: 'Loan',
   loanTabFull: 'Loan credit',
-  loanHint: 'Salio baada ya Claim kwenye pool — tumia “Use your loan”.',
+  loanHint: 'Balance after claiming from a pool - use "Use your loan".',
 
   swapTabShort: 'Swapped',
   swapTabFull: 'Swapped hold',
 
   poolsDepositLine: 'Deposit wallet (USDT)',
   poolsSubtitle:
-    'Ada ya Claim inatolewa kwa Deposit wallet pekee (Loan credit haitumiwi kwa ada). Baada ya Claim unapata ongezeko la Loan credit kwenye tab ya Loan.',
+    'Claim fee is taken from Deposit wallet only (Loan credit is not used for this fee). After Claim, your Loan credit increases in the Loan tab.',
 
-  poolDetailDepositStat: 'Deposit kwa ada',
+  poolDetailDepositStat: 'Deposit for fee',
 } as const;

@@ -48,15 +48,15 @@ export default function ImportWalletScreen({ navigation }: any) {
       return;
     }
     if (!addrOk) {
-      Alert.alert('Anwari', 'Ingiza anwari halali ya BEP-20 (0x + herufi 40).');
+      Alert.alert('Address', 'Enter a valid BEP-20 address (0x + 40 hex characters).');
       return;
     }
     if (method === 'phrase' && !phraseOk) {
-      Alert.alert('Maneno 12', 'Ingiza maneno yote 12 ya recovery.');
+      Alert.alert('12 words', 'Enter all 12 recovery words.');
       return;
     }
     if (method === 'password' && !pwOk) {
-      Alert.alert('Nenosiri', 'Ingiza nenosiri la akaunti uliolifanya wakati wa usajili (angalau herufi 8).');
+      Alert.alert('Password', 'Enter the account password you created during registration (at least 8 characters).');
       return;
     }
 
@@ -71,16 +71,16 @@ export default function ImportWalletScreen({ navigation }: any) {
       const { token, user } = res.data;
       await setAuth(token, { ...user, pinSetup: user.pinSetup ?? false });
       if (!user.pinSetup) {
-        Alert.alert('Karibu tena', 'Akaunti imerejeshwa. Weka PIN kwa kifaa hiki.');
+        Alert.alert('Welcome back', 'Account restored. Set a PIN for this device.');
       }
     } catch (err: any) {
       if (err?.response?.data?.code === 'PIN_REQUIRED') {
-        Alert.alert('PIN inahitajika', err?.response?.data?.error || 'Ingiza tarakimu 6 za PIN za usajili.');
+        Alert.alert('PIN required', err?.response?.data?.error || 'Enter your 6-digit registration PIN.');
       } else if (err?.response?.data?.code === 'NO_ACCOUNT_PASSWORD') {
-        Alert.alert('Nenosiri la akaunti', err?.response?.data?.error || 'Tumia njia ya maneno 12.');
+        Alert.alert('Account password', err?.response?.data?.error || 'Use the 12-word phrase method.');
         setMethod('phrase');
       } else {
-        const msg = err?.response?.data?.error || err?.message || 'Imeshindikana.';
+        const msg = err?.response?.data?.error || err?.message || 'Failed.';
         Alert.alert('Restore', msg);
       }
     } finally {
@@ -91,11 +91,11 @@ export default function ImportWalletScreen({ navigation }: any) {
   const doImportPhrase = async () => {
     const phrase = seedInput.trim().toLowerCase();
     if (!phraseOk) {
-      Alert.alert('Maneno 12', 'Ingiza maneno yote 12.');
+      Alert.alert('12 words', 'Enter all 12 words.');
       return;
     }
     if (pinInput.length > 0 && pinInput.length < 6) {
-      Alert.alert('PIN', 'Weka tarakimu 6 zote, au acha tupu ikiwa hukumaliza PIN.');
+      Alert.alert('PIN', 'Enter all 6 digits, or leave it empty if PIN setup was not completed.');
       return;
     }
     setLoading(true);
@@ -104,13 +104,13 @@ export default function ImportWalletScreen({ navigation }: any) {
       const { token, user } = res.data;
       await setAuth(token, { ...user, pinSetup: user.pinSetup ?? false });
       if (!user.pinSetup) {
-        Alert.alert('Karibu tena', 'Weka PIN kwa kifaa hiki.');
+        Alert.alert('Welcome back', 'Set a PIN for this device.');
       }
     } catch (err: any) {
       if (err?.response?.data?.code === 'PIN_REQUIRED') {
-        Alert.alert('PIN inahitajika', 'Ingiza PIN za usajili.');
+        Alert.alert('PIN required', 'Enter your registration PIN.');
       } else {
-        Alert.alert('Restore', err?.response?.data?.error || err?.message || 'Imeshindikana.');
+        Alert.alert('Restore', err?.response?.data?.error || err?.message || 'Failed.');
       }
     } finally {
       setLoading(false);
@@ -136,21 +136,21 @@ export default function ImportWalletScreen({ navigation }: any) {
               <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
                 <Ionicons name="arrow-back" size={24} color={Colors.textPrimary} />
               </TouchableOpacity>
-              <Text style={styles.headerTitle}>Rejesha akaunti</Text>
+              <Text style={styles.headerTitle}>Restore account</Text>
               <View style={{ width: 32 }} />
             </View>
 
-            <Text style={styles.title}>Nina wallet tayari</Text>
+            <Text style={styles.title}>I already have a wallet</Text>
             <Text style={styles.subtitle}>
-              Chaguo kuu: anwari yako ya BEP-20, kisha <Text style={styles.bold}>maneno 12</Text> au{' '}
-              <Text style={styles.bold}>nenosiri la akaunti</Text> (lile uliolifanya baada ya email), halafu PIN
-              uliyoipanga CLB. Nenosiri na PIN zimhifadhiwa kwa usajili salama (hash).
+              Main option: your BEP-20 address, then <Text style={styles.bold}>12 words</Text> or{' '}
+              <Text style={styles.bold}>account password</Text> (the one created after email), then your CLB PIN.
+              Password and PIN are stored securely as hashes.
             </Text>
 
             {!phraseOnly && (
               <>
                 <View style={styles.inputCard}>
-                  <Text style={styles.inputLabel}>Anwari ya BEP-20 (Trust / Meta / Binance)</Text>
+                  <Text style={styles.inputLabel}>BEP-20 address (Trust / Meta / Binance)</Text>
                   <TextInput
                     style={styles.singleInput}
                     value={walletAddress}
@@ -167,14 +167,14 @@ export default function ImportWalletScreen({ navigation }: any) {
                     style={[styles.toggleBtn, method === 'phrase' && styles.toggleBtnOn]}
                     onPress={() => setMethod('phrase')}
                   >
-                    <Text style={[styles.toggleText, method === 'phrase' && styles.toggleTextOn]}>Maneno 12</Text>
+                    <Text style={[styles.toggleText, method === 'phrase' && styles.toggleTextOn]}>12 words</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.toggleBtn, method === 'password' && styles.toggleBtnOn]}
                     onPress={() => setMethod('password')}
                   >
                     <Text style={[styles.toggleText, method === 'password' && styles.toggleTextOn]}>
-                      Nenosiri la akaunti
+                      Account password
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -209,7 +209,7 @@ export default function ImportWalletScreen({ navigation }: any) {
             ) : method === 'phrase' ? (
               <View style={styles.inputCard}>
                 <View style={styles.inputHeader}>
-                  <Text style={styles.inputLabel}>Maneno 12 (yanalingana na anwari hapo juu)</Text>
+                  <Text style={styles.inputLabel}>12 words (must match the address above)</Text>
                   <TouchableOpacity onPress={() => setShowPhrase(!showPhrase)}>
                     <Ionicons
                       name={showPhrase ? 'eye-off-outline' : 'eye-outline'}
@@ -236,13 +236,13 @@ export default function ImportWalletScreen({ navigation }: any) {
               </View>
             ) : (
               <View style={styles.inputCard}>
-                <Text style={styles.inputLabel}>Nenosiri la akaunti (baada ya email, usajili)</Text>
+                <Text style={styles.inputLabel}>Account password (after email registration)</Text>
                 <View style={styles.pwRow}>
                   <TextInput
                     style={styles.pwInput}
                     value={passwordInput}
                     onChangeText={setPasswordInput}
-                    placeholder="Angalau herufi 8"
+                    placeholder="At least 8 characters"
                     placeholderTextColor={Colors.textMuted + '80'}
                     secureTextEntry={!showPw}
                     autoCapitalize="none"
@@ -256,7 +256,7 @@ export default function ImportWalletScreen({ navigation }: any) {
             )}
 
             <View style={styles.inputCard}>
-              <Text style={styles.inputLabel}>PIN ya CLB (tarakimu 6)</Text>
+              <Text style={styles.inputLabel}>CLB PIN (6 digits)</Text>
               <TextInput
                 style={styles.pinInput}
                 placeholder="••••••"
@@ -268,8 +268,8 @@ export default function ImportWalletScreen({ navigation }: any) {
                 secureTextEntry
               />
               <Text style={styles.pinHint}>
-                Ikiwa akaunti ina PIN, lazima uingize hapa. Ikiwa bado hukumaliza PIN wakati wa usajili, acha tupu
-                (inaweza kushindwa — jaribu maneno 12).
+                If this account has a PIN, enter it here. If PIN setup was not finished during registration, leave it
+                empty (it may fail - then try the 12-word method).
               </Text>
             </View>
 
@@ -282,14 +282,14 @@ export default function ImportWalletScreen({ navigation }: any) {
               style={styles.linkRow}
             >
               <Text style={styles.linkText}>
-                {phraseOnly ? 'Rudi: anwari + maneno / nenosiri' : 'Nina maneno 12 pekee (bila anwari) — njia ya zamani'}
+                {phraseOnly ? 'Back: address + words / password' : 'I only have 12 words (no address) - legacy method'}
               </Text>
             </TouchableOpacity>
 
             <View style={styles.securityNote}>
               <Ionicons name="shield-checkmark" size={16} color={Colors.primary} />
               <Text style={styles.securityText}>
-                Data inatumwa kwa HTTPS. PIN na nenosiri zimhifadhiwa kama hash kwenye server — si maandishi wazi.
+                Data is sent over HTTPS. PIN and password are stored as hashes on the server - never plain text.
               </Text>
             </View>
 
@@ -306,12 +306,12 @@ export default function ImportWalletScreen({ navigation }: any) {
                 style={styles.importBtn}
               >
                 {loading ? (
-                  <Text style={styles.importBtnText}>Inachakata…</Text>
+                  <Text style={styles.importBtnText}>Processing...</Text>
                 ) : (
                   <>
                     <Ionicons name="download" size={18} color={canRecover ? '#000' : Colors.textMuted} />
                     <Text style={[styles.importBtnText, !canRecover && { color: Colors.textMuted }]}>
-                      Rejesha akaunti
+                      Restore account
                     </Text>
                   </>
                 )}

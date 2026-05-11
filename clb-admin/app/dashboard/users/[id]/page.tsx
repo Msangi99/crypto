@@ -472,8 +472,8 @@ export default function AdminUserDetailPage() {
           </Link>
           <h2 className="text-2xl font-bold text-white tracking-tight">User hub — full overview</h2>
           <p className="text-sm text-[#888] mt-1 max-w-2xl">
-            Ukurasa mmoja: salio (deposit / loan / swap), mining, mikopo, pools, referrals, amana na
-            shughuli. Badilisha na uhifadhi sehemu husika.
+            One page: balances (deposit / loan / swap), mining, loans, pools, referrals, deposits and
+            activity. Edit and save each section where needed.
           </p>
         </div>
         <Button
@@ -668,19 +668,19 @@ export default function AdminUserDetailPage() {
                   {String(miningPkg.periodLength)} {String(miningPkg.periodUnit)}
                 </span>
               ) : (
-                <span className="text-[#666]">Hakuna subscription</span>
+                <span className="text-[#666]">No subscription</span>
               )}
             </div>
           </div>
           {(user.referralCode as string | null | undefined) ? (
             <div className="rounded-xl border border-[#2A2A2A] bg-[#0D0D0D] px-3 py-2 text-xs">
-              <span className="text-[#666]">Referral code (yake): </span>
+              <span className="text-[#666]">Referral code (user): </span>
               <span className="font-mono text-[#F0B90B]">{String(user.referralCode)}</span>
             </div>
           ) : null}
           {uplineUser ? (
             <div className="rounded-xl border border-[#F0B90B]/20 bg-[#F0B90B]/5 px-3 py-2 text-xs space-y-0.5">
-              <div className="text-[#888]">Aliye alika (upline)</div>
+              <div className="text-[#888]">Invited by (upline)</div>
               <div className="font-mono text-white text-[11px] break-all">
                 {String(uplineUser.walletAddress)}
               </div>
@@ -690,7 +690,7 @@ export default function AdminUserDetailPage() {
               </div>
             </div>
           ) : (
-            <div className="text-[11px] text-[#555]">Hakuna rekodi ya referral ya kujoin.</div>
+            <div className="text-[11px] text-[#555]">No referral join record.</div>
           )}
         </div>
         </div>
@@ -1059,12 +1059,12 @@ export default function AdminUserDetailPage() {
                 Referrals
               </CardTitle>
               <CardDescription className="text-[#666] text-xs">
-                Watu aliowaalika (downline) na thawabu ya code. Upline iko kwenye Overview.
+                People invited by this user (downline) and code rewards. Upline appears in Overview.
               </CardDescription>
             </CardHeader>
             <CardContent className="overflow-x-auto">
               {referralRows.length === 0 ? (
-                <p className="text-sm text-[#666]">Hajawa na referrals bado.</p>
+                <p className="text-sm text-[#666]">No referrals yet.</p>
               ) : (
                 <Table>
                   <TableHeader>
@@ -1114,12 +1114,12 @@ export default function AdminUserDetailPage() {
                 Deposits (recent {deposits.length})
               </CardTitle>
               <CardDescription className="text-[#666] text-xs">
-                Hadi rekodi 100 za mwisho kutoka API.
+                Up to the latest 100 records from the API.
               </CardDescription>
             </CardHeader>
             <CardContent className="overflow-x-auto">
               {deposits.length === 0 ? (
-                <p className="text-sm text-[#666]">Hakuna amana kwenye rekodi.</p>
+                <p className="text-sm text-[#666]">No deposit records.</p>
               ) : (
                 <Table>
                   <TableHeader>

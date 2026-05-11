@@ -120,9 +120,9 @@ export default function UsersPage() {
       <div>
         <h2 className="text-2xl font-bold text-white tracking-tight">User Management</h2>
         <p className="text-sm text-[#888] mt-1">
-          Bonyeza ikoni ya jeshi (⚙) kwa{" "}
-          <strong className="text-[#ccc] font-medium">ukurasa kamili</strong> — muhtasari, deposit /
-          loan / mining, referrals, shughuli zote.
+          Click the settings icon (⚙) for the{" "}
+          <strong className="text-[#ccc] font-medium">full page</strong> - overview, deposit /
+          loan / mining, referrals, and all activity.
         </p>
       </div>
 
@@ -234,7 +234,7 @@ export default function UsersPage() {
                             <Link
                               href={`/dashboard/users/${user.id}`}
                               className={`p-1.5 rounded-md hover:bg-[#F0B90B]/15 text-[#F0B90B] ring-1 ring-transparent hover:ring-[#F0B90B]/30 ${pendingAction ? "pointer-events-none opacity-50" : ""}`}
-                              title="Ukurasa kamili — overview, balances, loans, mining, referrals, activity"
+                              title="Full page - overview, balances, loans, mining, referrals, activity"
                               aria-disabled={!!pendingAction}
                             >
                               <Settings2 className="w-3.5 h-3.5" />
@@ -321,7 +321,7 @@ export default function UsersPage() {
       >
         <DialogContent className="bg-[#1A1A1A] border-[#2A2A2A] text-white sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Muhtasari mfupi</DialogTitle>
+            <DialogTitle>Quick summary</DialogTitle>
           </DialogHeader>
           {viewUser && (
             <div className="space-y-3 mt-2">

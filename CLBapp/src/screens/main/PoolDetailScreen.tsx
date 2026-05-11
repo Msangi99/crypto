@@ -264,7 +264,7 @@ export default function PoolDetailScreen({ route, navigation }: any) {
                   : claimReady
                     ? `Ready to claim — deposit $${depositForClaimFee.toFixed(2)} (fee $${claimFee}).`
                     : needMoreFunds
-                      ? `Deposit wallet $${depositForClaimFee.toFixed(2)} — unahitaji angalau $${claimFee} kwa ada (Deposit pekee).`
+                      ? `Deposit wallet $${depositForClaimFee.toFixed(2)} - you need at least $${claimFee} for the fee (Deposit only).`
                       : canClaim
                         ? 'You can claim from this screen (see button below).'
                         : `Deposit $${depositForClaimFee.toFixed(2)} — sync eligibility; pull down to refresh.`}
