@@ -283,11 +283,6 @@ export default function HomeScreen({ navigation }: any) {
                 ))}
               </View>
             )}
-            {balanceVisible && balanceTab === 'deposit' ? (
-              <Text style={styles.balanceBucketHint}>{CreditWalletCopy.depositHint}</Text>
-            ) : balanceVisible && balanceTab === 'loan' ? (
-              <Text style={styles.balanceBucketHint}>{CreditWalletCopy.loanHint}</Text>
-            ) : null}
             <Text style={styles.balancePortfolioFoot}>
               {balanceVisible
                 ? `Portfolio total $${totalValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`

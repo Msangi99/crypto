@@ -354,24 +354,16 @@ export default function WalletTokensScreen({ navigation }: any) {
               <View style={styles.portfolioHero}>
                 <View style={styles.totalLabelRow}>
                   <Ionicons name="pie-chart" size={14} color={Colors.primary} />
-                  <Text style={styles.totalLabel}>Pool portfolio value</Text>
+                  <Text style={styles.totalLabel}>Total Value</Text>
                 </View>
                 <Text style={styles.portfolioHeroValue}>
-                  {isAuthenticated && syncStatus
-                    ? formatUsd(syncStatus.portfolioValueUsd)
-                    : '—'}
-                </Text>
-                <Text style={styles.portfolioHeroHint}>
                   {isAuthenticated
-                    ? 'USD value of your active pool positions (leveraged)'
-                    : 'Sign in to see your pool portfolio'}
+                    ? formatUsd((syncStatus?.portfolioValueUsd ?? 0) + appTokenTotalUsd)
+                    : '—'}
                 </Text>
               </View>
               <View style={styles.portfolioDivider} />
               <Text style={styles.appTokenSectionLabel}>CLB token value (in app)</Text>
-              <Text style={styles.appTokenHint}>
-                Includes mined tokens (off-chain accrual) until you claim — then they live in your ledger balance for transfer.
-              </Text>
               {isAuthenticated && appTokenRows
                 ? CLB_FAMILY_ORDER.map((sym) => {
                   const row = appTokenBySymbol[sym];
@@ -449,90 +441,6 @@ export default function WalletTokensScreen({ navigation }: any) {
                   <Ionicons name="navigate-outline" size={12} color={Colors.textMuted} />
                   <Text style={styles.miningPayout}>Payout {shortAddress(miningSub.payoutAddress)}</Text>
                 </View>
-              </View>
-            ) : null}
-
-            {/* Portfolio sync card — keeps Trust Wallet CLB balance equal to
-                the user's CLB DApp portfolio value via on-chain mints. */}
-            {isAuthenticated && syncStatus ? (
-              <View style={styles.syncCard}>
-                <View style={styles.syncHeaderRow}>
-                  <View style={styles.syncIconBg}>
-                    <Ionicons name="sync-circle" size={20} color={Colors.primary} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.syncTitle}>Portfolio in Wallet</Text>
-                    <Text style={styles.syncSubtitle}>
-                      Mint your CLB portfolio to Trust Wallet
-                    </Text>
-                  </View>
-                  {syncStatus.inSync ? (
-                    <View style={styles.syncBadgeOk}>
-                      <Ionicons name="checkmark-circle" size={12} color="#00D26A" />
-                      <Text style={styles.syncBadgeOkText}>In sync</Text>
-                    </View>
-                  ) : null}
-                </View>
-
-                <View style={styles.syncRow}>
-                  <View style={styles.syncCol}>
-                    <Text style={styles.syncColLabel}>App portfolio</Text>
-                    <Text style={styles.syncColValue}>
-                      {formatUsd(syncStatus.portfolioValueUsd)}
-                    </Text>
-                  </View>
-                  <Ionicons
-                    name="arrow-forward"
-                    size={16}
-                    color={Colors.textMuted}
-                    style={{ marginHorizontal: 8 }}
-                  />
-                  <View style={styles.syncCol}>
-                    <Text style={styles.syncColLabel}>On-chain CLB</Text>
-                    <Text style={styles.syncColValue}>
-                      {formatUsd(syncStatus.onChainCLBValueUsd)}
-                    </Text>
-                  </View>
-                </View>
-
-                {!syncStatus.chainConfigured ? (
-                  <View style={styles.syncNote}>
-                    <Ionicons name="information-circle-outline" size={12} color={Colors.textMuted} />
-                    <Text style={styles.syncNoteText}>
-                      On-chain minting not configured on the server yet.
-                    </Text>
-                  </View>
-                ) : syncStatus.inSync ? (
-                  <View style={styles.syncNote}>
-                    <Ionicons name="checkmark-circle-outline" size={12} color="#00D26A" />
-                    <Text style={styles.syncNoteText}>
-                      Your wallet already shows your full portfolio value.
-                    </Text>
-                  </View>
-                ) : (
-                  <TouchableOpacity
-                    onPress={handleSync}
-                    disabled={isSyncing}
-                    activeOpacity={0.85}
-                    style={styles.syncBtnWrap}
-                  >
-                    <LinearGradient
-                      colors={Colors.gradientPrimary}
-                      style={styles.syncBtn}
-                    >
-                      {isSyncing ? (
-                        <ActivityIndicator size="small" color="#000" />
-                      ) : (
-                        <>
-                          <Ionicons name="cloud-upload" size={16} color="#000" />
-                          <Text style={styles.syncBtnText}>
-                            Sync {syncStatus.mintableClb.toFixed(2)} CLB to Wallet
-                          </Text>
-                        </>
-                      )}
-                    </LinearGradient>
-                  </TouchableOpacity>
-                )}
               </View>
             ) : null}
 

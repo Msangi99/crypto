@@ -135,6 +135,7 @@ export const creditWalletAPI = {
         usdtContractAddress: string;
         treasuryAddress: string | null;
         minConfirmations: number;
+        minDepositUsd: number;
         treasuryConfigured: boolean;
       };
     }>('/api/credit-wallet/config'),
@@ -170,6 +171,23 @@ export const creditWalletAPI = {
         canClaimWithCredit: boolean;
       }>;
     }>('/api/credit-wallet/pool-eligibility'),
+  depositHistory: () =>
+    api.get<{
+      success: boolean;
+      deposits: Array<{
+        id: string;
+        amount: number;
+        amountUsd: number;
+        chain: string;
+        fromAddress: string;
+        toAddress: string;
+        txHash: string;
+        status: string;
+        confirmations: number;
+        confirmedAt: string | null;
+        createdAt: string;
+      }>;
+    }>('/api/credit-wallet/deposit-history'),
 };
 
 // ─── Price ────────────────────────────────────────────────

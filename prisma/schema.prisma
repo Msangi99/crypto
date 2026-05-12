@@ -423,6 +423,10 @@ model PlatformSettings {
   depositTreasuryAddress String?
   /// USDT contract on BSC/BSC testnet (defaults from env if null).
   usdtBep20Address       String?
+  /// Minimum USDT deposit amount in USD (e.g., 10). If null, uses env default.
+  depositMinUsd          Decimal? @db.Decimal(18, 2)
+  /// Last block number monitored for treasury deposits (auto-detection).
+  lastMonitoredBlock     Int?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 

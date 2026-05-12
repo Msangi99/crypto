@@ -36,6 +36,8 @@ export const env = {
     envValue('USDT_DEPOSIT_MIN_CONFIRMATIONS', parseInt(envValue('CHAIN_ID', '97'), 10) === 56 ? '12' : '3'),
     10
   ),
+  /** Minimum USDT deposit amount in USD (default: 10). Admin can override in settings. */
+  USDT_DEPOSIT_MIN_USD: parseFloat(envValue('USDT_DEPOSIT_MIN_USD', '10')),
   POOL_MANAGER_CONTRACT: envValue('POOL_MANAGER_CONTRACT'),
   PRIVATE_KEY: envValue('PRIVATE_KEY'),
   CLB_TOKEN_ADDRESS: envValue('CLB_TOKEN_ADDRESS'),

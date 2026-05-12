@@ -12,14 +12,17 @@ export async function resolveTreasuryUsdtConfig(): Promise<{
   treasury: string | null;
   usdt: string;
   minConfirmations: number;
+  minDepositUsd: number;
 }> {
   const settings = await prisma.platformSettings.findUnique({ where: { id: 'default' } });
   const treasury = settings?.depositTreasuryAddress?.trim() || null;
   const usdt = (settings?.usdtBep20Address?.trim() || env.USDT_BEP20_ADDRESS || '').trim();
+  const minDepositUsd = settings?.depositMinUsd ? Number(settings.depositMinUsd.toString()) : env.USDT_DEPOSIT_MIN_USD;
   return {
     treasury,
     usdt,
     minConfirmations: env.USDT_DEPOSIT_MIN_CONFIRMATIONS,
+    minDepositUsd,
   };
 }
 
@@ -31,7 +34,8 @@ export async function verifyUsdtTreasuryDeposit(
   txHash: string,
   userWalletAddress: string,
   treasury: string,
-  usdtContract: string
+  usdtContract: string,
+  minDepositUsd: number
 ): Promise<{ amount: Prisma.Decimal; decimals: number }> {
   const receipt = await provider.getTransactionReceipt(txHash);
   if (!receipt || receipt.status !== 1) {
@@ -68,6 +72,13 @@ export async function verifyUsdtTreasuryDeposit(
     throw new Error('No USDT transfer from your wallet to the treasury address in this transaction');
   }
 
+  const human = ethers.formatUnits(total, decimals);
+  const amount = new Prisma.Decimal(human);
+
+  if (amount.toNumber() < minDepositUsd) {
+    throw new Error(`Deposit amount $${amount.toFixed(2)} is below minimum $${minDepositUsd.toFixed(2)}`);
+  }
+
   const currentBlock = await provider.getBlockNumber();
   const confirms = receipt.blockNumber != null ? currentBlock - receipt.blockNumber + 1 : 0;
   if (confirms < env.USDT_DEPOSIT_MIN_CONFIRMATIONS) {
@@ -76,6 +87,5 @@ export async function verifyUsdtTreasuryDeposit(
     );
   }
 
-  const human = ethers.formatUnits(total, decimals);
-  return { amount: new Prisma.Decimal(human), decimals };
+  return { amount, decimals };
 }

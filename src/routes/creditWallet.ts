@@ -3,7 +3,9 @@ import { Prisma } from '@prisma/client';
 import prisma from '../config/db';
 import { env } from '../config/env';
 import { authMiddleware } from '../middleware/auth';
+import { depositConfirmRateLimit } from '../middleware/rateLimit';
 import { resolveTreasuryUsdtConfig, verifyUsdtTreasuryDeposit } from '../services/treasuryUsdtDeposit';
+import { monitorTreasuryDeposits } from '../services/treasuryDepositMonitor';
 
 const schemas = {
   config: {
@@ -33,6 +35,16 @@ const schemas = {
     description:
       'Which pools support credit claim and whether the user can claim each pool now. Claim fee is paid from deposit credit only (loan credit is not used).',
   },
+  depositHistory: {
+    tags: ['Credit Wallet'],
+    summary: 'User deposit history',
+    description: 'List of all USDT treasury deposits for the authenticated user.',
+  },
+  monitorDeposits: {
+    tags: ['Admin'],
+    summary: 'Trigger treasury deposit monitoring',
+    description: 'Manually trigger automatic deposit detection (admin only). Should be called periodically by cron job.',
+  },
 };
 
 function num(d: Prisma.Decimal | null | undefined): number {
@@ -45,7 +57,7 @@ export default async function creditWalletRoutes(fastify: FastifyInstance) {
     '/config',
     { schema: schemas.config },
     async (_request, reply: FastifyReply) => {
-      const { treasury, usdt, minConfirmations } = await resolveTreasuryUsdtConfig();
+      const { treasury, usdt, minConfirmations, minDepositUsd } = await resolveTreasuryUsdtConfig();
       if (!usdt) {
         return reply.status(503).send({
           success: false,
@@ -62,6 +74,7 @@ export default async function creditWalletRoutes(fastify: FastifyInstance) {
           usdtContractAddress: usdt,
           treasuryAddress: treasury,
           minConfirmations,
+          minDepositUsd,
           treasuryConfigured: Boolean(treasury),
         },
       };
@@ -96,7 +109,7 @@ export default async function creditWalletRoutes(fastify: FastifyInstance) {
 
   fastify.post<{ Body: { txHash: string } }>(
     '/confirm-deposit',
-    { schema: schemas.confirmDeposit, preHandler: [authMiddleware] },
+    { schema: schemas.confirmDeposit, preHandler: [authMiddleware, depositConfirmRateLimit] },
     async (request: FastifyRequest<{ Body: { txHash: string } }>, reply: FastifyReply) => {
       const raw = request.body?.txHash?.trim() || '';
       if (!raw.startsWith('0x') || raw.length < 66) {
@@ -104,7 +117,7 @@ export default async function creditWalletRoutes(fastify: FastifyInstance) {
       }
       const txHash = raw;
 
-      const { treasury, usdt } = await resolveTreasuryUsdtConfig();
+      const { treasury, usdt, minDepositUsd } = await resolveTreasuryUsdtConfig();
       if (!treasury) {
         return reply.status(503).send({
           success: false,
@@ -130,7 +143,7 @@ export default async function creditWalletRoutes(fastify: FastifyInstance) {
 
       let amount: Prisma.Decimal;
       try {
-        const v = await verifyUsdtTreasuryDeposit(txHash, user.walletAddress, treasury, usdt);
+        const v = await verifyUsdtTreasuryDeposit(txHash, user.walletAddress, treasury, usdt, minDepositUsd);
         amount = v.amount;
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : 'Verification failed';
@@ -254,6 +267,70 @@ export default async function creditWalletRoutes(fastify: FastifyInstance) {
         /** USD available to pay pool claim fees (deposit wallet only). */
         claimFeeSpendableUsd: num(depositAvail),
         pools: rows,
+      };
+    }
+  );
+
+  fastify.get(
+    '/deposit-history',
+    { schema: schemas.depositHistory, preHandler: [authMiddleware] },
+    async (request: FastifyRequest) => {
+      const deposits = await prisma.deposit.findMany({
+        where: {
+          userId: request.userId!,
+          poolId: null, // Only treasury deposits (not pool deposits)
+          status: 'CONFIRMED',
+        },
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          amount: true,
+          amountUsd: true,
+          chain: true,
+          fromAddress: true,
+          toAddress: true,
+          txHash: true,
+          status: true,
+          confirmations: true,
+          confirmedAt: true,
+          createdAt: true,
+        },
+      });
+
+      return {
+        success: true,
+        deposits: deposits.map((d) => ({
+          id: d.id,
+          amount: num(d.amount),
+          amountUsd: num(d.amountUsd),
+          chain: d.chain,
+          fromAddress: d.fromAddress,
+          toAddress: d.toAddress,
+          txHash: d.txHash,
+          status: d.status,
+          confirmations: d.confirmations,
+          confirmedAt: d.confirmedAt,
+          createdAt: d.createdAt,
+        })),
+      };
+    }
+  );
+
+  // Admin-only endpoint to trigger treasury deposit monitoring
+  fastify.post(
+    '/monitor-deposits',
+    { schema: schemas.monitorDeposits, preHandler: [authMiddleware] },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      // Admin-only check
+      if (request.userRole !== 'ADMIN') {
+        return reply.status(403).send({ success: false, error: 'Admin access required' });
+      }
+
+      const result = await monitorTreasuryDeposits();
+      return {
+        success: true,
+        processed: result.processed,
+        errors: result.errors,
       };
     }
   );

@@ -23,6 +23,9 @@ export default function DepositReceiveScreen({ navigation }: any) {
   const [loading, setLoading] = useState(true);
   const [config, setConfig] = useState<any>(null);
   const [configError, setConfigError] = useState<string | null>(null);
+  const minDeposit = config?.minDepositUsd || 10;
+  const [depositHistory, setDepositHistory] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
   const [txHash, setTxHash] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -55,6 +58,26 @@ export default function DepositReceiveScreen({ navigation }: any) {
   useEffect(() => {
     loadConfig();
   }, [loadConfig]);
+
+  const loadDepositHistory = useCallback(async () => {
+    setLoadingHistory(true);
+    try {
+      const res = await creditWalletAPI.depositHistory();
+      if (res.data?.success) {
+        setDepositHistory(res.data.deposits || []);
+      }
+    } catch (e) {
+      console.error('Failed to load deposit history', e);
+    } finally {
+      setLoadingHistory(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (step === 'receive') {
+      loadDepositHistory();
+    }
+  }, [step, loadDepositHistory]);
 
   const treasury = config?.treasuryAddress as string | null | undefined;
   const qrUri = treasury
@@ -163,6 +186,9 @@ export default function DepositReceiveScreen({ navigation }: any) {
             <Text style={styles.hint}>
               Send only USDT on BSC to the address shown on the next screen. Other assets may be lost.
             </Text>
+            <Text style={styles.hint}>
+              Minimum deposit: ${minDeposit} USD.
+            </Text>
           </>
         )}
 
@@ -222,6 +248,34 @@ export default function DepositReceiveScreen({ navigation }: any) {
                 <Text style={styles.confirmBtnText}>Confirm transaction</Text>
               )}
             </TouchableOpacity>
+
+            {depositHistory.length > 0 && (
+              <View style={styles.historySection}>
+                <Text style={styles.historyTitle}>Recent deposits</Text>
+                {loadingHistory ? (
+                  <ActivityIndicator color={Colors.primary} size="small" />
+                ) : (
+                  depositHistory.slice(0, 5).map((dep) => (
+                    <View key={dep.id} style={styles.historyItem}>
+                      <View>
+                        <Text style={styles.historyAmount}>${dep.amount.toFixed(2)} USDT</Text>
+                        <Text style={styles.historyDate}>
+                          {new Date(dep.createdAt).toLocaleDateString()}
+                        </Text>
+                      </View>
+                      <View style={styles.historyStatus}>
+                        <Text style={[
+                          styles.historyStatusText,
+                          dep.status === 'CONFIRMED' && styles.statusConfirmed,
+                        ]}>
+                          {dep.status}
+                        </Text>
+                      </View>
+                    </View>
+                  ))
+                )}
+              </View>
+            )}
           </>
         )}
       </ScrollView>
@@ -354,5 +408,46 @@ const styles = StyleSheet.create({
     borderRadius: Radius.md,
     alignItems: 'center',
   },
-  confirmBtnText: { fontSize: 16, fontWeight: '800', color: '#000' },
+  confirmBtnText: { fontSize: 15, fontWeight: '700', color: '#000' },
+  historySection: {
+    marginTop: Spacing.lg,
+    backgroundColor: Colors.bgCard,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  historyTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+    marginBottom: Spacing.sm,
+  },
+  historyItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: Spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  historyAmount: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+  },
+  historyDate: {
+    fontSize: 12,
+    color: Colors.textMuted,
+    marginTop: 2,
+  },
+  historyStatus: {},
+  historyStatusText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.textMuted,
+  },
+  statusConfirmed: {
+    color: '#00C853',
+  },
 });

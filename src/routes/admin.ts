@@ -97,6 +97,19 @@ const adminSchemas = {
       },
     },
   },
+  listDeposits: {
+    tags: ['Admin'],
+    summary: 'List all deposits',
+    description: 'Paginated list of all deposits with optional search',
+    querystring: {
+      type: 'object',
+      properties: {
+        page: { type: 'string', description: 'Page number' },
+        limit: { type: 'string', description: 'Items per page' },
+        search: { type: 'string', description: 'Search by wallet address or tx hash' },
+      },
+    },
+  },
   getStats: {
     tags: ['Admin'],
     summary: 'Dashboard stats',
@@ -117,6 +130,7 @@ const adminSchemas = {
         freePoolsEnabled: { type: 'boolean' },
         depositTreasuryAddress: { type: ['string', 'null'], description: 'BEP-20 address where users send USDT (Receive flow)' },
         usdtBep20Address: { type: ['string', 'null'], description: 'USDT contract on BSC; null uses server env default' },
+        depositMinUsd: { type: ['number', 'null'], description: 'Minimum USDT deposit amount in USD; null uses server env default' },
       },
     },
   },
@@ -823,6 +837,63 @@ export default async function adminRoutes(fastify: FastifyInstance) {
     }
   );
 
+  // ─── GET /admin/deposits — all deposits ─────
+  fastify.get<{
+    Querystring: { page?: string; limit?: string; search?: string };
+  }>(
+    '/deposits',
+    { schema: adminSchemas.listDeposits, preHandler: [adminMiddleware] },
+    async (request) => {
+      const page = parseInt(request.query.page || '1', 10);
+      const limit = parseInt(request.query.limit || '20', 10);
+      const search = request.query.search || '';
+      const skip = (page - 1) * limit;
+
+      const where = search
+        ? {
+            OR: [
+              { fromAddress: { contains: search, mode: 'insensitive' as const } },
+              { toAddress: { contains: search, mode: 'insensitive' as const } },
+              { txHash: { contains: search, mode: 'insensitive' as const } },
+              { user: { walletAddress: { contains: search, mode: 'insensitive' as const } } },
+            ],
+          }
+        : {};
+
+      const [deposits, total] = await Promise.all([
+        prisma.deposit.findMany({
+          where,
+          skip,
+          take: limit,
+          orderBy: { createdAt: 'desc' },
+          include: {
+            user: { select: { id: true, walletAddress: true, username: true } },
+            pool: { select: { id: true, name: true, tokenSymbol: true } },
+          },
+        }),
+        prisma.deposit.count({ where }),
+      ]);
+
+      const formatted = deposits.map((d) => ({
+        id: d.id,
+        amount: Number(d.amount),
+        amountUsd: Number(d.amountUsd),
+        chain: d.chain,
+        fromAddress: d.fromAddress,
+        toAddress: d.toAddress,
+        txHash: d.txHash,
+        status: d.status,
+        confirmations: d.confirmations,
+        confirmedAt: d.confirmedAt,
+        createdAt: d.createdAt,
+        user: d.user,
+        pool: d.pool,
+      }));
+
+      return { deposits: formatted, total, page, limit };
+    }
+  );
+
   // ─── GET /admin/stats — aggregated dashboard stats ─────
   fastify.get(
     '/stats',
@@ -866,6 +937,7 @@ export default async function adminRoutes(fastify: FastifyInstance) {
           freePoolsEnabled: settings.freePoolsEnabled,
           depositTreasuryAddress: settings.depositTreasuryAddress,
           usdtBep20Address: settings.usdtBep20Address,
+          depositMinUsd: settings.depositMinUsd ? Number(settings.depositMinUsd) : null,
         },
       };
     }
@@ -877,6 +949,7 @@ export default async function adminRoutes(fastify: FastifyInstance) {
       freePoolsEnabled?: boolean;
       depositTreasuryAddress?: string | null;
       usdtBep20Address?: string | null;
+      depositMinUsd?: number | null;
     };
   }>(
     '/settings',
@@ -886,7 +959,8 @@ export default async function adminRoutes(fastify: FastifyInstance) {
       if (
         b.freePoolsEnabled === undefined &&
         b.depositTreasuryAddress === undefined &&
-        b.usdtBep20Address === undefined
+        b.usdtBep20Address === undefined &&
+        b.depositMinUsd === undefined
       ) {
         return reply.status(400).send({
           success: false,
@@ -902,6 +976,7 @@ export default async function adminRoutes(fastify: FastifyInstance) {
             depositTreasuryAddress: b.depositTreasuryAddress,
           }),
           ...(b.usdtBep20Address !== undefined && { usdtBep20Address: b.usdtBep20Address }),
+          ...(b.depositMinUsd !== undefined && { depositMinUsd: b.depositMinUsd }),
         },
         create: {
           id: 'default',
@@ -910,6 +985,7 @@ export default async function adminRoutes(fastify: FastifyInstance) {
             depositTreasuryAddress: b.depositTreasuryAddress,
           }),
           ...(b.usdtBep20Address !== undefined && { usdtBep20Address: b.usdtBep20Address }),
+          ...(b.depositMinUsd !== undefined && { depositMinUsd: b.depositMinUsd }),
         },
       });
 
@@ -919,6 +995,7 @@ export default async function adminRoutes(fastify: FastifyInstance) {
           freePoolsEnabled: settings.freePoolsEnabled,
           depositTreasuryAddress: settings.depositTreasuryAddress,
           usdtBep20Address: settings.usdtBep20Address,
+          depositMinUsd: settings.depositMinUsd ? Number(settings.depositMinUsd) : null,
         },
       };
     }

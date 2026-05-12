@@ -324,12 +324,14 @@ export const api = {
         freePoolsEnabled: boolean;
         depositTreasuryAddress: string | null;
         usdtBep20Address: string | null;
+        depositMinUsd: number | null;
       };
     }>("/api/admin/settings"),
   updateAdminSettings: (data: {
     freePoolsEnabled?: boolean;
     depositTreasuryAddress?: string | null;
     usdtBep20Address?: string | null;
+    depositMinUsd?: number | null;
   }) =>
     request<{
       success: boolean;
@@ -337,6 +339,7 @@ export const api = {
         freePoolsEnabled: boolean;
         depositTreasuryAddress: string | null;
         usdtBep20Address: string | null;
+        depositMinUsd: number | null;
       };
     }>("/api/admin/settings", {
       method: "PUT",

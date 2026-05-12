@@ -21,6 +21,7 @@ export default function SettingsPage() {
   const [freePoolsEnabled, setFreePoolsEnabled] = useState(false);
   const [depositTreasuryAddress, setDepositTreasuryAddress] = useState("");
   const [usdtBep20Address, setUsdtBep20Address] = useState("");
+  const [depositMinUsd, setDepositMinUsd] = useState("");
   const [loadingSettings, setLoadingSettings] = useState(true);
   const [savingSettings, setSavingSettings] = useState(false);
   const [savingDeposit, setSavingDeposit] = useState(false);
@@ -33,6 +34,7 @@ export default function SettingsPage() {
         setFreePoolsEnabled(Boolean(res.settings.freePoolsEnabled));
         setDepositTreasuryAddress(res.settings.depositTreasuryAddress?.trim() || "");
         setUsdtBep20Address(res.settings.usdtBep20Address?.trim() || "");
+        setDepositMinUsd(res.settings.depositMinUsd ? String(res.settings.depositMinUsd) : "");
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Failed to load system settings");
       } finally {
@@ -81,11 +83,17 @@ export default function SettingsPage() {
       toast.error("USDT contract must be a valid address or left empty.");
       return;
     }
+    const minUsd = parseFloat(depositMinUsd);
+    if (depositMinUsd && (isNaN(minUsd) || minUsd <= 0)) {
+      toast.error("Minimum deposit must be a positive number.");
+      return;
+    }
     setSavingDeposit(true);
     try {
       await api.updateAdminSettings({
         depositTreasuryAddress: raw || null,
         usdtBep20Address: contractRaw || null,
+        depositMinUsd: depositMinUsd ? minUsd : null,
       });
       toast.success("USDT receive settings saved. Mobile app will show QR + address.");
     } catch (err) {
@@ -219,6 +227,20 @@ export default function SettingsPage() {
                 />
                 <p className="text-xs text-[#666]">
                   Override only if your USDT token address differs from the default for your chain.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label>Minimum deposit amount (USD)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  placeholder="10"
+                  value={depositMinUsd}
+                  onChange={(e) => setDepositMinUsd(e.target.value)}
+                  className="bg-[#0D0D0D] border-[#2A2A2A] font-mono text-xs"
+                />
+                <p className="text-xs text-[#666]">
+                  Minimum USDT deposit amount. Leave empty to use server default (10 USD).
                 </p>
               </div>
               <Button
