@@ -225,29 +225,13 @@ export default function DepositReceiveScreen({ navigation }: any) {
             <Text style={styles.instructions}>
               1. Send USDT from the same wallet linked to this CLB account.{'\n'}
               2. Wait for enough block confirmations.{'\n'}
-              3. Paste the transaction hash below and tap Confirm.
+              3. Your deposit will be automatically detected and credited to your account.
             </Text>
 
-            <TextInput
-              style={styles.input}
-              placeholder="0x… transaction hash"
-              placeholderTextColor={Colors.textMuted}
-              value={txHash}
-              onChangeText={setTxHash}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-            <TouchableOpacity
-              style={[styles.confirmBtn, submitting && { opacity: 0.6 }]}
-              onPress={onConfirmTx}
-              disabled={submitting}
-            >
-              {submitting ? (
-                <ActivityIndicator color="#000" />
-              ) : (
-                <Text style={styles.confirmBtnText}>Confirm transaction</Text>
-              )}
-            </TouchableOpacity>
+            <View style={styles.autoDetectBadge}>
+              <Ionicons name="flash" size={16} color="#00C853" />
+              <Text style={styles.autoDetectText}>Auto-detection enabled</Text>
+            </View>
 
             {depositHistory.length > 0 && (
               <View style={styles.historySection}>
@@ -448,6 +432,22 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
   },
   statusConfirmed: {
+    color: '#00C853',
+  },
+  autoDetectBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(0,200,83,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(0,200,83,0.35)',
+    borderRadius: Radius.md,
+    padding: Spacing.md,
+    marginTop: Spacing.md,
+  },
+  autoDetectText: {
+    fontSize: 13,
+    fontWeight: '600',
     color: '#00C853',
   },
 });
