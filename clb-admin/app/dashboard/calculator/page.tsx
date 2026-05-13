@@ -48,11 +48,13 @@ const PLATFORM_FEE_SHARE = 0.15;
 
 const COINGECKO_IDS: Record<string, string> = { BTC: "bitcoin", ETH: "ethereum", BNB: "binancecoin" };
 const SAVED_PRICES_KEY = "calc_saved_entry_prices";
+const SAVED_TARGETS_KEY = "calc_saved_phase_targets";
 
-function loadSavedPrices(): Record<string, number> {
+function loadSaved<T>(key: string, fallback: T): T {
   try {
-    return JSON.parse(localStorage.getItem(SAVED_PRICES_KEY) || "{}");
-  } catch { return {}; }
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch { return fallback; }
 }
 
 export default function CalculatorPage() {
@@ -61,10 +63,17 @@ export default function CalculatorPage() {
   const [customEntryPrice, setCustomEntryPrice] = useState("");
   const [livePrice, setLivePrice] = useState<number | null>(null);
   const [savedPrices, setSavedPrices] = useState<Record<string, number>>({});
+  const [savedTargets, setSavedTargets] = useState<Record<string, { p1: number; p2: number }>>({});
   const [saveFlash, setSaveFlash] = useState(false);
   const [usingLive, setUsingLive] = useState(true);
+  const [phase1Input, setPhase1Input] = useState("");
+  const [phase2Input, setPhase2Input] = useState("");
+  const [targetSaveFlash, setTargetSaveFlash] = useState<1 | 2 | null>(null);
 
-  useEffect(() => { setSavedPrices(loadSavedPrices()); }, []);
+  useEffect(() => {
+    setSavedPrices(loadSaved(SAVED_PRICES_KEY, {}));
+    setSavedTargets(loadSaved(SAVED_TARGETS_KEY, {}));
+  }, []);
 
   const asset = assets.find((a) => a.symbol === selectedAsset)!;
 
@@ -122,30 +131,61 @@ export default function CalculatorPage() {
     setCustomEntryPrice(String(livePrice || asset.defaultPrice));
   };
 
+  useEffect(() => {
+    const saved = savedTargets[selectedAsset];
+    setPhase1Input(String(saved?.p1 || asset.phase1Target));
+    setPhase2Input(String(saved?.p2 || asset.phase2Target));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedAsset]);
+
+  const handleSaveTarget = (phase: 1 | 2) => {
+    const val = parseFloat(phase === 1 ? phase1Input : phase2Input);
+    if (!val || val <= 0) return;
+    const prev = savedTargets[selectedAsset] || { p1: asset.phase1Target, p2: asset.phase2Target };
+    const updated = { ...savedTargets, [selectedAsset]: phase === 1 ? { ...prev, p1: val } : { ...prev, p2: val } };
+    setSavedTargets(updated);
+    localStorage.setItem(SAVED_TARGETS_KEY, JSON.stringify(updated));
+    setTargetSaveFlash(phase);
+    setTimeout(() => setTargetSaveFlash(null), 1500);
+  };
+
+  const handleResetTarget = (phase: 1 | 2) => {
+    const prev = savedTargets[selectedAsset];
+    if (!prev) return;
+    const defaults = { p1: asset.phase1Target, p2: asset.phase2Target };
+    const updated = { ...savedTargets, [selectedAsset]: phase === 1 ? { ...prev, p1: defaults.p1 } : { ...prev, p2: defaults.p2 } };
+    if (updated[selectedAsset].p1 === defaults.p1 && updated[selectedAsset].p2 === defaults.p2) {
+      delete updated[selectedAsset];
+    }
+    setSavedTargets(updated);
+    localStorage.setItem(SAVED_TARGETS_KEY, JSON.stringify(updated));
+    if (phase === 1) setPhase1Input(String(defaults.p1));
+    else setPhase2Input(String(defaults.p2));
+  };
+
   const entryPrice = customEntryPrice ? parseFloat(customEntryPrice) || asset.defaultPrice : asset.defaultPrice;
+  const phase1Target = parseFloat(phase1Input) || asset.phase1Target;
+  const phase2Target = parseFloat(phase2Input) || asset.phase2Target;
 
   const results = useMemo(() => {
     const poolInvestment = selectedTier;
     const leveragedPosition = poolInvestment * LEVERAGE;
     const cryptoAmount = leveragedPosition / entryPrice;
 
-    // Phase 1: Partial Liquidation (30-50%)
     const phase1LiqPercent = 0.40;
-    const phase1Value = cryptoAmount * asset.phase1Target * phase1LiqPercent;
+    const phase1Value = cryptoAmount * phase1Target * phase1LiqPercent;
     const phase1GrossProfit = phase1Value - (poolInvestment * phase1LiqPercent);
     const phase1UserProfit = phase1GrossProfit * USER_PROFIT_SHARE;
     const phase1PlatformFee = phase1GrossProfit * PLATFORM_FEE_SHARE;
     const phase1ROI = ((phase1UserProfit) / poolInvestment) * 100;
 
-    // Phase 2: Full Liquidation
     const phase2RemainingPercent = 1 - phase1LiqPercent;
-    const phase2Value = cryptoAmount * asset.phase2Target * phase2RemainingPercent;
+    const phase2Value = cryptoAmount * phase2Target * phase2RemainingPercent;
     const phase2GrossProfit = phase2Value - (poolInvestment * phase2RemainingPercent);
     const phase2UserProfit = phase2GrossProfit * USER_PROFIT_SHARE;
     const phase2PlatformFee = phase2GrossProfit * PLATFORM_FEE_SHARE;
     const phase2ROI = ((phase2UserProfit) / poolInvestment) * 100;
 
-    // Combined
     const totalUserProfit = phase1UserProfit + phase2UserProfit;
     const totalPlatformFee = phase1PlatformFee + phase2PlatformFee;
     const totalROI = ((totalUserProfit) / poolInvestment) * 100;
@@ -155,13 +195,13 @@ export default function CalculatorPage() {
       leveragedPosition,
       cryptoAmount,
       entryPrice,
-      phase1: { value: phase1Value, grossProfit: phase1GrossProfit, userProfit: phase1UserProfit, platformFee: phase1PlatformFee, roi: phase1ROI, target: asset.phase1Target, liqPercent: phase1LiqPercent },
-      phase2: { value: phase2Value, grossProfit: phase2GrossProfit, userProfit: phase2UserProfit, platformFee: phase2PlatformFee, roi: phase2ROI, target: asset.phase2Target, liqPercent: phase2RemainingPercent },
+      phase1: { value: phase1Value, grossProfit: phase1GrossProfit, userProfit: phase1UserProfit, platformFee: phase1PlatformFee, roi: phase1ROI, target: phase1Target, liqPercent: phase1LiqPercent },
+      phase2: { value: phase2Value, grossProfit: phase2GrossProfit, userProfit: phase2UserProfit, platformFee: phase2PlatformFee, roi: phase2ROI, target: phase2Target, liqPercent: phase2RemainingPercent },
       totalUserProfit,
       totalPlatformFee,
       totalROI,
     };
-  }, [selectedTier, entryPrice, asset]);
+  }, [selectedTier, entryPrice, phase1Target, phase2Target]);
 
   const fmt = (n: number) => n < 1 ? n.toFixed(6) : n.toLocaleString(undefined, { maximumFractionDigits: 2 });
 
@@ -315,9 +355,33 @@ export default function CalculatorPage() {
           </CardHeader>
           <CardContent className="space-y-2">
             <div className="p-3 rounded-lg bg-[#0D0D0D] text-center mb-3">
-              <p className="text-xs text-[#888]">Target Price</p>
-              <p className="text-2xl font-bold text-[#F0B90B]">${results.phase1.target.toLocaleString()}</p>
-              <p className="text-xs text-[#666]">{((results.phase1.target / results.entryPrice - 1) * 100).toFixed(0)}% price increase needed</p>
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-xs text-[#888]">Target Price</p>
+                <div className="flex gap-1">
+                  <button onClick={() => handleSaveTarget(1)} title="Save target" className={`p-1 rounded transition-all ${targetSaveFlash === 1 ? "bg-[#00C853]/20 text-[#00C853]" : "text-[#888] hover:text-[#F0B90B] hover:bg-[#F0B90B]/10"}`}>
+                    <Save className="w-3 h-3" />
+                  </button>
+                  {savedTargets[selectedAsset]?.p1 && savedTargets[selectedAsset].p1 !== asset.phase1Target && (
+                    <button onClick={() => handleResetTarget(1)} title="Reset to default" className="p-1 rounded text-[#888] hover:text-[#F0B90B] hover:bg-[#F0B90B]/10 transition-all">
+                      <RotateCcw className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center justify-center gap-1">
+                <span className="text-2xl font-bold text-[#F0B90B]">$</span>
+                <input
+                  type="number"
+                  value={phase1Input}
+                  onChange={(e) => setPhase1Input(e.target.value)}
+                  className="w-32 text-center text-2xl font-bold text-[#F0B90B] bg-transparent border-b border-[#F0B90B]/30 focus:border-[#F0B90B] outline-none font-mono"
+                />
+              </div>
+              <p className="text-xs text-[#666] mt-1">{((results.phase1.target / results.entryPrice - 1) * 100).toFixed(0)}% price increase needed</p>
+              {savedTargets[selectedAsset]?.p1 && savedTargets[selectedAsset].p1 !== asset.phase1Target && (
+                <p className="text-[10px] text-[#F0B90B] mt-0.5">Custom (default: ${asset.phase1Target.toLocaleString()})</p>
+              )}
+              {targetSaveFlash === 1 && <p className="text-[10px] text-[#00C853]">Target saved!</p>}
             </div>
             {[
               { label: "Liquidation Value", value: `$${fmt(results.phase1.value)}`, color: "text-white" },
@@ -347,9 +411,33 @@ export default function CalculatorPage() {
           </CardHeader>
           <CardContent className="space-y-2">
             <div className="p-3 rounded-lg bg-[#0D0D0D] text-center mb-3">
-              <p className="text-xs text-[#888]">Target Price</p>
-              <p className="text-2xl font-bold text-[#3B82F6]">${results.phase2.target.toLocaleString()}</p>
-              <p className="text-xs text-[#666]">{((results.phase2.target / results.entryPrice - 1) * 100).toFixed(0)}% price increase needed</p>
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-xs text-[#888]">Target Price</p>
+                <div className="flex gap-1">
+                  <button onClick={() => handleSaveTarget(2)} title="Save target" className={`p-1 rounded transition-all ${targetSaveFlash === 2 ? "bg-[#00C853]/20 text-[#00C853]" : "text-[#888] hover:text-[#3B82F6] hover:bg-[#3B82F6]/10"}`}>
+                    <Save className="w-3 h-3" />
+                  </button>
+                  {savedTargets[selectedAsset]?.p2 && savedTargets[selectedAsset].p2 !== asset.phase2Target && (
+                    <button onClick={() => handleResetTarget(2)} title="Reset to default" className="p-1 rounded text-[#888] hover:text-[#3B82F6] hover:bg-[#3B82F6]/10 transition-all">
+                      <RotateCcw className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center justify-center gap-1">
+                <span className="text-2xl font-bold text-[#3B82F6]">$</span>
+                <input
+                  type="number"
+                  value={phase2Input}
+                  onChange={(e) => setPhase2Input(e.target.value)}
+                  className="w-32 text-center text-2xl font-bold text-[#3B82F6] bg-transparent border-b border-[#3B82F6]/30 focus:border-[#3B82F6] outline-none font-mono"
+                />
+              </div>
+              <p className="text-xs text-[#666] mt-1">{((results.phase2.target / results.entryPrice - 1) * 100).toFixed(0)}% price increase needed</p>
+              {savedTargets[selectedAsset]?.p2 && savedTargets[selectedAsset].p2 !== asset.phase2Target && (
+                <p className="text-[10px] text-[#3B82F6] mt-0.5">Custom (default: ${asset.phase2Target.toLocaleString()})</p>
+              )}
+              {targetSaveFlash === 2 && <p className="text-[10px] text-[#00C853]">Target saved!</p>}
             </div>
             {[
               { label: "Liquidation Value", value: `$${fmt(results.phase2.value)}`, color: "text-white" },

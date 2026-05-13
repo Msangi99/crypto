@@ -934,24 +934,63 @@ export default async function adminRoutes(fastify: FastifyInstance) {
         return reply.status(400).send({ success: false, error: `Invalid status. Must be one of: ${validStatuses.join(', ')}` });
       }
 
-      const data: Record<string, unknown> = {};
-      if (status) {
-        data.status = status;
-        if (status === 'CONFIRMED' && !deposit.confirmedAt) {
-          data.confirmedAt = new Date();
-        }
-      }
-      if (txHash !== undefined) {
-        data.txHash = txHash;
-      }
+      const isNewConfirmation =
+        status === 'CONFIRMED' && deposit.status !== 'CONFIRMED';
 
-      const updated = await prisma.deposit.update({
-        where: { id },
-        data,
-        include: {
-          user: { select: { id: true, walletAddress: true, username: true, email: true } },
-          pool: { select: { id: true, name: true, tokenSymbol: true } },
-        },
+      const depositAmount = deposit.amountUsd ?? deposit.amount;
+
+      const updated = await prisma.$transaction(async (tx) => {
+        const data: Record<string, unknown> = {};
+        if (status) {
+          data.status = status;
+          if (status === 'CONFIRMED' && !deposit.confirmedAt) {
+            data.confirmedAt = new Date();
+          }
+        }
+        if (txHash !== undefined) {
+          data.txHash = txHash;
+        }
+
+        const dep = await tx.deposit.update({
+          where: { id },
+          data,
+          include: {
+            user: { select: { id: true, walletAddress: true, username: true, email: true } },
+            pool: { select: { id: true, name: true, tokenSymbol: true } },
+          },
+        });
+
+        if (isNewConfirmation) {
+          await tx.user.update({
+            where: { id: deposit.userId },
+            data: { depositCreditUsd: { increment: depositAmount } },
+          });
+
+          await tx.transaction.create({
+            data: {
+              userId: deposit.userId,
+              type: 'DEPOSIT',
+              amount: depositAmount,
+              txHash: txHash ?? deposit.txHash ?? undefined,
+              status: 'SUCCESS',
+              fromAddress: deposit.fromAddress ?? undefined,
+              toAddress: deposit.toAddress ?? undefined,
+              metadata: { kind: 'ADMIN_MANUAL_CONFIRM' },
+            },
+          });
+
+          await tx.notification.create({
+            data: {
+              userId: deposit.userId,
+              type: 'DEPOSIT',
+              title: 'Deposit Confirmed',
+              body: `Your deposit of $${Number(depositAmount).toFixed(2)} has been confirmed.`,
+              data: { depositId: id, amount: Number(depositAmount) },
+            },
+          });
+        }
+
+        return dep;
       });
 
       return {
