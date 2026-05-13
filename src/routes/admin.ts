@@ -1003,7 +1003,7 @@ export default async function adminRoutes(fastify: FastifyInstance) {
 
   // ─── GET /admin/withdrawals — list all withdrawal requests ─────
   fastify.get<{
-    Querystring: { page?: string; limit?: string; status?: string };
+    Querystring: { page?: string; limit?: string; status?: string; token?: string };
   }>(
     '/withdrawals',
     { preHandler: [adminMiddleware] },
@@ -1011,10 +1011,12 @@ export default async function adminRoutes(fastify: FastifyInstance) {
       const page = parseInt(request.query.page || '1', 10);
       const limit = parseInt(request.query.limit || '20', 10);
       const status = request.query.status;
+      const token = request.query.token;
       const skip = (page - 1) * limit;
 
       const where: Record<string, unknown> = {};
       if (status) where.status = status;
+      if (token) where.token = token;
 
       const [withdrawals, total] = await Promise.all([
         prisma.withdrawal.findMany({

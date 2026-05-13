@@ -366,9 +366,10 @@ export const api = {
     }),
 
   // Admin — withdrawals
-  getAdminWithdrawals: (page = 1, limit = 20, status?: string) => {
+  getAdminWithdrawals: (page = 1, limit = 20, status?: string, token?: string) => {
     let url = `/api/admin/withdrawals?page=${page}&limit=${limit}`;
     if (status) url += `&status=${status}`;
+    if (token) url += `&token=${token}`;
     return request<{
       success: boolean;
       withdrawals: Array<{

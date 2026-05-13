@@ -1,4 +1,4 @@
-export const PLATFORM_TOKENS = ['CLB'] as const;
+export const PLATFORM_TOKENS = ['CLB', 'USDT'] as const;
 
 export type PlatformToken = (typeof PLATFORM_TOKENS)[number];
 
@@ -13,6 +13,7 @@ export const MIN_WITHDRAW: Record<string, number> = {
   BTC: 0,
   ETH: 0,
   BNB: 0,
+  USDT: 0,
 };
 
 export const WITHDRAW_FEES: Record<string, number> = {
@@ -20,4 +21,5 @@ export const WITHDRAW_FEES: Record<string, number> = {
   BTC: 0.00005,
   ETH: 0.0005,
   BNB: 0.001,
+  USDT: 1,
 };
