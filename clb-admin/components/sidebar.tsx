@@ -62,7 +62,7 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        "min-h-screen bg-[#111111] border-r border-[#2A2A2A] flex flex-col transition-all duration-300 ease-in-out relative",
+        "h-full bg-[#111111] border-r border-[#2A2A2A] flex flex-col transition-all duration-300 ease-in-out relative",
         collapsed ? "w-[68px]" : "w-64"
       )}
     >
@@ -93,7 +93,7 @@ export function Sidebar() {
       </div>
 
       {/* Nav */}
-      <nav className={cn("flex-1 space-y-1 transition-all duration-300", collapsed ? "p-2" : "p-4")}>
+      <nav className={cn("flex-1 overflow-y-auto space-y-1 transition-all duration-300 scrollbar-thin scrollbar-thumb-[#2A2A2A] scrollbar-track-transparent", collapsed ? "p-2" : "p-4")}>
         {navItems.map((item) => {
           const isActive = pathname === item.href;
           return (

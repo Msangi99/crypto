@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import {
   Calculator, DollarSign, TrendingUp, Percent, Target,
-  Bitcoin, ArrowRight, Zap, Info,
+  Bitcoin, ArrowRight, Zap, Info, Save, RotateCcw,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -32,36 +32,97 @@ const assets = [
     phase1Target: 15000,
     phase2Target: 20000,
   },
+  {
+    symbol: "BNB",
+    name: "BNB",
+    color: "#F0B90B",
+    defaultPrice: 650,
+    phase1Target: 2500,
+    phase2Target: 5000,
+  },
 ];
 
 const LEVERAGE = 60;
 const USER_PROFIT_SHARE = 0.85;
 const PLATFORM_FEE_SHARE = 0.15;
 
+const COINGECKO_IDS: Record<string, string> = { BTC: "bitcoin", ETH: "ethereum", BNB: "binancecoin" };
+const SAVED_PRICES_KEY = "calc_saved_entry_prices";
+
+function loadSavedPrices(): Record<string, number> {
+  try {
+    return JSON.parse(localStorage.getItem(SAVED_PRICES_KEY) || "{}");
+  } catch { return {}; }
+}
+
 export default function CalculatorPage() {
   const [selectedTier, setSelectedTier] = useState(100);
   const [selectedAsset, setSelectedAsset] = useState("BTC");
   const [customEntryPrice, setCustomEntryPrice] = useState("");
   const [livePrice, setLivePrice] = useState<number | null>(null);
+  const [savedPrices, setSavedPrices] = useState<Record<string, number>>({});
+  const [saveFlash, setSaveFlash] = useState(false);
+  const [usingLive, setUsingLive] = useState(true);
+
+  useEffect(() => { setSavedPrices(loadSavedPrices()); }, []);
 
   const asset = assets.find((a) => a.symbol === selectedAsset)!;
 
   const fetchLivePrice = useCallback(async () => {
     try {
-      const id = selectedAsset === "BTC" ? "bitcoin" : "ethereum";
+      const id = COINGECKO_IDS[selectedAsset] || "bitcoin";
       const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${id}&vs_currencies=usd`);
       const data = await res.json();
-      setLivePrice(data[id]?.usd || null);
+      const price = data[id]?.usd || null;
+      setLivePrice(price);
+      if (usingLive && price) setCustomEntryPrice(String(price));
     } catch {
       // keep default
     }
-  }, [selectedAsset]);
+  }, [selectedAsset, usingLive]);
 
   useEffect(() => {
     fetchLivePrice();
+    const interval = setInterval(fetchLivePrice, 30000);
+    return () => clearInterval(interval);
   }, [fetchLivePrice]);
 
-  const entryPrice = customEntryPrice ? parseFloat(customEntryPrice) : (livePrice || asset.defaultPrice);
+  useEffect(() => {
+    const saved = savedPrices[selectedAsset];
+    if (saved) {
+      setCustomEntryPrice(String(saved));
+      setUsingLive(false);
+    } else if (livePrice) {
+      setCustomEntryPrice(String(livePrice));
+      setUsingLive(true);
+    } else {
+      setCustomEntryPrice(String(asset.defaultPrice));
+      setUsingLive(true);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedAsset]);
+
+  const handleSavePrice = () => {
+    const price = parseFloat(customEntryPrice);
+    if (!price || price <= 0) return;
+    const updated = { ...savedPrices, [selectedAsset]: price };
+    setSavedPrices(updated);
+    localStorage.setItem(SAVED_PRICES_KEY, JSON.stringify(updated));
+    setUsingLive(false);
+    setSaveFlash(true);
+    setTimeout(() => setSaveFlash(false), 1500);
+  };
+
+  const handleResetToLive = () => {
+    const updated = { ...savedPrices };
+    delete updated[selectedAsset];
+    setSavedPrices(updated);
+    localStorage.setItem(SAVED_PRICES_KEY, JSON.stringify(updated));
+    setUsingLive(true);
+    setCustomEntryPrice(String(livePrice || asset.defaultPrice));
+  };
+
+  const entryPrice = customEntryPrice ? parseFloat(customEntryPrice) || asset.defaultPrice : asset.defaultPrice;
 
   const results = useMemo(() => {
     const poolInvestment = selectedTier;
@@ -148,11 +209,11 @@ export default function CalculatorPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 gap-2 mb-3">
+            <div className="grid grid-cols-3 gap-2 mb-3">
               {assets.map((a) => (
                 <button
                   key={a.symbol}
-                  onClick={() => { setSelectedAsset(a.symbol); setCustomEntryPrice(""); }}
+                  onClick={() => setSelectedAsset(a.symbol)}
                   className={`p-3 rounded-lg border text-center transition-all ${
                     selectedAsset === a.symbol
                       ? `border-[${a.color}] bg-[${a.color}]/10`
@@ -166,14 +227,50 @@ export default function CalculatorPage() {
               ))}
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs text-[#888]">Entry Price (USD) — {livePrice ? "live" : "default"}</label>
+              <div className="flex items-center justify-between">
+                <label className="text-xs text-[#888]">
+                  Entry Price (USD) —{" "}
+                  <span className={usingLive ? "text-[#00C853]" : "text-[#F0B90B]"}>
+                    {usingLive ? "live" : "saved"}
+                  </span>
+                </label>
+                <div className="flex gap-1">
+                  <button
+                    onClick={handleSavePrice}
+                    title="Save this price"
+                    className={`p-1 rounded transition-all ${saveFlash ? "bg-[#00C853]/20 text-[#00C853]" : "text-[#888] hover:text-[#F0B90B] hover:bg-[#F0B90B]/10"}`}
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                  </button>
+                  {savedPrices[selectedAsset] && (
+                    <button
+                      onClick={handleResetToLive}
+                      title="Reset to live price"
+                      className="p-1 rounded text-[#888] hover:text-[#00C853] hover:bg-[#00C853]/10 transition-all"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
               <input
                 type="number"
-                value={customEntryPrice || (livePrice || asset.defaultPrice)}
-                onChange={(e) => setCustomEntryPrice(e.target.value)}
+                value={customEntryPrice}
+                onChange={(e) => { setCustomEntryPrice(e.target.value); setUsingLive(false); }}
                 className="w-full h-9 rounded-md border border-[#2A2A2A] bg-[#0D0D0D] px-3 text-sm text-white font-mono focus:outline-none focus:ring-1 focus:ring-[#F0B90B]"
               />
-              {livePrice && <p className="text-[10px] text-[#00C853]">Live: ${livePrice.toLocaleString()}</p>}
+              {livePrice && (
+                <p className="text-[10px] text-[#00C853] flex items-center gap-1">
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#00C853] animate-pulse" />
+                  Live: ${livePrice.toLocaleString()}
+                  {!usingLive && (
+                    <button onClick={handleResetToLive} className="ml-1 underline hover:text-white transition-colors">
+                      use live
+                    </button>
+                  )}
+                </p>
+              )}
+              {saveFlash && <p className="text-[10px] text-[#00C853]">Price saved!</p>}
             </div>
           </CardContent>
         </Card>

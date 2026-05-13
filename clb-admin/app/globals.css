@@ -104,3 +104,18 @@
     @apply font-sans;
   }
 }
+
+/* Sidebar scrollbar */
+nav::-webkit-scrollbar {
+  width: 4px;
+}
+nav::-webkit-scrollbar-track {
+  background: transparent;
+}
+nav::-webkit-scrollbar-thumb {
+  background: #2A2A2A;
+  border-radius: 4px;
+}
+nav::-webkit-scrollbar-thumb:hover {
+  background: #3A3A3A;
+}
