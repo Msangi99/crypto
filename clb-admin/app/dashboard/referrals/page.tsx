@@ -21,11 +21,11 @@ interface ReferralStats {
 }
 
 const referralLevels = [
-  { level: 1, percentage: 20, color: "#F0B90B", description: "Direct referrer gets 20% of pool fee", example: "User A refers User B → A gets 20%" },
-  { level: 2, percentage: 8, color: "#00C853", description: "Second-level upline gets 8% of pool fee", example: "B refers C → A gets 8% from C" },
-  { level: 3, percentage: 5, color: "#3B82F6", description: "Third-level upline gets 5% of pool fee", example: "C refers D → A gets 5% from D" },
-  { level: 4, percentage: 3, color: "#A855F7", description: "Fourth-level upline gets 3% of pool fee", example: "D refers E → A gets 3% from E" },
-  { level: 5, percentage: 1, color: "#FF3D57", description: "Fifth-level upline gets 1% of pool fee", example: "E refers F → A gets 1% from F" },
+  { level: 1, percentage: 20, color: "#F0B90B", description: "Direct referrer gets 20% (pool claim / mining purchase triggers)", example: "User A refers User B → A gets 20%" },
+  { level: 2, percentage: 7, color: "#00C853", description: "Second-level upline gets 7%", example: "B refers C → A gets 7% from C" },
+  { level: 3, percentage: 4, color: "#3B82F6", description: "Third-level upline gets 4%", example: "C refers D → A gets 4% from D" },
+  { level: 4, percentage: 0, color: "#A855F7", description: "No commission at level 4 for these triggers", example: "—" },
+  { level: 5, percentage: 0, color: "#FF3D57", description: "No commission at level 5 for these triggers", example: "—" },
 ];
 
 const totalCommission = referralLevels.reduce((sum, l) => sum + l.percentage, 0);
@@ -45,10 +45,10 @@ const mockTree = {
       level: 1,
       earned: 25.0,
       children: [
-        { address: "0xb5c6...d7e8", label: "User B (L2 — 8%)", level: 2, earned: 4.0, children: [
-          { address: "0xc9d0...e1f2", label: "User C (L3 — 5%)", level: 3, earned: 1.25, children: [] },
+        { address: "0xb5c6...d7e8", label: "User B (L2 — 7%)", level: 2, earned: 4.0, children: [
+          { address: "0xc9d0...e1f2", label: "User C (L3 — 4%)", level: 3, earned: 1.25, children: [] },
         ]},
-        { address: "0xf3a4...b5c6", label: "User D (L2 — 8%)", level: 2, earned: 2.0, children: [] },
+        { address: "0xf3a4...b5c6", label: "User D (L2 — 7%)", level: 2, earned: 2.0, children: [] },
       ],
     },
     {
@@ -57,10 +57,10 @@ const mockTree = {
       level: 1,
       earned: 50.0,
       children: [
-        { address: "0x1234...5678", label: "User F (L2 — 8%)", level: 2, earned: 8.0, children: [
-          { address: "0x9abc...def0", label: "User G (L3 — 5%)", level: 3, earned: 2.5, children: [
-            { address: "0x2345...6789", label: "User H (L4 — 3%)", level: 4, earned: 0.75, children: [
-              { address: "0x3456...789a", label: "User I (L5 — 1%)", level: 5, earned: 0.1, children: [] },
+        { address: "0x1234...5678", label: "User F (L2 — 7%)", level: 2, earned: 8.0, children: [
+          { address: "0x9abc...def0", label: "User G (L3 — 4%)", level: 3, earned: 2.5, children: [
+            { address: "0x2345...6789", label: "User H (L4 — 0%)", level: 4, earned: 0.75, children: [
+              { address: "0x3456...789a", label: "User I (L5 — 0%)", level: 5, earned: 0.1, children: [] },
             ]},
           ]},
         ]},
@@ -141,7 +141,7 @@ export default function ReferralsPage() {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-white tracking-tight">5-Level Referral System</h2>
-        <p className="text-sm text-[#888] mt-1">Multi-level commission structure — {totalCommission}% of pool fee distributed across 5 levels</p>
+        <p className="text-sm text-[#888] mt-1">Multi-level commission — L1–L3: 20%, 7%, 4% (pool claim / mining buy); L4–L5: 0%. Total paying tiers: {totalCommission}%.</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -156,7 +156,7 @@ export default function ReferralsPage() {
         <CardHeader className="pb-3">
           <CardTitle className="text-white text-base flex items-center gap-2">
             <GitBranch className="w-4 h-4 text-[#F0B90B]" />
-            Commission Structure (per Pool Fee)
+            Commission Structure (pool claim / mining purchase)
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -182,8 +182,8 @@ export default function ReferralsPage() {
             ))}
           </div>
           <div className="mt-3 p-3 rounded-lg bg-[#F0B90B]/5 border border-[#F0B90B]/20 flex items-center justify-between">
-            <span className="text-xs text-[#F0B90B] font-medium">Total Commission from 5 Levels</span>
-            <span className="text-sm font-bold text-[#F0B90B]">{totalCommission}% of Pool Fee</span>
+            <span className="text-xs text-[#F0B90B] font-medium">Total (L1–L5, paying levels only)</span>
+            <span className="text-sm font-bold text-[#F0B90B]">{totalCommission}%</span>
           </div>
         </CardContent>
       </Card>

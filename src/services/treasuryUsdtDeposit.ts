@@ -35,7 +35,7 @@ export async function verifyUsdtTreasuryDeposit(
   userWalletAddress: string,
   treasury: string,
   usdtContract: string,
-  minDepositUsd: number
+  _minDepositUsd: number
 ): Promise<{ amount: Prisma.Decimal; decimals: number }> {
   const receipt = await provider.getTransactionReceipt(txHash);
   if (!receipt || receipt.status !== 1) {
@@ -74,10 +74,6 @@ export async function verifyUsdtTreasuryDeposit(
 
   const human = ethers.formatUnits(total, decimals);
   const amount = new Prisma.Decimal(human);
-
-  if (amount.toNumber() < minDepositUsd) {
-    throw new Error(`Deposit amount $${amount.toFixed(2)} is below minimum $${minDepositUsd.toFixed(2)}`);
-  }
 
   const currentBlock = await provider.getBlockNumber();
   const confirms = receipt.blockNumber != null ? currentBlock - receipt.blockNumber + 1 : 0;

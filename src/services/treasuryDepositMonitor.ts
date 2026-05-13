@@ -27,7 +27,7 @@ export async function monitorTreasuryDeposits(): Promise<{
   const result = { processed: 0, errors: [] as string[] };
 
   try {
-    const { treasury, usdt, minDepositUsd } = await resolveTreasuryUsdtConfig();
+    const { treasury, usdt } = await resolveTreasuryUsdtConfig();
     
     if (!treasury || !usdt) {
       return result; // Treasury not configured, skip monitoring
@@ -114,12 +114,6 @@ export async function monitorTreasuryDeposits(): Promise<{
         // Convert amount to USD
         const human = ethers.formatUnits(value, decimals);
         const amount = new Prisma.Decimal(human);
-
-        // Check minimum deposit
-        if (amount.toNumber() < minDepositUsd) {
-          console.log(`[TreasuryMonitor] Amount $${amount.toFixed(2)} below minimum $${minDepositUsd}`);
-          continue;
-        }
 
         // Credit the user
         await prisma.$transaction(async (tx) => {

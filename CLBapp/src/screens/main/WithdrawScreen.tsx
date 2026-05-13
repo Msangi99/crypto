@@ -14,6 +14,10 @@ const TOKENS = [
   { symbol: 'CLB', name: 'CLB Token', color: '#3B82F6', icon: 'cube' },
 ];
 
+function isValidBscAddress(address: string): boolean {
+  return /^0x[a-fA-F0-9]{40}$/.test(address.trim());
+}
+
 export default function WithdrawScreen({ navigation }: any) {
   const [selectedToken, setSelectedToken] = useState(TOKENS[0]);
   const [amount, setAmount] = useState('');
@@ -42,17 +46,14 @@ export default function WithdrawScreen({ navigation }: any) {
   const available = balance ? balance.available : 0;
   const feeInfo = fees.find((f: any) => f.token === selectedToken.symbol);
   const fee = feeInfo?.fee || 0;
-  const minAmount = feeInfo?.minAmount || 0;
   const numAmount = parseFloat(amount || '0');
   const netAmount = Math.max(0, numAmount - fee);
 
   const handleWithdraw = async () => {
+    const destination = toAddress.trim();
+
     if (!amount || numAmount <= 0) {
       Alert.alert('Error', 'Enter a valid amount');
-      return;
-    }
-    if (numAmount < minAmount) {
-      Alert.alert('Minimum', `Minimum withdrawal is ${minAmount} ${selectedToken.symbol}`);
       return;
     }
     if (numAmount <= fee) {
@@ -63,8 +64,8 @@ export default function WithdrawScreen({ navigation }: any) {
       Alert.alert('Insufficient Balance', `Available: ${available.toFixed(2)} ${selectedToken.symbol}`);
       return;
     }
-    if (!toAddress || toAddress.length < 10) {
-      Alert.alert('Error', 'Enter a valid wallet address');
+    if (!isValidBscAddress(destination)) {
+      Alert.alert('Error', 'Enter a valid BNB Smart Chain wallet address');
       return;
     }
 
@@ -73,7 +74,7 @@ export default function WithdrawScreen({ navigation }: any) {
       const res = await withdrawalsAPI.request({
         token: selectedToken.symbol,
         amount: numAmount,
-        toAddress,
+        toAddress: destination,
       });
       const explorerUrl = res.data?.withdrawal?.explorerUrl;
       Alert.alert(
@@ -141,9 +142,6 @@ export default function WithdrawScreen({ navigation }: any) {
               value={amount}
               onChangeText={setAmount}
             />
-            <TouchableOpacity onPress={() => setAmount(Math.max(0, available).toFixed(2))}>
-              <Text style={styles.maxBtn}>MAX</Text>
-            </TouchableOpacity>
           </View>
           <Text style={styles.balanceHint}>
             Available: {available.toFixed(2)} {selectedToken.symbol}
@@ -241,11 +239,6 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: Colors.border,
   },
   amountInput: { flex: 1, fontSize: 24, fontWeight: '800', color: Colors.textPrimary },
-  maxBtn: {
-    fontSize: 12, fontWeight: '800', color: Colors.primary,
-    paddingHorizontal: 12, paddingVertical: 6,
-    backgroundColor: 'rgba(240,185,11,0.1)', borderRadius: 99,
-  },
   balanceHint: {
     fontSize: 12, fontWeight: '600', color: Colors.textMuted,
     paddingHorizontal: Spacing.lg, marginTop: 4,

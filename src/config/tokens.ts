@@ -9,10 +9,10 @@ export function isPlatformToken(token: string): token is PlatformToken {
 }
 
 export const MIN_WITHDRAW: Record<string, number> = {
-  CLB: 10,
-  BTC: 0.0001,
-  ETH: 0.001,
-  BNB: 0.01,
+  CLB: 0,
+  BTC: 0,
+  ETH: 0,
+  BNB: 0,
 };
 
 export const WITHDRAW_FEES: Record<string, number> = {

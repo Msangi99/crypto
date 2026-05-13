@@ -2,7 +2,7 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import prisma from '../config/db';
 import { authMiddleware } from '../middleware/auth';
 import { tokenService } from '../services/tokenService';
-import { MIN_WITHDRAW, WITHDRAW_FEES, isPlatformToken } from '../config/tokens';
+import { WITHDRAW_FEES, isPlatformToken } from '../config/tokens';
 
 function isValidEvmAddress(address: string): boolean {
   return /^0x[a-fA-F0-9]{40}$/.test(address);
@@ -27,17 +27,9 @@ export default async function withdrawalRoutes(fastify: FastifyInstance) {
       }
 
       const isPlatform = isPlatformToken(token);
-      const min = MIN_WITHDRAW[token] || 0;
       const fee = WITHDRAW_FEES[token] || 0;
       const netAmount = amount - fee;
       const normalizedToAddress = toAddress.toLowerCase();
-
-      if (amount < min) {
-        return reply.status(400).send({
-          success: false,
-          error: `Minimum withdrawal for ${token} is ${min}`,
-        });
-      }
 
       if (netAmount <= 0) {
         return reply.status(400).send({
@@ -312,7 +304,7 @@ export default async function withdrawalRoutes(fastify: FastifyInstance) {
       fees: Object.entries(WITHDRAW_FEES).map(([token, fee]) => ({
         token,
         fee,
-        minAmount: MIN_WITHDRAW[token] || 0,
+        minAmount: 0,
       })),
     };
   });

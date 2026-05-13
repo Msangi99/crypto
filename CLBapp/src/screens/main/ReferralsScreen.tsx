@@ -11,7 +11,7 @@ import { userAPI } from '../../services/api';
 import { useAuthStore } from '../../store/authStore';
 
 const LEVEL_COLORS = [Colors.gold, Colors.primary, Colors.success, Colors.warning, Colors.textSecondary];
-const LEVEL_RATES = ['20%', '8%', '5%', '3%', '1%'];
+const LEVEL_RATES = ['20%', '7%', '4%', '0%', '0%'];
 
 /** Referral credits are recorded in USD / USDT terms (not BNB). */
 function formatReferralUsdt(n: number) {

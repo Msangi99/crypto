@@ -23,7 +23,6 @@ export default function DepositReceiveScreen({ navigation }: any) {
   const [loading, setLoading] = useState(true);
   const [config, setConfig] = useState<any>(null);
   const [configError, setConfigError] = useState<string | null>(null);
-  const minDeposit = config?.minDepositUsd || 10;
   const [depositHistory, setDepositHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [txHash, setTxHash] = useState('');
@@ -186,9 +185,6 @@ export default function DepositReceiveScreen({ navigation }: any) {
             <Text style={styles.hint}>
               Send only USDT on BSC to the address shown on the next screen. Other assets may be lost.
             </Text>
-            <Text style={styles.hint}>
-              Minimum deposit: ${minDeposit} USD.
-            </Text>
           </>
         )}
 
@@ -232,6 +228,31 @@ export default function DepositReceiveScreen({ navigation }: any) {
               <Ionicons name="flash" size={16} color="#00C853" />
               <Text style={styles.autoDetectText}>Auto-detection enabled</Text>
             </View>
+
+            <Text style={styles.sectionLabel}>Manual fallback (optional)</Text>
+            <Text style={styles.instructions}>
+              If your deposit is not credited after confirmations, paste your BSC transaction hash below to verify and credit it now.
+            </Text>
+            <TextInput
+              value={txHash}
+              onChangeText={setTxHash}
+              placeholder="0x... transaction hash"
+              placeholderTextColor={Colors.textMuted}
+              style={styles.input}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            <TouchableOpacity
+              style={[styles.confirmBtn, submitting && { opacity: 0.7 }]}
+              onPress={onConfirmTx}
+              disabled={submitting}
+            >
+              {submitting ? (
+                <ActivityIndicator color="#000" size="small" />
+              ) : (
+                <Text style={styles.confirmBtnText}>Confirm transaction</Text>
+              )}
+            </TouchableOpacity>
 
             {depositHistory.length > 0 && (
               <View style={styles.historySection}>
