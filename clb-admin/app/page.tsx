@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { DM_Sans, Syne } from "next/font/google";
 import { Shield, Loader2 } from "lucide-react";
@@ -400,12 +399,6 @@ function CryptoLanding() {
             <a href="#security">Security</a>
           </li>
         </ul>
-        <Link
-          href="/login"
-          className="text-sm font-medium text-[var(--muted)] hover:text-[var(--ink)]"
-        >
-          Login
-        </Link>
       </nav>
 
       <section className="hero" id="top">
@@ -831,9 +824,6 @@ function CryptoLanding() {
           <ul className="footer-links">
             <li>
               <a href={APP_URL}>App</a>
-            </li>
-            <li>
-              <Link href="/login">Login</Link>
             </li>
             <li>
               <a href="#">Docs</a>
