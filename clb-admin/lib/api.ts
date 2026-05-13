@@ -365,6 +365,38 @@ export const api = {
       method: "DELETE",
     }),
 
+  // Admin — withdrawals
+  getAdminWithdrawals: (page = 1, limit = 20, status?: string) => {
+    let url = `/api/admin/withdrawals?page=${page}&limit=${limit}`;
+    if (status) url += `&status=${status}`;
+    return request<{
+      success: boolean;
+      withdrawals: Array<{
+        id: string;
+        token: string;
+        amount: number;
+        fee: number;
+        toAddress: string;
+        status: string;
+        txHash: string | null;
+        createdAt: string;
+        processedAt: string | null;
+        user: { id: string; walletAddress: string; username: string | null; email: string | null };
+      }>;
+      total: number;
+    }>(url);
+  },
+  approveWithdrawal: (id: string, txHash?: string) =>
+    request<{ success: boolean; message: string }>(`/api/admin/withdrawals/${id}/approve`, {
+      method: "PUT",
+      body: JSON.stringify({ txHash }),
+    }),
+  rejectWithdrawal: (id: string, reason?: string) =>
+    request<{ success: boolean; message: string }>(`/api/admin/withdrawals/${id}/reject`, {
+      method: "PUT",
+      body: JSON.stringify({ reason }),
+    }),
+
   // Transactions
   getTransactions: (page = 1, limit = 20) =>
     request<{

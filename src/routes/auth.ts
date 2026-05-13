@@ -265,10 +265,17 @@ export default async function authRoutes(fastify: FastifyInstance) {
         fastify.log.warn(`⚠️  DEV MODE: Skipping signature verification for ${normalized}`);
       }
 
+      // Auto-generate referral code if the user doesn't have one yet (legacy accounts)
+      const referralCode = user.referralCode ?? generateReferralCode();
+
       // Rotate nonce + increment tokenVersion (invalidates old tokens on other devices)
       const updatedUser = await prisma.user.update({
         where: { id: user.id },
-        data: { nonce: crypto.randomUUID(), tokenVersion: { increment: 1 } },
+        data: {
+          nonce: crypto.randomUUID(),
+          tokenVersion: { increment: 1 },
+          ...(!user.referralCode ? { referralCode } : {}),
+        },
       });
 
       // Generate JWT (include tokenVersion for single-device enforcement)
@@ -285,6 +292,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
           walletAddress: updatedUser.walletAddress,
           username: updatedUser.username,
           role: updatedUser.role,
+          referralCode,
           pinSetup: !!user.pinHash,
           biometricEnabled: user.biometricEnabled ?? false,
           createdAt: user.createdAt,
@@ -892,6 +900,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
           secretKeyIv: true,
           role: true,
           nonce: true,
+          referralCode: true,
           createdAt: true,
           pinHash: true,
           pinSalt: true,
@@ -930,10 +939,16 @@ export default async function authRoutes(fastify: FastifyInstance) {
         }
       }
 
+      const referralCode = matchedUser.referralCode ?? generateReferralCode();
+
       // Increment tokenVersion (invalidates old tokens)
       const updatedUser = await prisma.user.update({
         where: { id: matchedUser.id },
-        data: { tokenVersion: { increment: 1 }, nonce: crypto.randomUUID() },
+        data: {
+          tokenVersion: { increment: 1 },
+          nonce: crypto.randomUUID(),
+          ...(!matchedUser.referralCode ? { referralCode } : {}),
+        },
       });
 
       const token = fastify.jwt.sign(
@@ -955,6 +970,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
           id: matchedUser.id,
           walletAddress: matchedUser.walletAddress,
           role: matchedUser.role,
+          referralCode,
           pinSetup: hasPin,
           biometricEnabled: matchedUser.biometricEnabled ?? false,
           createdAt: matchedUser.createdAt,
@@ -1014,6 +1030,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
           pinHash: true,
           pinSalt: true,
           role: true,
+          referralCode: true,
           biometricEnabled: true,
           createdAt: true,
         },
@@ -1084,9 +1101,15 @@ export default async function authRoutes(fastify: FastifyInstance) {
         }
       }
 
+      const referralCode = user.referralCode ?? generateReferralCode();
+
       const updatedUser = await prisma.user.update({
         where: { id: user.id },
-        data: { tokenVersion: { increment: 1 }, nonce: crypto.randomUUID() },
+        data: {
+          tokenVersion: { increment: 1 },
+          nonce: crypto.randomUUID(),
+          ...(!user.referralCode ? { referralCode } : {}),
+        },
       });
 
       const token = fastify.jwt.sign(
@@ -1108,6 +1131,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
           id: user.id,
           walletAddress: user.walletAddress,
           role: user.role,
+          referralCode,
           pinSetup: hasPin,
           biometricEnabled: user.biometricEnabled ?? false,
           createdAt: user.createdAt,

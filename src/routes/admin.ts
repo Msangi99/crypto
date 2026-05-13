@@ -1001,6 +1001,195 @@ export default async function adminRoutes(fastify: FastifyInstance) {
     }
   );
 
+  // ─── GET /admin/withdrawals — list all withdrawal requests ─────
+  fastify.get<{
+    Querystring: { page?: string; limit?: string; status?: string };
+  }>(
+    '/withdrawals',
+    { preHandler: [adminMiddleware] },
+    async (request) => {
+      const page = parseInt(request.query.page || '1', 10);
+      const limit = parseInt(request.query.limit || '20', 10);
+      const status = request.query.status;
+      const skip = (page - 1) * limit;
+
+      const where: Record<string, unknown> = {};
+      if (status) where.status = status;
+
+      const [withdrawals, total] = await Promise.all([
+        prisma.withdrawal.findMany({
+          where,
+          skip,
+          take: limit,
+          orderBy: { createdAt: 'desc' },
+          include: {
+            user: { select: { id: true, walletAddress: true, username: true, email: true } },
+          },
+        }),
+        prisma.withdrawal.count({ where }),
+      ]);
+
+      return {
+        success: true,
+        withdrawals: withdrawals.map((w) => ({
+          id: w.id,
+          token: w.token,
+          amount: Number(w.amount),
+          fee: Number(w.fee),
+          toAddress: w.toAddress,
+          status: w.status,
+          txHash: w.txHash,
+          createdAt: w.createdAt,
+          processedAt: w.processedAt,
+          user: w.user,
+        })),
+        total,
+        page,
+        limit,
+      };
+    }
+  );
+
+  // ─── PUT /admin/withdrawals/:id/approve — mark withdrawal as completed ─────
+  fastify.put<{
+    Params: { id: string };
+    Body: { txHash?: string };
+  }>(
+    '/withdrawals/:id/approve',
+    { preHandler: [adminMiddleware] },
+    async (request, reply) => {
+      const { id } = request.params;
+      const { txHash } = request.body || {};
+
+      const withdrawal = await prisma.withdrawal.findUnique({
+        where: { id },
+        include: { user: true },
+      });
+
+      if (!withdrawal) {
+        return reply.status(404).send({ success: false, error: 'Withdrawal not found' });
+      }
+      if (withdrawal.status !== 'PENDING') {
+        return reply.status(400).send({
+          success: false,
+          error: `Cannot approve a withdrawal with status "${withdrawal.status}"`,
+        });
+      }
+
+      const netAmount = Number(withdrawal.amount) - Number(withdrawal.fee);
+      const { isPlatformToken } = await import('../config/tokens');
+      const isPlatform = isPlatformToken(withdrawal.token);
+
+      await prisma.$transaction(async (tx) => {
+        await tx.withdrawal.update({
+          where: { id },
+          data: {
+            status: 'COMPLETED',
+            txHash: txHash || null,
+            processedAt: new Date(),
+          },
+        });
+
+        if (isPlatform) {
+          await tx.tokenBalance.update({
+            where: { userId_token: { userId: withdrawal.userId, token: withdrawal.token } },
+            data: {
+              balance: { decrement: Number(withdrawal.amount) },
+              locked: { decrement: Number(withdrawal.amount) },
+            },
+          });
+        }
+
+        await tx.transaction.updateMany({
+          where: {
+            userId: withdrawal.userId,
+            type: 'WITHDRAWAL',
+            status: 'PENDING',
+            metadata: { path: ['withdrawalId'], equals: id },
+          },
+          data: { status: 'SUCCESS', txHash: txHash || null },
+        });
+
+        await tx.notification.create({
+          data: {
+            userId: withdrawal.userId,
+            type: 'WITHDRAWAL',
+            title: `${withdrawal.token} Withdrawal Approved`,
+            body: `Your withdrawal of ${netAmount.toFixed(6)} ${withdrawal.token} to ${withdrawal.toAddress.slice(0, 8)}...${withdrawal.toAddress.slice(-4)} has been processed.`,
+            data: { withdrawalId: id, token: withdrawal.token, amount: Number(withdrawal.amount), netAmount, txHash },
+          },
+        });
+      });
+
+      return { success: true, message: 'Withdrawal approved and marked as completed' };
+    }
+  );
+
+  // ─── PUT /admin/withdrawals/:id/reject — reject a withdrawal request ─────
+  fastify.put<{
+    Params: { id: string };
+    Body: { reason?: string };
+  }>(
+    '/withdrawals/:id/reject',
+    { preHandler: [adminMiddleware] },
+    async (request, reply) => {
+      const { id } = request.params;
+      const { reason } = request.body || {};
+
+      const withdrawal = await prisma.withdrawal.findUnique({ where: { id } });
+      if (!withdrawal) {
+        return reply.status(404).send({ success: false, error: 'Withdrawal not found' });
+      }
+      if (withdrawal.status !== 'PENDING') {
+        return reply.status(400).send({
+          success: false,
+          error: `Cannot reject a withdrawal with status "${withdrawal.status}"`,
+        });
+      }
+
+      const { isPlatformToken } = await import('../config/tokens');
+      const isPlatform = isPlatformToken(withdrawal.token);
+
+      await prisma.$transaction(async (tx) => {
+        await tx.withdrawal.update({
+          where: { id },
+          data: { status: 'REJECTED', processedAt: new Date() },
+        });
+
+        if (isPlatform) {
+          await tx.tokenBalance.update({
+            where: { userId_token: { userId: withdrawal.userId, token: withdrawal.token } },
+            data: { locked: { decrement: Number(withdrawal.amount) } },
+          });
+        }
+
+        await tx.transaction.updateMany({
+          where: {
+            userId: withdrawal.userId,
+            type: 'WITHDRAWAL',
+            status: 'PENDING',
+            metadata: { path: ['withdrawalId'], equals: id },
+          },
+          data: { status: 'FAILED' },
+        });
+
+        await tx.notification.create({
+          data: {
+            userId: withdrawal.userId,
+            type: 'WITHDRAWAL',
+            title: 'Withdrawal Rejected',
+            body: reason
+              ? `Your withdrawal request was rejected: ${reason}`
+              : 'Your withdrawal request was rejected. Please contact support for more information.',
+            data: { withdrawalId: id, reason: reason || null },
+          },
+        });
+      });
+
+      return { success: true, message: 'Withdrawal rejected' };
+    }
+  );
+
   // ─── GET /admin/pool-packages — all pools for package editor ─────
   fastify.get(
     '/pool-packages',

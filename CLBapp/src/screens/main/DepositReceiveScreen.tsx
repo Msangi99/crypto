@@ -25,6 +25,7 @@ export default function DepositReceiveScreen({ navigation }: any) {
   const [configError, setConfigError] = useState<string | null>(null);
   const [depositHistory, setDepositHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [depositAmount, setDepositAmount] = useState('');
   const [txHash, setTxHash] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -153,6 +154,44 @@ export default function DepositReceiveScreen({ navigation }: any) {
             ) : null}
             <TouchableOpacity
               style={[styles.assetCard, (!config?.treasuryConfigured || configError) && styles.assetCardDisabled]}
+              activeOpacity={0.85}
+              disabled
+            >
+              <View style={styles.assetIcon}>
+                <Ionicons name="logo-usd" size={22} color={Colors.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.assetName}>USDT (BEP-20)</Text>
+                <Text style={styles.assetSub}>{config?.networkLabel ?? 'BSC'} · {config?.assetStandard ?? 'BEP-20'}</Text>
+              </View>
+              <Ionicons name="checkmark-circle" size={20} color={Colors.primary} />
+            </TouchableOpacity>
+
+            <Text style={styles.amountLabel}>Amount to deposit (USDT)</Text>
+            <View style={styles.amountInputWrap}>
+              <Text style={styles.amountCurrency}>$</Text>
+              <TextInput
+                value={depositAmount}
+                onChangeText={(t) => setDepositAmount(t.replace(/[^0-9.]/g, ''))}
+                placeholder="0.00"
+                placeholderTextColor={Colors.textMuted}
+                style={styles.amountInput}
+                keyboardType="decimal-pad"
+                autoCorrect={false}
+              />
+              <Text style={styles.amountUnit}>USDT</Text>
+            </View>
+            {config?.minDeposit != null && (
+              <Text style={styles.amountHint}>
+                Minimum deposit: ${Number(config.minDeposit).toFixed(2)} USDT
+              </Text>
+            )}
+
+            <TouchableOpacity
+              style={[
+                styles.continueBtn,
+                (!depositAmount || Number(depositAmount) <= 0 || !config?.treasuryConfigured || configError) && styles.continueBtnDisabled,
+              ]}
               onPress={() => {
                 if (configError) {
                   Alert.alert(
@@ -169,19 +208,23 @@ export default function DepositReceiveScreen({ navigation }: any) {
                   );
                   return;
                 }
+                const amt = Number(depositAmount);
+                if (!amt || amt <= 0) {
+                  Alert.alert('Enter amount', 'Please enter a valid deposit amount.');
+                  return;
+                }
+                if (config?.minDeposit != null && amt < Number(config.minDeposit)) {
+                  Alert.alert('Below minimum', `Minimum deposit is $${Number(config.minDeposit).toFixed(2)} USDT.`);
+                  return;
+                }
                 setStep('receive');
               }}
               activeOpacity={0.85}
             >
-              <View style={styles.assetIcon}>
-                <Ionicons name="logo-usd" size={22} color={Colors.primary} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.assetName}>USDT (BEP-20)</Text>
-                <Text style={styles.assetSub}>{config?.networkLabel ?? 'BSC'} · {config?.assetStandard ?? 'BEP-20'}</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color={Colors.textMuted} />
+              <Text style={styles.continueBtnText}>Continue</Text>
+              <Ionicons name="arrow-forward" size={18} color="#000" />
             </TouchableOpacity>
+
             <Text style={styles.hint}>
               Send only USDT on BSC to the address shown on the next screen. Other assets may be lost.
             </Text>
@@ -190,6 +233,11 @@ export default function DepositReceiveScreen({ navigation }: any) {
 
         {step === 'receive' && treasury && (
           <>
+            <View style={styles.depositAmountBanner}>
+              <Text style={styles.depositAmountBannerLabel}>Amount to deposit</Text>
+              <Text style={styles.depositAmountBannerValue}>${Number(depositAmount).toFixed(2)} USDT</Text>
+            </View>
+
             <Text style={styles.sectionLabel}>Your receive address</Text>
             <View style={styles.qrWrap}>
               {qrUri ? (
@@ -219,19 +267,22 @@ export default function DepositReceiveScreen({ navigation }: any) {
 
             <Text style={styles.sectionLabel}>After payment</Text>
             <Text style={styles.instructions}>
-              1. Send USDT from the same wallet linked to this CLB account.{'\n'}
-              2. Wait for enough block confirmations.{'\n'}
-              3. Your deposit will be automatically detected and credited to your account.
+              1. Send USDT (BEP-20) from the same wallet linked to this CLB account — exchange “internal” sends often
+              won’t match your linked address.{'\n'}
+              2. Wait for enough block confirmations (see above).{'\n'}
+              3. The server can auto-credit deposits when treasury monitoring runs (e.g. scheduled job). If nothing
+              updates, use “Confirm transaction” below after the tx is successful on BscScan.
             </Text>
 
             <View style={styles.autoDetectBadge}>
               <Ionicons name="flash" size={16} color="#00C853" />
-              <Text style={styles.autoDetectText}>Auto-detection enabled</Text>
+              <Text style={styles.autoDetectText}>Server auto-credit when monitoring runs</Text>
             </View>
 
-            <Text style={styles.sectionLabel}>Manual fallback (optional)</Text>
+            <Text style={styles.sectionLabel}>Confirm with hash</Text>
             <Text style={styles.instructions}>
-              If your deposit is not credited after confirmations, paste your BSC transaction hash below to verify and credit it now.
+              After the transfer is confirmed on BSC, paste the transaction hash here. The app checks that USDT moved
+              from your linked wallet to the treasury address on the same network as the API.
             </Text>
             <TextInput
               value={txHash}
@@ -324,6 +375,83 @@ const styles = StyleSheet.create({
   assetName: { fontSize: 16, fontWeight: '800', color: Colors.textPrimary },
   assetSub: { fontSize: 12, color: Colors.textMuted, marginTop: 2 },
   hint: { fontSize: 12, color: Colors.textMuted, marginTop: Spacing.md, lineHeight: 18 },
+  amountLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.textSecondary,
+    marginTop: Spacing.lg,
+    marginBottom: Spacing.sm,
+  },
+  amountInputWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.bgCard,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: Spacing.md,
+  },
+  amountCurrency: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: Colors.textMuted,
+    marginRight: 4,
+  },
+  amountInput: {
+    flex: 1,
+    fontSize: 22,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+    paddingVertical: 14,
+  },
+  amountUnit: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.textMuted,
+    marginLeft: 8,
+  },
+  amountHint: {
+    fontSize: 12,
+    color: Colors.textMuted,
+    marginTop: 6,
+  },
+  continueBtn: {
+    marginTop: Spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: Colors.primary,
+    paddingVertical: 16,
+    borderRadius: Radius.md,
+  },
+  continueBtnDisabled: {
+    opacity: 0.5,
+  },
+  continueBtnText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#000',
+  },
+  depositAmountBanner: {
+    backgroundColor: 'rgba(240,185,11,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(240,185,11,0.35)',
+    borderRadius: Radius.md,
+    padding: Spacing.md,
+    alignItems: 'center',
+    marginBottom: Spacing.sm,
+  },
+  depositAmountBannerLabel: {
+    fontSize: 12,
+    color: Colors.textMuted,
+    marginBottom: 4,
+  },
+  depositAmountBannerValue: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: Colors.primary,
+  },
   errorBanner: {
     flexDirection: 'row',
     alignItems: 'flex-start',

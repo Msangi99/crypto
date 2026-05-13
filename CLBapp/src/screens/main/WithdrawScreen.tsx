@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput, Alert,
-  ScrollView, KeyboardAvoidingView, Platform, Image, Linking,
+  ScrollView, KeyboardAvoidingView, Platform, Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -71,21 +71,15 @@ export default function WithdrawScreen({ navigation }: any) {
 
     setLoading(true);
     try {
-      const res = await withdrawalsAPI.request({
+      await withdrawalsAPI.request({
         token: selectedToken.symbol,
         amount: numAmount,
         toAddress: destination,
       });
-      const explorerUrl = res.data?.withdrawal?.explorerUrl;
       Alert.alert(
-        'Withdrawal Sent',
-        `${netAmount.toFixed(2)} ${selectedToken.symbol} was sent directly on BNB Smart Chain.`,
-        [
-          ...(explorerUrl
-            ? [{ text: 'View on BscScan', onPress: () => Linking.openURL(explorerUrl) }]
-            : []),
-          { text: 'OK', onPress: () => navigation.goBack() },
-        ]
+        'Withdrawal Requested',
+        `Your withdrawal of ${netAmount.toFixed(2)} ${selectedToken.symbol} has been submitted and is awaiting admin approval. You will be notified once it is processed.`,
+        [{ text: 'OK', onPress: () => navigation.goBack() }],
       );
     } catch (err: any) {
       Alert.alert('Error', err?.response?.data?.error || 'Withdrawal failed');

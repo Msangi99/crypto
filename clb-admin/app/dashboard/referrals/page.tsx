@@ -24,8 +24,8 @@ const referralLevels = [
   { level: 1, percentage: 20, color: "#F0B90B", description: "Direct referrer gets 20% (pool claim / mining purchase triggers)", example: "User A refers User B → A gets 20%" },
   { level: 2, percentage: 7, color: "#00C853", description: "Second-level upline gets 7%", example: "B refers C → A gets 7% from C" },
   { level: 3, percentage: 4, color: "#3B82F6", description: "Third-level upline gets 4%", example: "C refers D → A gets 4% from D" },
-  { level: 4, percentage: 0, color: "#A855F7", description: "No commission at level 4 for these triggers", example: "—" },
-  { level: 5, percentage: 0, color: "#FF3D57", description: "No commission at level 5 for these triggers", example: "—" },
+  { level: 4, percentage: 3, color: "#A855F7", description: "Fourth-level upline gets 3%", example: "D refers E → A gets 3% from E" },
+  { level: 5, percentage: 1, color: "#FF3D57", description: "Fifth-level upline gets 1%", example: "E refers F → A gets 1% from F" },
 ];
 
 const totalCommission = referralLevels.reduce((sum, l) => sum + l.percentage, 0);
@@ -59,8 +59,8 @@ const mockTree = {
       children: [
         { address: "0x1234...5678", label: "User F (L2 — 7%)", level: 2, earned: 8.0, children: [
           { address: "0x9abc...def0", label: "User G (L3 — 4%)", level: 3, earned: 2.5, children: [
-            { address: "0x2345...6789", label: "User H (L4 — 0%)", level: 4, earned: 0.75, children: [
-              { address: "0x3456...789a", label: "User I (L5 — 0%)", level: 5, earned: 0.1, children: [] },
+            { address: "0x2345...6789", label: "User H (L4 — 3%)", level: 4, earned: 0.75, children: [
+              { address: "0x3456...789a", label: "User I (L5 — 1%)", level: 5, earned: 0.1, children: [] },
             ]},
           ]},
         ]},
@@ -141,7 +141,7 @@ export default function ReferralsPage() {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-white tracking-tight">5-Level Referral System</h2>
-        <p className="text-sm text-[#888] mt-1">Multi-level commission — L1–L3: 20%, 7%, 4% (pool claim / mining buy); L4–L5: 0%. Total paying tiers: {totalCommission}%.</p>
+        <p className="text-sm text-[#888] mt-1">Multi-level commission — L1: 20%, L2: 7%, L3: 4%, L4: 3%, L5: 1%. Total: {totalCommission}%.</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

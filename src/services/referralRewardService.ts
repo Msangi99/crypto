@@ -8,21 +8,21 @@ import prisma from '../config/db';
  *
  *  TRIGGER 1 — Referred user "Claims Pool"
  *    Reward type : claimedPoolCreditUsd  (Loan Amount)
- *    L1 → 20% | L2 → 7% | L3 → 4% | L4 → 0% | L5 → 0%
+ *    L1 → 20% | L2 → 7% | L3 → 4% | L4 → 3% | L5 → 1%
  *
  *  TRIGGER 2 — Referred user "Buys Mining Package"
  *    Reward type : depositCreditUsd  (Available Credit)
- *    L1 → 20% | L2 → 7% | L3 → 4% | L4 → 0% | L5 → 0%
+ *    L1 → 20% | L2 → 7% | L3 → 4% | L4 → 3% | L5 → 1%
  *
  *  TRIGGER 3 — Referred user "Claims Mined Tokens"
  *    Reward type : TokenBalance  (CLB Balance)
- *    L1 → 10% | L2 → 3.5% | L3 → 2% | L4 → 0% | L5 → 0%
+ *    L1 → 10% | L2 → 3.5% | L3 → 2% | L4 → 3% | L5 → 1%
  */
 
 // Rates indexed [L1, L2, L3, L4, L5]
-const POOL_CLAIM_RATES  = [0.20, 0.07, 0.04, 0, 0];
-const MINING_BUY_RATES  = [0.20, 0.07, 0.04, 0, 0];
-const TOKEN_CLAIM_RATES = [0.10, 0.035, 0.02, 0, 0];
+const POOL_CLAIM_RATES  = [0.20, 0.07, 0.04, 0.03, 0.01];
+const MINING_BUY_RATES  = [0.20, 0.07, 0.04, 0.03, 0.01];
+const TOKEN_CLAIM_RATES = [0.10, 0.035, 0.02, 0.03, 0.01];
 
 /**
  * Walk the referral chain upward from `userId` and return up to 5 ancestor ids

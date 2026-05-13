@@ -1,7 +1,6 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import prisma from '../config/db';
 import { authMiddleware } from '../middleware/auth';
-import { tokenService } from '../services/tokenService';
 import { WITHDRAW_FEES, isPlatformToken } from '../config/tokens';
 
 function isValidEvmAddress(address: string): boolean {
@@ -45,7 +44,6 @@ export default async function withdrawalRoutes(fastify: FastifyInstance) {
         });
       }
 
-      // Check balance for CLB tokens
       if (isPlatform) {
         const balance = await prisma.tokenBalance.findUnique({
           where: { userId_token: { userId, token } },
@@ -61,114 +59,11 @@ export default async function withdrawalRoutes(fastify: FastifyInstance) {
           });
         }
 
-        if (!tokenService.isConfigured(token)) {
-          const config = tokenService.getConfigStatus(token);
-          return reply.status(503).send({
-            success: false,
-            error: `On-chain ${token} withdrawals are not configured yet.`,
-            config,
-          });
-        }
-
-        const [withdrawal, txLog] = await prisma.$transaction([
-          prisma.tokenBalance.update({
-            where: { userId_token: { userId, token } },
-            data: { balance: { decrement: amount } },
-          }),
-          prisma.withdrawal.create({
-            data: {
-              userId,
-              token,
-              amount,
-              toAddress: normalizedToAddress,
-              fee,
-              status: 'PROCESSING',
-            },
-          }),
-          prisma.transaction.create({
-            data: {
-              userId,
-              type: 'WITHDRAWAL',
-              amount,
-              toAddress: normalizedToAddress,
-              status: 'PENDING',
-              metadata: { token, fee, netAmount, directOnChain: true },
-            },
-          }),
-        ]).then(([, createdWithdrawal, createdTx]) => [createdWithdrawal, createdTx] as const);
-
-        let txHash: string | undefined;
-        try {
-          const result = await tokenService.sendOnChain(token, normalizedToAddress, netAmount, { preferMint: true });
-          if (!result?.txHash) throw new Error(`On-chain ${token} withdrawal did not return a transaction hash`);
-          txHash = result.txHash;
-        } catch (err: any) {
-          await prisma.$transaction([
-            prisma.tokenBalance.update({
-              where: { userId_token: { userId, token } },
-              data: { balance: { increment: amount } },
-            }),
-            prisma.withdrawal.update({
-              where: { id: withdrawal.id },
-              data: { status: 'FAILED', processedAt: new Date() },
-            }),
-            prisma.transaction.update({
-              where: { id: txLog.id },
-              data: {
-                status: 'FAILED',
-                metadata: { token, fee, netAmount, directOnChain: true, error: err?.message || 'On-chain withdrawal failed' },
-              },
-            }),
-          ]);
-
-          return reply.status(502).send({
-            success: false,
-            error: 'On-chain withdrawal failed. Balance refunded.',
-            detail: err?.message,
-          });
-        }
-
-        const completedWithdrawal = await prisma.withdrawal.update({
-          where: { id: withdrawal.id },
-          data: { status: 'COMPLETED', txHash, processedAt: new Date() },
+        // Lock the balance so it can't be double-spent while PENDING
+        await prisma.tokenBalance.update({
+          where: { userId_token: { userId, token } },
+          data: { locked: { increment: amount } },
         });
-
-        await prisma.$transaction([
-          prisma.transaction.update({
-            where: { id: txLog.id },
-            data: {
-              txHash,
-              status: 'SUCCESS',
-              metadata: { withdrawalId: withdrawal.id, token, fee, netAmount, directOnChain: true },
-            },
-          }),
-          prisma.notification.create({
-            data: {
-              userId,
-              type: 'WITHDRAWAL',
-              title: `${token} sent to wallet`,
-              body: `${netAmount.toFixed(6)} ${token} was sent on BNB Smart Chain to ${toAddress.slice(0, 8)}...${toAddress.slice(-4)}.`,
-              data: { withdrawalId: withdrawal.id, token, amount, netAmount, txHash },
-            },
-          }),
-        ]);
-
-        return {
-          success: true,
-          withdrawal: {
-            id: completedWithdrawal.id,
-            token,
-            amount: Number(completedWithdrawal.amount),
-            fee: Number(completedWithdrawal.fee),
-            netAmount,
-            toAddress: completedWithdrawal.toAddress,
-            status: completedWithdrawal.status,
-            txHash,
-            explorerUrl: tokenService.getExplorerTxUrl(txHash),
-            createdAt: completedWithdrawal.createdAt,
-            processedAt: completedWithdrawal.processedAt,
-          },
-        };
       }
 
       const withdrawal = await prisma.withdrawal.create({
@@ -182,7 +77,6 @@ export default async function withdrawalRoutes(fastify: FastifyInstance) {
         },
       });
 
-      // Transaction log
       await prisma.transaction.create({
         data: {
           userId,
@@ -190,23 +84,23 @@ export default async function withdrawalRoutes(fastify: FastifyInstance) {
           amount,
           toAddress: normalizedToAddress,
           status: 'PENDING',
-          metadata: { withdrawalId: withdrawal.id, token, fee },
+          metadata: { withdrawalId: withdrawal.id, token, fee, netAmount },
         },
       });
 
-      // Notify
       await prisma.notification.create({
         data: {
           userId,
           type: 'WITHDRAWAL',
           title: 'Withdrawal Requested',
-          body: `Your withdrawal of ${amount} ${token} to ${toAddress.slice(0, 8)}...${toAddress.slice(-4)} is being processed.`,
-          data: { withdrawalId: withdrawal.id, token, amount },
+          body: `Your withdrawal of ${netAmount.toFixed(6)} ${token} to ${toAddress.slice(0, 8)}...${toAddress.slice(-4)} has been submitted and is awaiting admin approval.`,
+          data: { withdrawalId: withdrawal.id, token, amount, netAmount },
         },
       });
 
       return {
         success: true,
+        message: 'Withdrawal request submitted. Admin will review and process it manually.',
         withdrawal: {
           id: withdrawal.id,
           token,

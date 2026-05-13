@@ -16,8 +16,8 @@ const LIQUIDATION_TARGETS = {
   ETH: { phase1: 15_000, phase2: 20_000 },
 };
 
-// Referral commission rates by level L1–L5 (L4–L5 pay 0% for pool/mining triggers)
-const REFERRAL_RATES = [0.20, 0.07, 0.04, 0, 0];
+// Referral commission rates by level L1–L5
+const REFERRAL_RATES = [0.20, 0.07, 0.04, 0.03, 0.01];
 
 const REFERRAL_BASE_URL = 'https://cryptoloanboost.com/join?ref=';
 function buildReferralLink(code: string): string {

@@ -38,8 +38,19 @@ export async function verifyUsdtTreasuryDeposit(
   _minDepositUsd: number
 ): Promise<{ amount: Prisma.Decimal; decimals: number }> {
   const receipt = await provider.getTransactionReceipt(txHash);
-  if (!receipt || receipt.status !== 1) {
-    throw new Error('Transaction not found or failed');
+  if (!receipt) {
+    const tx = await provider.getTransaction(txHash);
+    if (tx) {
+      throw new Error(
+        'Transaction is still pending or has no receipt yet — wait for it to confirm on BSC, then try again'
+      );
+    }
+    throw new Error(
+      'Transaction not found on this BSC network — confirm the hash on BscScan for the same chain as the app (BSC mainnet vs testnet), and that you pasted the transaction hash (not the token contract)'
+    );
+  }
+  if (receipt.status !== 1) {
+    throw new Error('Transaction failed on-chain (reverted) — this hash cannot be credited');
   }
 
   const c = new ethers.Contract(usdtContract, ['function decimals() view returns (uint8)'], provider);

@@ -23,6 +23,7 @@ import {
   Ticket,
   Rocket,
   Cpu,
+  ArrowUpFromLine,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useSidebar } from "@/lib/sidebar-context";
@@ -36,6 +37,7 @@ const navItems = [
   { href: "/dashboard/pools", label: "Pools", icon: Waves },
   { href: "/dashboard/users", label: "Users", icon: Users },
   { href: "/dashboard/investments", label: "Investments", icon: TrendingUp },
+  { href: "/dashboard/withdrawals", label: "Withdrawals", icon: ArrowUpFromLine },
   { href: "/dashboard/payments", label: "Payments", icon: CreditCard },
   { href: "/dashboard/transactions", label: "Transactions", icon: ArrowLeftRight },
   { href: "/dashboard/referrals", label: "Referrals", icon: Users },
