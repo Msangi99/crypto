@@ -147,7 +147,7 @@ export default async function userDashboardRoutes(fastify: FastifyInstance) {
       ] = await Promise.all([
         prisma.user.findUnique({
           where: { id: userId },
-          select: { id: true, walletAddress: true, username: true, referralCode: true, referralEarningsUsd: true, createdAt: true },
+          select: { id: true, walletAddress: true, username: true, referralCode: true, createdAt: true },
         }),
         prisma.poolMember.findMany({
           where: { userId },
@@ -199,7 +199,12 @@ export default async function userDashboardRoutes(fastify: FastifyInstance) {
       // Unrealized P&L = current portfolio value - total loan (what was borrowed)
       const unrealizedPnl = portfolioValueUsd - totalLoanUsd;
 
-      const totalReferralEarnings = Number(user?.referralEarningsUsd || 0);
+      // Sum all REFERRAL_BONUS transactions (pool claim + mining buy + token claim)
+      const referralBonusTx = await prisma.transaction.aggregate({
+        where: { userId, type: 'REFERRAL_BONUS' },
+        _sum: { amount: true },
+      });
+      const totalReferralEarnings = Number(referralBonusTx._sum.amount || 0);
 
       return {
         success: true,
@@ -221,8 +226,8 @@ export default async function userDashboardRoutes(fastify: FastifyInstance) {
             totalPools: memberships.length,
             totalDeposits: deposits.length,
             referralCount,
-            referralEarnings: totalReferralEarnings,
-            referralEarningsUsd: totalReferralEarnings,
+            referralEarnings: parseFloat(totalReferralEarnings.toFixed(2)),
+            referralEarningsUsd: parseFloat(totalReferralEarnings.toFixed(2)),
           },
           prices: {
             BTC: prices.BTC,
@@ -459,7 +464,7 @@ export default async function userDashboardRoutes(fastify: FastifyInstance) {
         if (currentReferrerIds.length === 0) {
           tree.push({
             level: level + 1,
-            commissionRate: `${REFERRAL_RATES[level] * 100}%`,
+            commissionRate: `${Math.round(REFERRAL_RATES[level] * 100)}%`,
             members: [],
             totalMembers: 0,
             totalEarnings: 0,
@@ -488,7 +493,7 @@ export default async function userDashboardRoutes(fastify: FastifyInstance) {
 
         tree.push({
           level: level + 1,
-          commissionRate: `${REFERRAL_RATES[level] * 100}%`,
+          commissionRate: `${Math.round(REFERRAL_RATES[level] * 100)}%`,
           members,
           totalMembers: members.length,
           totalEarnings: parseFloat(totalEarnings.toFixed(6)),
@@ -499,13 +504,19 @@ export default async function userDashboardRoutes(fastify: FastifyInstance) {
       }
 
       const totalNetwork = tree.reduce((s, l) => s + l.totalMembers, 0);
-      const totalEarnings = tree.reduce((s, l) => s + l.totalEarnings, 0);
 
-      // Get user's referral code
-      const user = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { referralCode: true },
-      });
+      // Total earnings = sum of ALL referral bonus transactions (all triggers combined)
+      const [user, refBonusAgg] = await Promise.all([
+        prisma.user.findUnique({
+          where: { id: userId },
+          select: { referralCode: true },
+        }),
+        prisma.transaction.aggregate({
+          where: { userId, type: 'REFERRAL_BONUS' },
+          _sum: { amount: true },
+        }),
+      ]);
+      const totalEarnings = Number(refBonusAgg._sum.amount || 0);
 
       return {
         success: true,
@@ -527,12 +538,8 @@ export default async function userDashboardRoutes(fastify: FastifyInstance) {
     async (request: FastifyRequest) => {
       const userId = request.userId!;
 
-      // Fetch user balance, referral bonus transactions, and direct referral edges in parallel
-      const [userRecord, bonusTx, directReferrals] = await Promise.all([
-        prisma.user.findUnique({
-          where: { id: userId },
-          select: { referralEarningsUsd: true },
-        }),
+      // Fetch all referral bonus transactions and direct referral edges in parallel
+      const [bonusTx, directReferrals] = await Promise.all([
         prisma.transaction.findMany({
           where: { userId, type: 'REFERRAL_BONUS' },
           orderBy: { createdAt: 'desc' },
@@ -546,27 +553,40 @@ export default async function userDashboardRoutes(fastify: FastifyInstance) {
         }),
       ]);
 
-      // Bucket earnings by level using the `level` field stored in transaction metadata
+      // Bucket earnings by level and by trigger type
       const earningsByLevel: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+      const earningsByTrigger: Record<string, number> = {
+        POOL_CLAIM: 0,
+        MINING_PACKAGE_BUY: 0,
+        TOKEN_CLAIM: 0,
+      };
       for (const tx of bonusTx) {
         const meta = tx.metadata as Record<string, unknown> | null;
         const lvl = typeof meta?.level === 'number' && meta.level >= 1 && meta.level <= 5
           ? meta.level
-          : 1; // legacy rows without level default to L1
+          : 1;
         earningsByLevel[lvl] = (earningsByLevel[lvl] ?? 0) + Number(tx.amount);
+        const trigger = typeof meta?.trigger === 'string' ? meta.trigger : 'POOL_CLAIM';
+        earningsByTrigger[trigger] = (earningsByTrigger[trigger] ?? 0) + Number(tx.amount);
       }
 
-      const totalBonusReceived = Number(userRecord?.referralEarningsUsd || 0);
+      // Total = sum of ALL referral bonus transactions (pool claim + mining buy + token claim)
+      const totalBonusReceived = bonusTx.reduce((s, t) => s + Number(t.amount), 0);
 
       return {
         success: true,
         earnings: {
           totalBonusReceived: parseFloat(totalBonusReceived.toFixed(6)),
           referralEarningsUsd: parseFloat(totalBonusReceived.toFixed(6)),
+          earningsByTrigger: {
+            poolClaim: parseFloat(earningsByTrigger.POOL_CLAIM.toFixed(6)),
+            miningPackageBuy: parseFloat(earningsByTrigger.MINING_PACKAGE_BUY.toFixed(6)),
+            tokenClaim: parseFloat(earningsByTrigger.TOKEN_CLAIM.toFixed(6)),
+          },
           directReferrals: directReferrals.length,
           commissionRates: REFERRAL_RATES.map((rate, i) => ({
             level: i + 1,
-            rate: `${rate * 100}%`,
+            rate: `${Math.round(rate * 100)}%`,
             description: i === 0 ? 'Direct referrals' : `Level ${i + 1} network`,
             earned: parseFloat((earningsByLevel[i + 1] ?? 0).toFixed(6)),
           })),
@@ -866,7 +886,7 @@ export default async function userDashboardRoutes(fastify: FastifyInstance) {
           })),
           referralRates: REFERRAL_RATES.map((rate, i) => ({
             level: i + 1,
-            rate: `${rate * 100}%`,
+            rate: `${Math.round(rate * 100)}%`,
           })),
         },
       };

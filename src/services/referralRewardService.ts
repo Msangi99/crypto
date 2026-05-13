@@ -93,12 +93,12 @@ export async function onPoolClaimed(
         metadata: {
           trigger: 'POOL_CLAIM',
           level,
-          rate: `${rate * 100}%`,
+          rate: `${Math.round(rate * 100)}%`,
           referredUserId,
           loanCreditUsd,
           rewardUsd,
           rewardType: 'REFERRAL_EARNINGS',
-          description: `L${level} referral bonus: ${rate * 100}% of $${loanCreditUsd} pool credit → Referral Earnings`,
+          description: `L${level} referral bonus: ${Math.round(rate * 100)}% of $${loanCreditUsd} pool credit → Referral Earnings`,
         },
       },
     });
@@ -114,7 +114,7 @@ export async function onPoolClaimed(
     });
 
     console.log(
-      `[Referral] Pool claim L${level}: $${rewardUsd.toFixed(2)} (${rate * 100}%) → ${beneficiaryId.slice(0, 8)}`,
+      `[Referral] Pool claim L${level}: $${rewardUsd.toFixed(2)} (${Math.round(rate * 100)}%) → ${beneficiaryId.slice(0, 8)}`,
     );
   }
 }
@@ -165,12 +165,12 @@ export async function onMiningPackageBought(
         metadata: {
           trigger: 'MINING_PACKAGE_BUY',
           level,
-          rate: `${rate * 100}%`,
+          rate: `${Math.round(rate * 100)}%`,
           referredUserId,
           purchasePriceUsd,
           rewardUsd,
           rewardType: 'REFERRAL_EARNINGS',
-          description: `L${level} referral bonus: ${rate * 100}% of $${purchasePriceUsd} mining purchase → Referral Earnings`,
+          description: `L${level} referral bonus: ${Math.round(rate * 100)}% of $${purchasePriceUsd} mining purchase → Referral Earnings`,
         },
       },
     });
@@ -186,7 +186,7 @@ export async function onMiningPackageBought(
     });
 
     console.log(
-      `[Referral] Mining buy L${level}: $${rewardUsd.toFixed(2)} (${rate * 100}%) → ${beneficiaryId.slice(0, 8)}`,
+      `[Referral] Mining buy L${level}: $${rewardUsd.toFixed(2)} (${Math.round(rate * 100)}%) → ${beneficiaryId.slice(0, 8)}`,
     );
   }
 }
@@ -238,13 +238,13 @@ export async function onMinedTokensClaimed(
         metadata: {
           trigger: 'TOKEN_CLAIM',
           level,
-          rate: `${rate * 100}%`,
+          rate: `${Math.round(rate * 100)}%`,
           referredUserId,
           tokenSymbol,
           claimedAmount,
           rewardTokens,
           rewardType: 'REFERRAL_EARNINGS',
-          description: `L${level} referral bonus: ${rate * 100}% of ${claimedAmount} ${tokenSymbol} → Referral Earnings`,
+          description: `L${level} referral bonus: ${Math.round(rate * 100)}% of ${claimedAmount} ${tokenSymbol} → Referral Earnings`,
         },
       },
     });
@@ -260,7 +260,7 @@ export async function onMinedTokensClaimed(
     });
 
     console.log(
-      `[Referral] Token claim L${level}: ${rewardTokens.toFixed(4)} ${tokenSymbol} (${rate * 100}%) → ${beneficiaryId.slice(0, 8)}`,
+      `[Referral] Token claim L${level}: ${rewardTokens.toFixed(4)} ${tokenSymbol} (${Math.round(rate * 100)}%) → ${beneficiaryId.slice(0, 8)}`,
     );
   }
 }
