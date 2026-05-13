@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput, Alert,
-  ScrollView, KeyboardAvoidingView, Platform, Image,
+  ScrollView, KeyboardAvoidingView, Platform, Image, ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,6 +25,20 @@ export default function WithdrawScreen({ navigation }: any) {
   const [balances, setBalances] = useState<any[]>([]);
   const [fees, setFees] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [history, setHistory] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+
+  const loadHistory = useCallback(async () => {
+    setLoadingHistory(true);
+    try {
+      const res = await withdrawalsAPI.list(1, 50);
+      setHistory(res.data?.withdrawals || []);
+    } catch (err) {
+      console.log('History fetch error:', err);
+    } finally {
+      setLoadingHistory(false);
+    }
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -40,7 +54,8 @@ export default function WithdrawScreen({ navigation }: any) {
       }
     };
     fetchData();
-  }, []);
+    loadHistory();
+  }, [loadHistory]);
 
   const balance = balances.find((b) => b.token === selectedToken.symbol);
   const available = balance ? balance.available : 0;
@@ -76,10 +91,12 @@ export default function WithdrawScreen({ navigation }: any) {
         amount: numAmount,
         toAddress: destination,
       });
+      setAmount('');
+      setToAddress('');
+      loadHistory();
       Alert.alert(
         'Withdrawal Requested',
         `Your withdrawal of ${netAmount.toFixed(2)} ${selectedToken.symbol} has been submitted and is awaiting admin approval. You will be notified once it is processed.`,
-        [{ text: 'OK', onPress: () => navigation.goBack() }],
       );
     } catch (err: any) {
       Alert.alert('Error', err?.response?.data?.error || 'Withdrawal failed');
@@ -195,6 +212,57 @@ export default function WithdrawScreen({ navigation }: any) {
               </Text>
             </LinearGradient>
           </TouchableOpacity>
+
+          {/* Withdrawal History */}
+          <View style={styles.historySection}>
+            <Text style={styles.historyTitle}>Withdrawal History</Text>
+            {loadingHistory ? (
+              <ActivityIndicator color={Colors.primary} size="small" style={{ marginVertical: Spacing.md }} />
+            ) : history.length === 0 ? (
+              <Text style={styles.historyEmpty}>No withdrawal requests yet.</Text>
+            ) : (
+              history.map((w: any) => (
+                <View key={w.id} style={styles.historyItem}>
+                  <View style={{ flex: 1 }}>
+                    <View style={styles.historyRow}>
+                      <Text style={styles.historyAmount}>
+                        {Number(w.amount).toFixed(2)} {w.token}
+                      </Text>
+                      <View style={[
+                        styles.statusBadge,
+                        w.status === 'COMPLETED' && styles.statusCompleted,
+                        w.status === 'PENDING' && styles.statusPending,
+                        w.status === 'PROCESSING' && styles.statusProcessing,
+                        w.status === 'REJECTED' && styles.statusRejected,
+                        w.status === 'FAILED' && styles.statusRejected,
+                      ]}>
+                        <Text style={[
+                          styles.statusText,
+                          w.status === 'COMPLETED' && { color: '#00C853' },
+                          w.status === 'PENDING' && { color: '#F0B90B' },
+                          w.status === 'PROCESSING' && { color: '#3B82F6' },
+                          (w.status === 'REJECTED' || w.status === 'FAILED') && { color: '#FF4757' },
+                        ]}>
+                          {w.status}
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={styles.historyAddress} numberOfLines={1}>
+                      To: {w.toAddress}
+                    </Text>
+                    {w.txHash && (
+                      <Text style={styles.historyHash} numberOfLines={1}>
+                        Tx: {w.txHash}
+                      </Text>
+                    )}
+                    <Text style={styles.historyDate}>
+                      {new Date(w.createdAt).toLocaleDateString()} · {new Date(w.createdAt).toLocaleTimeString()}
+                    </Text>
+                  </View>
+                </View>
+              ))
+            )}
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
@@ -266,4 +334,53 @@ const styles = StyleSheet.create({
     borderRadius: Radius.lg,
   },
   submitText: { fontSize: 16, fontWeight: '900', color: '#000' },
+
+  historySection: {
+    marginTop: Spacing.xl,
+    marginHorizontal: Spacing.lg,
+    backgroundColor: Colors.bgCard,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  historyTitle: {
+    fontSize: 15, fontWeight: '800', color: Colors.textPrimary,
+    marginBottom: Spacing.sm,
+  },
+  historyEmpty: {
+    fontSize: 13, color: Colors.textMuted, textAlign: 'center',
+    paddingVertical: Spacing.lg,
+  },
+  historyItem: {
+    paddingVertical: Spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  historyRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+  },
+  historyAmount: {
+    fontSize: 15, fontWeight: '700', color: Colors.textPrimary,
+  },
+  historyAddress: {
+    fontSize: 11, color: Colors.textMuted, marginTop: 3,
+  },
+  historyHash: {
+    fontSize: 11, color: Colors.blue, marginTop: 2,
+  },
+  historyDate: {
+    fontSize: 11, color: Colors.textMuted, marginTop: 3,
+  },
+  statusBadge: {
+    paddingHorizontal: 8, paddingVertical: 3,
+    borderRadius: Radius.sm, backgroundColor: 'rgba(107,107,107,0.15)',
+  },
+  statusCompleted: { backgroundColor: 'rgba(0,200,83,0.12)' },
+  statusPending: { backgroundColor: 'rgba(240,185,11,0.12)' },
+  statusProcessing: { backgroundColor: 'rgba(59,130,246,0.12)' },
+  statusRejected: { backgroundColor: 'rgba(255,71,87,0.12)' },
+  statusText: {
+    fontSize: 11, fontWeight: '700', color: Colors.textMuted,
+  },
 });

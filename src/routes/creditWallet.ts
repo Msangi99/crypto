@@ -18,14 +18,31 @@ const schemas = {
     summary: 'In-app USD balances',
     description: 'Deposit credit, pool-claimed credit (loan balance), and swapped holdings (USD).',
   },
+  requestDeposit: {
+    tags: ['Credit Wallet'],
+    summary: 'Create a pending deposit request',
+    description:
+      'Creates a PENDING deposit record with the requested amount and chain. Admin sees it immediately in the Deposit Requests page.',
+    body: {
+      type: 'object',
+      properties: {
+        amount: { type: 'number', description: 'Deposit amount in USDT' },
+        chain: { type: 'string', description: 'Network chain (e.g. BSC)' },
+      },
+      required: ['amount'],
+    },
+  },
   confirmDeposit: {
     tags: ['Credit Wallet'],
     summary: 'Confirm BEP-20 USDT treasury deposit',
     description:
-      'Verifies on-chain USDT Transfer from the authenticated user wallet to the admin treasury, then credits deposit balance.',
+      'Attaches a txHash to an existing PENDING deposit and verifies on-chain. If no depositId is provided, creates one.',
     body: {
       type: 'object',
-      properties: { txHash: { type: 'string' } },
+      properties: {
+        txHash: { type: 'string' },
+        depositId: { type: 'string', description: 'Optional ID of the pending deposit request to confirm' },
+      },
       required: ['txHash'],
     },
   },
@@ -109,15 +126,80 @@ export default async function creditWalletRoutes(fastify: FastifyInstance) {
     }
   );
 
-  fastify.post<{ Body: { txHash: string } }>(
+  // ─── POST /request-deposit — create a PENDING deposit request ─────
+  fastify.post<{ Body: { amount: number; chain?: string } }>(
+    '/request-deposit',
+    { schema: schemas.requestDeposit, preHandler: [authMiddleware] },
+    async (request: FastifyRequest<{ Body: { amount: number; chain?: string } }>, reply: FastifyReply) => {
+      const amt = Number(request.body?.amount);
+      if (!Number.isFinite(amt) || amt <= 0) {
+        return reply.status(400).send({ success: false, error: 'Amount must be a positive number' });
+      }
+
+      const chain = (request.body?.chain || 'BSC').trim().toUpperCase();
+
+      const { treasury, minDepositUsd } = await resolveTreasuryUsdtConfig();
+      if (!treasury) {
+        return reply.status(503).send({
+          success: false,
+          error: 'Treasury address not configured',
+        });
+      }
+
+      if (minDepositUsd && amt < minDepositUsd) {
+        return reply.status(400).send({
+          success: false,
+          error: `Minimum deposit is $${minDepositUsd} USDT`,
+        });
+      }
+
+      const user = await prisma.user.findUnique({ where: { id: request.userId! } });
+      if (!user?.walletAddress) {
+        return reply.status(400).send({ success: false, error: 'User wallet not set' });
+      }
+
+      const deposit = await prisma.deposit.create({
+        data: {
+          userId: user.id,
+          poolId: null,
+          amount: new Prisma.Decimal(amt),
+          amountUsd: new Prisma.Decimal(amt),
+          chain,
+          fromAddress: user.walletAddress,
+          toAddress: treasury,
+          txHash: null,
+          status: 'PENDING',
+          confirmations: 0,
+        },
+      });
+
+      return {
+        success: true,
+        deposit: {
+          id: deposit.id,
+          amount: num(deposit.amount),
+          amountUsd: num(deposit.amountUsd),
+          chain: deposit.chain,
+          fromAddress: deposit.fromAddress,
+          toAddress: deposit.toAddress,
+          status: deposit.status,
+          createdAt: deposit.createdAt,
+        },
+      };
+    }
+  );
+
+  // ─── POST /confirm-deposit — attach txHash and verify on-chain ─────
+  fastify.post<{ Body: { txHash: string; depositId?: string } }>(
     '/confirm-deposit',
     { schema: schemas.confirmDeposit, preHandler: [authMiddleware, depositConfirmRateLimit] },
-    async (request: FastifyRequest<{ Body: { txHash: string } }>, reply: FastifyReply) => {
+    async (request: FastifyRequest<{ Body: { txHash: string; depositId?: string } }>, reply: FastifyReply) => {
       const raw = request.body?.txHash?.trim() || '';
       if (!raw.startsWith('0x') || raw.length < 66) {
         return reply.status(400).send({ success: false, error: 'Invalid transaction hash' });
       }
       const txHash = raw;
+      const bodyDepositId = request.body?.depositId?.trim() || null;
 
       const { treasury, usdt, minDepositUsd } = await resolveTreasuryUsdtConfig();
       if (!treasury) {
@@ -130,16 +212,13 @@ export default async function creditWalletRoutes(fastify: FastifyInstance) {
         return reply.status(503).send({ success: false, error: 'USDT contract not configured' });
       }
 
-      const existing = await prisma.deposit.findUnique({ where: { txHash } });
-      if (existing) {
-        if (existing.status === 'CONFIRMED') {
-          return reply.status(409).send({
-            success: false,
-            error: 'This transaction was already used for a deposit',
-          });
-        }
-        // Allow re-verification of PENDING/FAILED deposits
-        // (admin may have reset status, or user retries)
+      // Check if this txHash was already used
+      const existingByHash = await prisma.deposit.findUnique({ where: { txHash } });
+      if (existingByHash && existingByHash.status === 'CONFIRMED') {
+        return reply.status(409).send({
+          success: false,
+          error: 'This transaction was already used for a deposit',
+        });
       }
 
       const user = await prisma.user.findUnique({ where: { id: request.userId! } });
@@ -147,9 +226,31 @@ export default async function creditWalletRoutes(fastify: FastifyInstance) {
         return reply.status(400).send({ success: false, error: 'User wallet not set' });
       }
 
-      // Create a PENDING deposit record immediately so admin can always see it
-      let depositId = existing?.id;
-      if (!existing) {
+      // Resolve the deposit record to update
+      let depositId: string | undefined;
+
+      if (bodyDepositId) {
+        // User is confirming a specific pending deposit request
+        const pendingDeposit = await prisma.deposit.findUnique({ where: { id: bodyDepositId } });
+        if (!pendingDeposit) {
+          return reply.status(404).send({ success: false, error: 'Deposit request not found' });
+        }
+        if (pendingDeposit.userId !== request.userId) {
+          return reply.status(403).send({ success: false, error: 'This deposit does not belong to you' });
+        }
+        if (pendingDeposit.status === 'CONFIRMED') {
+          return reply.status(409).send({ success: false, error: 'This deposit is already confirmed' });
+        }
+        // Attach the txHash to this deposit
+        await prisma.deposit.update({
+          where: { id: bodyDepositId },
+          data: { txHash },
+        });
+        depositId = bodyDepositId;
+      } else if (existingByHash) {
+        depositId = existingByHash.id;
+      } else {
+        // No deposit request exists — create one on the fly
         try {
           const pending = await prisma.deposit.create({
             data: {
@@ -169,10 +270,7 @@ export default async function creditWalletRoutes(fastify: FastifyInstance) {
         } catch (e: unknown) {
           const code = e && typeof e === 'object' && 'code' in e ? (e as { code?: string }).code : '';
           if (code === 'P2002') {
-            return reply.status(409).send({
-              success: false,
-              error: 'This transaction was already recorded',
-            });
+            return reply.status(409).send({ success: false, error: 'This transaction was already recorded' });
           }
           throw e;
         }
@@ -185,7 +283,6 @@ export default async function creditWalletRoutes(fastify: FastifyInstance) {
         amount = v.amount;
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : 'Verification failed';
-        // Mark deposit as FAILED so admin can see and manually fix
         await prisma.deposit.update({
           where: { id: depositId },
           data: { status: 'FAILED' },
@@ -255,10 +352,7 @@ export default async function creditWalletRoutes(fastify: FastifyInstance) {
       } catch (e: unknown) {
         const code = e && typeof e === 'object' && 'code' in e ? (e as { code?: string }).code : '';
         if (code === 'P2002') {
-          return reply.status(409).send({
-            success: false,
-            error: 'This transaction was already recorded',
-          });
+          return reply.status(409).send({ success: false, error: 'This transaction was already recorded' });
         }
         throw e;
       }

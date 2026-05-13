@@ -149,13 +149,28 @@ export const creditWalletAPI = {
         referralEarningsUsd: number;
       };
     }>('/api/credit-wallet/balances'),
-  confirmDeposit: (txHash: string) =>
+  requestDeposit: (amount: number, chain?: string) =>
+    api.post<{
+      success: boolean;
+      deposit: {
+        id: string;
+        amount: number;
+        amountUsd: number;
+        chain: string;
+        fromAddress: string | null;
+        toAddress: string | null;
+        status: string;
+        createdAt: string;
+      };
+      error?: string;
+    }>('/api/credit-wallet/request-deposit', { amount, chain: chain || 'BSC' }),
+  confirmDeposit: (txHash: string, depositId?: string) =>
     api.post<{
       success: boolean;
       creditedUsd?: number;
       newDepositCreditUsd?: number;
       error?: string;
-    }>('/api/credit-wallet/confirm-deposit', { txHash }),
+    }>('/api/credit-wallet/confirm-deposit', { txHash, ...(depositId ? { depositId } : {}) }),
   poolEligibility: () =>
     api.get<{
       success: boolean;

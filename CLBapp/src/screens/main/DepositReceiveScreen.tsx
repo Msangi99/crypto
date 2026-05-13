@@ -28,6 +28,8 @@ export default function DepositReceiveScreen({ navigation }: any) {
   const [depositAmount, setDepositAmount] = useState('');
   const [txHash, setTxHash] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [creatingRequest, setCreatingRequest] = useState(false);
+  const [pendingDeposit, setPendingDeposit] = useState<any>(null);
 
   const loadConfig = useCallback(async () => {
     setLoading(true);
@@ -74,10 +76,8 @@ export default function DepositReceiveScreen({ navigation }: any) {
   }, []);
 
   useEffect(() => {
-    if (step === 'receive') {
-      loadDepositHistory();
-    }
-  }, [step, loadDepositHistory]);
+    loadDepositHistory();
+  }, [loadDepositHistory]);
 
   const treasury = config?.treasuryAddress as string | null | undefined;
   const qrUri = treasury
@@ -98,22 +98,79 @@ export default function DepositReceiveScreen({ navigation }: any) {
     }
     setSubmitting(true);
     try {
-      const res = await creditWalletAPI.confirmDeposit(h);
+      const res = await creditWalletAPI.confirmDeposit(h, pendingDeposit?.id);
       if (res.data?.success) {
+        loadDepositHistory();
+        setTxHash('');
         Alert.alert(
           'Credited',
           `USDT received. Your Deposit wallet (USDT) is now $${Number(res.data.newDepositCreditUsd ?? 0).toFixed(2)}.`,
-          [{ text: 'OK', onPress: () => navigation.goBack() }]
         );
         return;
       }
       Alert.alert('Could not confirm', res.data?.error || 'Unknown error');
     } catch (e: any) {
       Alert.alert('Could not confirm', e?.response?.data?.error || e?.message || 'Request failed');
+      loadDepositHistory();
     } finally {
       setSubmitting(false);
     }
   };
+
+  const getStatusStyle = (status: string) => {
+    switch (status) {
+      case 'CONFIRMED': return { bg: 'rgba(0,200,83,0.12)', color: '#00C853' };
+      case 'PENDING': return { bg: 'rgba(240,185,11,0.12)', color: '#F0B90B' };
+      case 'CONFIRMING': return { bg: 'rgba(59,130,246,0.12)', color: '#3B82F6' };
+      case 'FAILED': return { bg: 'rgba(255,71,87,0.12)', color: '#FF4757' };
+      case 'REFUNDED': return { bg: 'rgba(255,165,0,0.12)', color: '#FFA500' };
+      default: return { bg: 'rgba(107,107,107,0.15)', color: Colors.textMuted };
+    }
+  };
+
+  const renderDepositHistory = () => (
+    <View style={styles.historySection}>
+      <Text style={styles.historyTitle}>Deposit History</Text>
+      {loadingHistory ? (
+        <ActivityIndicator color={Colors.primary} size="small" style={{ marginVertical: Spacing.md }} />
+      ) : depositHistory.length === 0 ? (
+        <Text style={styles.historyEmpty}>No deposits yet.</Text>
+      ) : (
+        depositHistory.map((dep: any) => {
+          const ss = getStatusStyle(dep.status);
+          return (
+            <View key={dep.id} style={styles.historyItem}>
+              <View style={{ flex: 1 }}>
+                <View style={styles.historyRow}>
+                  <Text style={styles.historyAmount}>
+                    ${Number(dep.amountUsd || dep.amount).toFixed(2)} USDT
+                  </Text>
+                  <View style={[styles.statusBadge, { backgroundColor: ss.bg }]}>
+                    <Text style={[styles.statusBadgeText, { color: ss.color }]}>
+                      {dep.status}
+                    </Text>
+                  </View>
+                </View>
+                {dep.txHash && (
+                  <Text style={styles.historyHash} numberOfLines={1}>
+                    Tx: {dep.txHash}
+                  </Text>
+                )}
+                {dep.fromAddress && (
+                  <Text style={styles.historyAddr} numberOfLines={1}>
+                    From: {dep.fromAddress}
+                  </Text>
+                )}
+                <Text style={styles.historyDate}>
+                  {new Date(dep.createdAt).toLocaleDateString()} · {new Date(dep.createdAt).toLocaleTimeString()}
+                </Text>
+              </View>
+            </View>
+          );
+        })
+      )}
+    </View>
+  );
 
   if (loading) {
     return (
@@ -190,9 +247,9 @@ export default function DepositReceiveScreen({ navigation }: any) {
             <TouchableOpacity
               style={[
                 styles.continueBtn,
-                (!depositAmount || Number(depositAmount) <= 0 || !config?.treasuryConfigured || configError) && styles.continueBtnDisabled,
+                (creatingRequest || !depositAmount || Number(depositAmount) <= 0 || !config?.treasuryConfigured || configError) && styles.continueBtnDisabled,
               ]}
-              onPress={() => {
+              onPress={async () => {
                 if (configError) {
                   Alert.alert(
                     'Deposit unavailable',
@@ -217,17 +274,41 @@ export default function DepositReceiveScreen({ navigation }: any) {
                   Alert.alert('Below minimum', `Minimum deposit is $${Number(config.minDeposit).toFixed(2)} USDT.`);
                   return;
                 }
-                setStep('receive');
+
+                setCreatingRequest(true);
+                try {
+                  const res = await creditWalletAPI.requestDeposit(amt, 'BSC');
+                  if (res.data?.success && res.data?.deposit) {
+                    setPendingDeposit(res.data.deposit);
+                    loadDepositHistory();
+                    setStep('receive');
+                  } else {
+                    Alert.alert('Error', (res.data as any)?.error || 'Failed to create deposit request');
+                  }
+                } catch (e: any) {
+                  Alert.alert('Error', e?.response?.data?.error || e?.message || 'Failed to create deposit request');
+                } finally {
+                  setCreatingRequest(false);
+                }
               }}
+              disabled={creatingRequest}
               activeOpacity={0.85}
             >
-              <Text style={styles.continueBtnText}>Continue</Text>
-              <Ionicons name="arrow-forward" size={18} color="#000" />
+              {creatingRequest ? (
+                <ActivityIndicator color="#000" size="small" />
+              ) : (
+                <>
+                  <Text style={styles.continueBtnText}>Submit Deposit Request</Text>
+                  <Ionicons name="arrow-forward" size={18} color="#000" />
+                </>
+              )}
             </TouchableOpacity>
 
             <Text style={styles.hint}>
               Send only USDT on BSC to the address shown on the next screen. Other assets may be lost.
             </Text>
+
+            {renderDepositHistory()}
           </>
         )}
 
@@ -237,6 +318,18 @@ export default function DepositReceiveScreen({ navigation }: any) {
               <Text style={styles.depositAmountBannerLabel}>Amount to deposit</Text>
               <Text style={styles.depositAmountBannerValue}>${Number(depositAmount).toFixed(2)} USDT</Text>
             </View>
+
+            {pendingDeposit && (
+              <View style={styles.pendingBanner}>
+                <Ionicons name="time-outline" size={18} color="#F0B90B" />
+                <View style={{ flex: 1, marginLeft: 8 }}>
+                  <Text style={styles.pendingBannerTitle}>Deposit Request Created</Text>
+                  <Text style={styles.pendingBannerText}>
+                    Status: {pendingDeposit.status} · Send USDT to the address below, then paste the transaction hash to confirm.
+                  </Text>
+                </View>
+              </View>
+            )}
 
             <Text style={styles.sectionLabel}>Your receive address</Text>
             <View style={styles.qrWrap}>
@@ -305,33 +398,7 @@ export default function DepositReceiveScreen({ navigation }: any) {
               )}
             </TouchableOpacity>
 
-            {depositHistory.length > 0 && (
-              <View style={styles.historySection}>
-                <Text style={styles.historyTitle}>Recent deposits</Text>
-                {loadingHistory ? (
-                  <ActivityIndicator color={Colors.primary} size="small" />
-                ) : (
-                  depositHistory.slice(0, 5).map((dep) => (
-                    <View key={dep.id} style={styles.historyItem}>
-                      <View>
-                        <Text style={styles.historyAmount}>${dep.amount.toFixed(2)} USDT</Text>
-                        <Text style={styles.historyDate}>
-                          {new Date(dep.createdAt).toLocaleDateString()}
-                        </Text>
-                      </View>
-                      <View style={styles.historyStatus}>
-                        <Text style={[
-                          styles.historyStatusText,
-                          dep.status === 'CONFIRMED' && styles.statusConfirmed,
-                        ]}>
-                          {dep.status}
-                        </Text>
-                      </View>
-                    </View>
-                  ))
-                )}
-              </View>
-            )}
+            {renderDepositHistory()}
           </>
         )}
       </ScrollView>
@@ -452,6 +519,27 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: Colors.primary,
   },
+  pendingBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: 'rgba(240,185,11,0.10)',
+    borderWidth: 1,
+    borderColor: 'rgba(240,185,11,0.30)',
+    borderRadius: Radius.md,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+  },
+  pendingBannerTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#F0B90B',
+    marginBottom: 2,
+  },
+  pendingBannerText: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    lineHeight: 17,
+  },
   errorBanner: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -551,37 +639,55 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
   },
   historyTitle: {
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 15,
+    fontWeight: '800',
     color: Colors.textPrimary,
     marginBottom: Spacing.sm,
   },
+  historyEmpty: {
+    fontSize: 13,
+    color: Colors.textMuted,
+    textAlign: 'center',
+    paddingVertical: Spacing.lg,
+  },
   historyItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     paddingVertical: Spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
   },
+  historyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   historyAmount: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 15,
+    fontWeight: '700',
     color: Colors.textPrimary,
   },
-  historyDate: {
-    fontSize: 12,
+  historyHash: {
+    fontSize: 11,
+    color: '#3B82F6',
+    marginTop: 3,
+  },
+  historyAddr: {
+    fontSize: 11,
     color: Colors.textMuted,
     marginTop: 2,
   },
-  historyStatus: {},
-  historyStatusText: {
-    fontSize: 12,
-    fontWeight: '600',
+  historyDate: {
+    fontSize: 11,
     color: Colors.textMuted,
+    marginTop: 3,
   },
-  statusConfirmed: {
-    color: '#00C853',
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: Radius.sm,
+  },
+  statusBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
   },
   autoDetectBadge: {
     flexDirection: 'row',
