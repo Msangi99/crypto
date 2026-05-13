@@ -132,10 +132,14 @@ export default async function creditWalletRoutes(fastify: FastifyInstance) {
 
       const existing = await prisma.deposit.findUnique({ where: { txHash } });
       if (existing) {
-        return reply.status(409).send({
-          success: false,
-          error: 'This transaction was already used for a deposit',
-        });
+        if (existing.status === 'CONFIRMED') {
+          return reply.status(409).send({
+            success: false,
+            error: 'This transaction was already used for a deposit',
+          });
+        }
+        // Allow re-verification of PENDING/FAILED deposits
+        // (admin may have reset status, or user retries)
       }
 
       const user = await prisma.user.findUnique({ where: { id: request.userId! } });
@@ -143,31 +147,77 @@ export default async function creditWalletRoutes(fastify: FastifyInstance) {
         return reply.status(400).send({ success: false, error: 'User wallet not set' });
       }
 
+      // Create a PENDING deposit record immediately so admin can always see it
+      let depositId = existing?.id;
+      if (!existing) {
+        try {
+          const pending = await prisma.deposit.create({
+            data: {
+              userId: user.id,
+              poolId: null,
+              amount: new Prisma.Decimal(0),
+              amountUsd: new Prisma.Decimal(0),
+              chain: 'BSC',
+              fromAddress: user.walletAddress,
+              toAddress: treasury,
+              txHash,
+              status: 'PENDING',
+              confirmations: 0,
+            },
+          });
+          depositId = pending.id;
+        } catch (e: unknown) {
+          const code = e && typeof e === 'object' && 'code' in e ? (e as { code?: string }).code : '';
+          if (code === 'P2002') {
+            return reply.status(409).send({
+              success: false,
+              error: 'This transaction was already recorded',
+            });
+          }
+          throw e;
+        }
+      }
+
+      // Attempt on-chain verification
       let amount: Prisma.Decimal;
       try {
         const v = await verifyUsdtTreasuryDeposit(txHash, user.walletAddress, treasury, usdt, minDepositUsd);
         amount = v.amount;
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : 'Verification failed';
-        return reply.status(400).send({ success: false, error: msg });
+        // Mark deposit as FAILED so admin can see and manually fix
+        await prisma.deposit.update({
+          where: { id: depositId },
+          data: { status: 'FAILED' },
+        });
+        return reply.status(400).send({
+          success: false,
+          error: msg,
+          depositStatus: 'FAILED',
+          message: 'Deposit recorded as failed. Admin can review and update status manually.',
+        });
       }
 
       if (amount.lte(0)) {
-        return reply.status(400).send({ success: false, error: 'Zero amount' });
+        await prisma.deposit.update({
+          where: { id: depositId },
+          data: { status: 'FAILED' },
+        });
+        return reply.status(400).send({
+          success: false,
+          error: 'Zero amount detected on-chain',
+          depositStatus: 'FAILED',
+        });
       }
 
+      // Verification passed — confirm deposit and credit user
       try {
         const updated = await prisma.$transaction(async (tx) => {
-          await tx.deposit.create({
+          await tx.deposit.update({
+            where: { id: depositId },
             data: {
-              userId: user.id,
-              poolId: null,
               amount,
               amountUsd: amount,
-              chain: 'BSC',
-              fromAddress: user.walletAddress,
-              toAddress: treasury,
-              txHash,
               status: 'CONFIRMED',
               confirmations: env.USDT_DEPOSIT_MIN_CONFIRMATIONS,
               confirmedAt: new Date(),
@@ -281,7 +331,6 @@ export default async function creditWalletRoutes(fastify: FastifyInstance) {
         where: {
           userId: request.userId!,
           poolId: null, // Only treasury deposits (not pool deposits)
-          status: 'CONFIRMED',
         },
         orderBy: { createdAt: 'desc' },
         select: {

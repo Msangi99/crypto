@@ -1,20 +1,33 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, RefreshControl,
-  TouchableOpacity, Alert,
+  TouchableOpacity, Alert, Modal, TextInput, KeyboardAvoidingView,
+  Platform, ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radius } from '../../constants/theme';
-import { userAPI } from '../../services/api';
+import { userAPI, withdrawalsAPI } from '../../services/api';
 
 function fmt(n: number) {
   return Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+const USDT_FEE = 1;
+
+function isValidBep20Address(address: string): boolean {
+  return /^0x[a-fA-F0-9]{40}$/.test(address.trim());
+}
+
 export default function WithdrawReferralScreen({ navigation }: any) {
   const [earnings, setEarnings] = useState<any>(null);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Withdraw modal state
+  const [modalVisible, setModalVisible] = useState(false);
+  const [toAddress, setToAddress] = useState('');
+  const [withdrawAmount, setWithdrawAmount] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -38,19 +51,58 @@ export default function WithdrawReferralScreen({ navigation }: any) {
   const recentBonuses: any[] = earningsData.recentBonuses ?? [];
   const referralList: any[] = earningsData.referralList ?? [];
 
-  const handleWithdraw = () => {
-    Alert.alert(
-      'Withdraw Referral Earnings',
-      `You have ${fmt(totalEarned)} USDT in referral earnings.\n\nWithdrawal requests are processed within 24–48 hours to your registered wallet.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Request Withdrawal',
-          onPress: () =>
-            Alert.alert('Request Submitted', 'Your withdrawal request has been submitted. You will be notified once processed.'),
-        },
-      ]
-    );
+  const numAmount = parseFloat(withdrawAmount || '0');
+  const netAmount = Math.max(0, numAmount - USDT_FEE);
+
+  const openWithdrawModal = () => {
+    setToAddress('');
+    setWithdrawAmount(totalEarned > 0 ? totalEarned.toFixed(2) : '');
+    setModalVisible(true);
+  };
+
+  const handleSubmitWithdraw = async () => {
+    const address = toAddress.trim();
+
+    if (!address) {
+      Alert.alert('Missing Address', 'Please enter your USDT BEP20 receiving address.');
+      return;
+    }
+    if (!isValidBep20Address(address)) {
+      Alert.alert('Invalid Address', 'Enter a valid BNB Smart Chain (BEP20) wallet address starting with 0x.');
+      return;
+    }
+    if (!withdrawAmount || numAmount <= 0) {
+      Alert.alert('Invalid Amount', 'Enter a valid withdrawal amount.');
+      return;
+    }
+    if (numAmount <= USDT_FEE) {
+      Alert.alert('Amount Too Low', `Amount must be greater than the ${USDT_FEE} USDT network fee.`);
+      return;
+    }
+    if (numAmount > totalEarned) {
+      Alert.alert('Insufficient Balance', `Your available referral earnings: ${fmt(totalEarned)} USDT`);
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await withdrawalsAPI.request({
+        token: 'USDT',
+        amount: numAmount,
+        toAddress: address,
+      });
+      setModalVisible(false);
+      Alert.alert(
+        'Withdrawal Requested',
+        `Your withdrawal of ${netAmount.toFixed(2)} USDT to ${address.slice(0, 8)}...${address.slice(-4)} has been submitted.\n\nAdmin will review and process it within 24–48 hours.`,
+        [{ text: 'OK' }],
+      );
+      load();
+    } catch (err: any) {
+      Alert.alert('Withdrawal Failed', err?.response?.data?.error || 'Something went wrong. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -85,7 +137,7 @@ export default function WithdrawReferralScreen({ navigation }: any) {
 
           <TouchableOpacity
             style={[styles.withdrawBtn, totalEarned <= 0 && styles.withdrawBtnDisabled]}
-            onPress={handleWithdraw}
+            onPress={openWithdrawModal}
             disabled={totalEarned <= 0}
             activeOpacity={0.8}
           >
@@ -188,6 +240,124 @@ export default function WithdrawReferralScreen({ navigation }: any) {
 
         <View style={{ height: 100 }} />
       </ScrollView>
+
+      {/* ── USDT BEP20 Withdrawal Modal ── */}
+      <Modal
+        visible={modalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => !submitting && setModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <View style={styles.modalSheet}>
+            {/* Modal header */}
+            <View style={styles.modalHandle} />
+            <View style={styles.modalHeader}>
+              <View style={styles.modalIconWrap}>
+                <Ionicons name="wallet-outline" size={22} color="#00D6A1" />
+              </View>
+              <Text style={styles.modalTitle}>Withdraw USDT</Text>
+              <Text style={styles.modalSubtitle}>BEP20 (BNB Smart Chain)</Text>
+            </View>
+
+            {/* Available balance */}
+            <View style={styles.modalBalanceRow}>
+              <Text style={styles.modalBalanceLabel}>Available</Text>
+              <Text style={styles.modalBalanceValue}>{fmt(totalEarned)} USDT</Text>
+            </View>
+
+            {/* Address input */}
+            <Text style={styles.modalInputLabel}>Receiving Address</Text>
+            <View style={styles.modalInputWrap}>
+              <Ionicons name="link-outline" size={18} color={Colors.textMuted} style={{ marginRight: 8 }} />
+              <TextInput
+                style={styles.modalInput}
+                placeholder="0x... (BEP20 address)"
+                placeholderTextColor={Colors.textMuted}
+                value={toAddress}
+                onChangeText={setToAddress}
+                autoCapitalize="none"
+                autoCorrect={false}
+                editable={!submitting}
+              />
+            </View>
+            <Text style={styles.modalInputHint}>
+              <Ionicons name="alert-circle-outline" size={11} color={Colors.warning} />
+              {' '}Only send to a BEP20 (BSC) address. Sending to wrong network will lose funds.
+            </Text>
+
+            {/* Amount input */}
+            <Text style={styles.modalInputLabel}>Amount (USDT)</Text>
+            <View style={styles.modalInputWrap}>
+              <Text style={styles.modalCurrencyTag}>$</Text>
+              <TextInput
+                style={[styles.modalInput, { fontSize: 20, fontWeight: '800' }]}
+                placeholder="0.00"
+                placeholderTextColor={Colors.textMuted}
+                keyboardType="decimal-pad"
+                value={withdrawAmount}
+                onChangeText={setWithdrawAmount}
+                editable={!submitting}
+              />
+              <TouchableOpacity
+                style={styles.maxBtn}
+                onPress={() => setWithdrawAmount(totalEarned.toFixed(2))}
+                disabled={submitting}
+              >
+                <Text style={styles.maxBtnText}>MAX</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Fee summary */}
+            {numAmount > 0 && (
+              <View style={styles.modalFeeCard}>
+                <View style={styles.modalFeeRow}>
+                  <Text style={styles.modalFeeLabel}>Gross Amount</Text>
+                  <Text style={styles.modalFeeValue}>{numAmount.toFixed(2)} USDT</Text>
+                </View>
+                <View style={styles.modalFeeRow}>
+                  <Text style={styles.modalFeeLabel}>Network Fee</Text>
+                  <Text style={[styles.modalFeeValue, { color: Colors.error }]}>-{USDT_FEE} USDT</Text>
+                </View>
+                <View style={[styles.modalFeeRow, styles.modalFeeHighlight]}>
+                  <Text style={styles.modalFeeLabel}>You Receive</Text>
+                  <Text style={styles.modalFeeNet}>{netAmount.toFixed(2)} USDT</Text>
+                </View>
+              </View>
+            )}
+
+            {/* Action buttons */}
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                onPress={() => setModalVisible(false)}
+                disabled={submitting}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.modalSubmitBtn, (submitting || numAmount <= 0) && { opacity: 0.5 }]}
+                onPress={handleSubmitWithdraw}
+                disabled={submitting || numAmount <= 0}
+                activeOpacity={0.8}
+              >
+                {submitting ? (
+                  <ActivityIndicator size="small" color="#000" />
+                ) : (
+                  <>
+                    <Ionicons name="arrow-up-circle" size={18} color="#000" />
+                    <Text style={styles.modalSubmitText}>Submit Request</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }
@@ -318,4 +488,192 @@ const styles = StyleSheet.create({
   },
   skeletonIcon: { width: 38, height: 38, borderRadius: 12, backgroundColor: Colors.bgElevated },
   skeletonLine: { height: 12, borderRadius: 6, backgroundColor: Colors.bgElevated },
+
+  // ── Withdraw Modal ──
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.65)',
+  },
+  modalSheet: {
+    backgroundColor: '#0F0F0F',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Platform.OS === 'ios' ? 40 : Spacing.lg,
+    borderTopWidth: 1,
+    borderColor: 'rgba(0,214,161,0.15)',
+  },
+  modalHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: Colors.borderLight,
+    alignSelf: 'center',
+    marginTop: 12,
+    marginBottom: Spacing.md,
+  },
+  modalHeader: {
+    alignItems: 'center',
+    marginBottom: Spacing.lg,
+  },
+  modalIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0,214,161,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: Colors.textPrimary,
+  },
+  modalSubtitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#00D6A1',
+    marginTop: 2,
+  },
+  modalBalanceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,214,161,0.08)',
+    borderRadius: Radius.md,
+    padding: Spacing.md,
+    marginBottom: Spacing.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(0,214,161,0.15)',
+  },
+  modalBalanceLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.textMuted,
+  },
+  modalBalanceValue: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#00D6A1',
+  },
+  modalInputLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.textSecondary,
+    marginBottom: 6,
+    marginLeft: 4,
+  },
+  modalInputWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.bgCard,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Platform.OS === 'ios' ? 14 : 6,
+  },
+  modalInput: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+  },
+  modalInputHint: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: Colors.warning,
+    marginTop: 4,
+    marginBottom: Spacing.md,
+    marginLeft: 4,
+  },
+  modalCurrencyTag: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: Colors.textMuted,
+    marginRight: 6,
+  },
+  maxBtn: {
+    backgroundColor: 'rgba(0,214,161,0.15)',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginLeft: 8,
+  },
+  maxBtnText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#00D6A1',
+  },
+  modalFeeCard: {
+    backgroundColor: Colors.bgCard,
+    borderRadius: Radius.md,
+    padding: Spacing.md,
+    marginTop: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  modalFeeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 5,
+  },
+  modalFeeLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.textMuted,
+  },
+  modalFeeValue: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+  },
+  modalFeeHighlight: {
+    marginTop: 6,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+  },
+  modalFeeNet: {
+    fontSize: 17,
+    fontWeight: '900',
+    color: '#00D6A1',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: Spacing.lg,
+  },
+  modalCancelBtn: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    borderRadius: Radius.lg,
+    backgroundColor: Colors.bgElevated,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  modalCancelText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: Colors.textSecondary,
+  },
+  modalSubmitBtn: {
+    flex: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 16,
+    borderRadius: Radius.lg,
+    backgroundColor: '#00D6A1',
+  },
+  modalSubmitText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#000',
+  },
 });

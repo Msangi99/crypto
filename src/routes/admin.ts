@@ -100,13 +100,27 @@ const adminSchemas = {
   listDeposits: {
     tags: ['Admin'],
     summary: 'List all deposits',
-    description: 'Paginated list of all deposits with optional search',
+    description: 'Paginated list of all deposits with optional search and status filter',
     querystring: {
       type: 'object',
       properties: {
         page: { type: 'string', description: 'Page number' },
         limit: { type: 'string', description: 'Items per page' },
         search: { type: 'string', description: 'Search by wallet address or tx hash' },
+        status: { type: 'string', enum: ['PENDING', 'CONFIRMING', 'CONFIRMED', 'FAILED', 'REFUNDED'] },
+      },
+    },
+  },
+  updateDepositStatus: {
+    tags: ['Admin'],
+    summary: 'Update deposit status',
+    description: 'Manually update the status and optional txHash of a deposit',
+    params: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] },
+    body: {
+      type: 'object',
+      properties: {
+        status: { type: 'string', enum: ['PENDING', 'CONFIRMING', 'CONFIRMED', 'FAILED', 'REFUNDED'] },
+        txHash: { type: ['string', 'null'] },
       },
     },
   },
@@ -839,7 +853,7 @@ export default async function adminRoutes(fastify: FastifyInstance) {
 
   // ─── GET /admin/deposits — all deposits ─────
   fastify.get<{
-    Querystring: { page?: string; limit?: string; search?: string };
+    Querystring: { page?: string; limit?: string; search?: string; status?: string };
   }>(
     '/deposits',
     { schema: adminSchemas.listDeposits, preHandler: [adminMiddleware] },
@@ -847,18 +861,19 @@ export default async function adminRoutes(fastify: FastifyInstance) {
       const page = parseInt(request.query.page || '1', 10);
       const limit = parseInt(request.query.limit || '20', 10);
       const search = request.query.search || '';
+      const statusFilter = request.query.status;
       const skip = (page - 1) * limit;
 
-      const where = search
-        ? {
-            OR: [
-              { fromAddress: { contains: search, mode: 'insensitive' as const } },
-              { toAddress: { contains: search, mode: 'insensitive' as const } },
-              { txHash: { contains: search, mode: 'insensitive' as const } },
-              { user: { walletAddress: { contains: search, mode: 'insensitive' as const } } },
-            ],
-          }
-        : {};
+      const where: Record<string, unknown> = {};
+      if (statusFilter) where.status = statusFilter;
+      if (search) {
+        where.OR = [
+          { fromAddress: { contains: search, mode: 'insensitive' as const } },
+          { toAddress: { contains: search, mode: 'insensitive' as const } },
+          { txHash: { contains: search, mode: 'insensitive' as const } },
+          { user: { walletAddress: { contains: search, mode: 'insensitive' as const } } },
+        ];
+      }
 
       const [deposits, total] = await Promise.all([
         prisma.deposit.findMany({
@@ -867,7 +882,7 @@ export default async function adminRoutes(fastify: FastifyInstance) {
           take: limit,
           orderBy: { createdAt: 'desc' },
           include: {
-            user: { select: { id: true, walletAddress: true, username: true } },
+            user: { select: { id: true, walletAddress: true, username: true, email: true } },
             pool: { select: { id: true, name: true, tokenSymbol: true } },
           },
         }),
@@ -891,6 +906,72 @@ export default async function adminRoutes(fastify: FastifyInstance) {
       }));
 
       return { deposits: formatted, total, page, limit };
+    }
+  );
+
+  // ─── PUT /admin/deposits/:id/status — manually update deposit status ─────
+  fastify.put<{
+    Params: { id: string };
+    Body: { status?: string; txHash?: string | null };
+  }>(
+    '/deposits/:id/status',
+    { schema: adminSchemas.updateDepositStatus, preHandler: [adminMiddleware] },
+    async (request, reply) => {
+      const { id } = request.params;
+      const { status, txHash } = request.body || {};
+
+      if (!status && txHash === undefined) {
+        return reply.status(400).send({ success: false, error: 'Provide status and/or txHash' });
+      }
+
+      const deposit = await prisma.deposit.findUnique({ where: { id } });
+      if (!deposit) {
+        return reply.status(404).send({ success: false, error: 'Deposit not found' });
+      }
+
+      const validStatuses = ['PENDING', 'CONFIRMING', 'CONFIRMED', 'FAILED', 'REFUNDED'];
+      if (status && !validStatuses.includes(status)) {
+        return reply.status(400).send({ success: false, error: `Invalid status. Must be one of: ${validStatuses.join(', ')}` });
+      }
+
+      const data: Record<string, unknown> = {};
+      if (status) {
+        data.status = status;
+        if (status === 'CONFIRMED' && !deposit.confirmedAt) {
+          data.confirmedAt = new Date();
+        }
+      }
+      if (txHash !== undefined) {
+        data.txHash = txHash;
+      }
+
+      const updated = await prisma.deposit.update({
+        where: { id },
+        data,
+        include: {
+          user: { select: { id: true, walletAddress: true, username: true, email: true } },
+          pool: { select: { id: true, name: true, tokenSymbol: true } },
+        },
+      });
+
+      return {
+        success: true,
+        deposit: {
+          id: updated.id,
+          amount: Number(updated.amount),
+          amountUsd: Number(updated.amountUsd),
+          chain: updated.chain,
+          fromAddress: updated.fromAddress,
+          toAddress: updated.toAddress,
+          txHash: updated.txHash,
+          status: updated.status,
+          confirmations: updated.confirmations,
+          confirmedAt: updated.confirmedAt,
+          createdAt: updated.createdAt,
+          user: updated.user,
+          pool: updated.pool,
+        },
+      };
     }
   );
 

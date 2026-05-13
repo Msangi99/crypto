@@ -25,6 +25,7 @@ import {
   Cpu,
   ArrowUpFromLine,
   DollarSign,
+  ArrowDownToLine,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useSidebar } from "@/lib/sidebar-context";
@@ -40,6 +41,7 @@ const navItems = [
   { href: "/dashboard/investments", label: "Investments", icon: TrendingUp },
   { href: "/dashboard/withdrawals", label: "Withdrawals", icon: ArrowUpFromLine },
   { href: "/dashboard/withdraw-usdt", label: "Withdraw USDT", icon: DollarSign },
+  { href: "/dashboard/deposit-requests", label: "Deposit Requests", icon: ArrowDownToLine },
   { href: "/dashboard/payments", label: "Payments", icon: CreditCard },
   { href: "/dashboard/transactions", label: "Transactions", icon: ArrowLeftRight },
   { href: "/dashboard/referrals", label: "Referrals", icon: Users },

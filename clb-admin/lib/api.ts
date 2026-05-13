@@ -365,6 +365,41 @@ export const api = {
       method: "DELETE",
     }),
 
+  // Admin — deposits
+  getAdminDeposits: (page = 1, limit = 20, status?: string, search?: string) => {
+    let url = `/api/admin/deposits?page=${page}&limit=${limit}`;
+    if (status) url += `&status=${status}`;
+    if (search) url += `&search=${encodeURIComponent(search)}`;
+    return request<{
+      deposits: Array<{
+        id: string;
+        amount: number;
+        amountUsd: number;
+        chain: string;
+        fromAddress: string | null;
+        toAddress: string | null;
+        txHash: string | null;
+        status: string;
+        confirmations: number;
+        confirmedAt: string | null;
+        createdAt: string;
+        user: { id: string; walletAddress: string; username: string | null; email: string | null };
+        pool: { id: string; name: string; tokenSymbol: string } | null;
+      }>;
+      total: number;
+      page: number;
+      limit: number;
+    }>(url);
+  },
+  updateDepositStatus: (id: string, data: { status?: string; txHash?: string | null }) =>
+    request<{
+      success: boolean;
+      deposit: Record<string, unknown>;
+    }>(`/api/admin/deposits/${id}/status`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+
   // Admin — withdrawals
   getAdminWithdrawals: (page = 1, limit = 20, status?: string, token?: string) => {
     let url = `/api/admin/withdrawals?page=${page}&limit=${limit}`;
