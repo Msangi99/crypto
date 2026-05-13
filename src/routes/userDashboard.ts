@@ -2,6 +2,7 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import prisma from '../config/db';
 import { authMiddleware } from '../middleware/auth';
 import { priceService } from '../services/priceService';
+import { REFERRAL_RATES } from '../services/referralRewardService';
 
 // ─── CLB Tier → Leverage Map ─────────────────────────────
 // From PDF: $100→10x, $200→15x, $300→20x … $1000→60x
@@ -15,9 +16,6 @@ const LIQUIDATION_TARGETS = {
   BTC: { phase1: 150_000, phase2: 200_000 },
   ETH: { phase1: 15_000, phase2: 20_000 },
 };
-
-// Referral commission rates by level L1–L5
-const REFERRAL_RATES = [0.20, 0.07, 0.04, 0.03, 0.01];
 
 const REFERRAL_BASE_URL = 'https://cryptoloanboost.com/join?ref=';
 function buildReferralLink(code: string): string {

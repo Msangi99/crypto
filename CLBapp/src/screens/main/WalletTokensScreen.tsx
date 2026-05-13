@@ -6,10 +6,11 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, Radius, Shadow } from '../../constants/theme';
-import { tokensAPI, miningUserAPI, type MiningSubscriptionDto } from '../../services/api';
+import { tokensAPI, miningUserAPI, loansAPI, type MiningSubscriptionDto } from '../../services/api';
 import { computeMiningProgressLive, type MiningPeriodUnit } from '../../utils/miningProgress';
 import { useAuthStore } from '../../store/authStore';
 import { useOnChainWallet, type OnChainAsset } from '../../hooks/useOnChainWallet';
+import { useLivePrices } from '../../hooks/useLivePrices';
 
 type SyncStatus = {
   walletAddress: string;
@@ -85,6 +86,9 @@ export default function WalletTokensScreen({ navigation }: any) {
   const [miningTick, setMiningTick] = useState(0);
   const [appTokenRows, setAppTokenRows] = useState<AppTokenRow[] | null>(null);
   const [claimingMining, setClaimingMining] = useState(false);
+  const [loans, setLoans] = useState<any[]>([]);
+
+  const livePrices = useLivePrices(['BTC', 'ETH', 'BNB']);
 
   const loadHistory = useCallback(async () => {
     if (!isAuthenticated) {
@@ -139,12 +143,26 @@ export default function WalletTokensScreen({ navigation }: any) {
     }
   }, [isAuthenticated]);
 
+  const loadLoans = useCallback(async () => {
+    if (!isAuthenticated) {
+      setLoans([]);
+      return;
+    }
+    try {
+      const res = await loansAPI.list();
+      setLoans(res.data?.loans ?? []);
+    } catch {
+      setLoans([]);
+    }
+  }, [isAuthenticated]);
+
   useEffect(() => {
     loadHistory();
     loadSyncStatus();
     loadMiningSub();
     loadAppBalances();
-  }, [loadHistory, loadSyncStatus, loadMiningSub, loadAppBalances]);
+    loadLoans();
+  }, [loadHistory, loadSyncStatus, loadMiningSub, loadAppBalances, loadLoans]);
 
   useEffect(() => {
     if (!miningSub) return;
@@ -154,7 +172,7 @@ export default function WalletTokensScreen({ navigation }: any) {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([refetch(), loadHistory(), loadSyncStatus(), loadMiningSub(), loadAppBalances()]);
+    await Promise.all([refetch(), loadHistory(), loadSyncStatus(), loadMiningSub(), loadAppBalances(), loadLoans()]);
     setRefreshing(false);
   };
 
@@ -282,6 +300,20 @@ export default function WalletTokensScreen({ navigation }: any) {
     );
   }, [miningSub, miningTick]);
 
+  const totalLiveValue = useMemo(() => {
+    const activeLoans = loans.filter((l: any) =>
+      ['ACTIVE', 'PENDING'].includes((l.status || '').toUpperCase()),
+    );
+    return activeLoans.reduce((sum: number, l: any) => {
+      const symbol = (l.collateralChain || 'BNB').toUpperCase();
+      const amount = Number(l.collateralAmount || 0);
+      const originalValueUsd = Number(l.collateralValueUsd || 0);
+      const livePrice = livePrices[symbol]?.price;
+      const liveValueUsd = livePrice && amount > 0 ? amount * livePrice : originalValueUsd;
+      return sum + liveValueUsd;
+    }, 0);
+  }, [loans, livePrices]);
+
   const appTokenBySymbol = useMemo(() => {
     const m: Record<string, AppTokenRow> = {};
     (appTokenRows ?? []).forEach((r) => { m[r.token] = r; });
@@ -358,7 +390,7 @@ export default function WalletTokensScreen({ navigation }: any) {
                 </View>
                 <Text style={styles.portfolioHeroValue}>
                   {isAuthenticated
-                    ? formatUsd((syncStatus?.portfolioValueUsd ?? 0) + appTokenTotalUsd)
+                    ? formatUsd(totalLiveValue + appTokenTotalUsd)
                     : '—'}
                 </Text>
               </View>

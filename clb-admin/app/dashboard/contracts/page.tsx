@@ -86,8 +86,8 @@ const contractModules: ModuleStatus[] = [
     lastActionTime: "1 hour ago",
     features: [
       "Level 1: 20% of Pool Fee",
-      "Level 2: 8% of Pool Fee",
-      "Level 3: 5% of Pool Fee",
+      "Level 2: 7% of Pool Fee",
+      "Level 3: 4% of Pool Fee",
       "Level 4: 3% of Pool Fee",
       "Level 5: 1% of Pool Fee",
     ],

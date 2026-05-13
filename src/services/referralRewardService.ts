@@ -20,10 +20,16 @@ import prisma from '../config/db';
  *    L1 → 10% | L2 → 7% | L3 → 2% | L4 → 3% | L5 → 1%
  */
 
+// ── Canonical commission rates (single source of truth) ─────────────────────
 // Rates indexed [L1, L2, L3, L4, L5]
-const POOL_CLAIM_RATES  = [0.20, 0.07, 0.04, 0.03, 0.01];
-const MINING_BUY_RATES  = [0.20, 0.07, 0.04, 0.03, 0.01];
-const TOKEN_CLAIM_RATES = [0.10, 0.07, 0.02, 0.03, 0.01];
+export const POOL_CLAIM_RATES  = [0.20, 0.07, 0.04, 0.03, 0.01] as const;
+export const MINING_BUY_RATES  = [0.20, 0.07, 0.04, 0.03, 0.01] as const;
+export const TOKEN_CLAIM_RATES = [0.10, 0.07, 0.02, 0.03, 0.01] as const;
+
+/** Default display rates (pool claim / mining purchase). */
+export const REFERRAL_RATES = POOL_CLAIM_RATES;
+
+export const REFERRAL_LEVEL_COUNT = 5;
 
 /**
  * Walk the referral chain upward from `userId` and return up to 5 ancestor ids

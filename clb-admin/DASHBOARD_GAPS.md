@@ -36,7 +36,7 @@ PDF: Full audit by CertiK/PeckShield/Hacken, multi-sig via Gnosis Safe
 - Vulnerability status dashboard
 
 ## 4. 🎯 5-Level Referral Visualization (PARTIAL)
-PDF: L1: 20%, L2: 8%, L3: 5%, L4: 3%, L5: 1% of pool fee
+Canonical rates (referralRewardService.ts): L1: 20%, L2: 7%, L3: 4%, L4: 3%, L5: 1% of pool fee
 **Status:** Referrals page has only a leaderboard (1 level)
 **Impact:** Admin cannot see the network tree structure
 **Recommended:**

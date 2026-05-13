@@ -289,11 +289,6 @@ export default function HomeScreen({ navigation }: any) {
           {/* Quick Stats */}
           <View style={styles.quickStatsRow}>
             <View style={styles.quickStatItem}>
-              <Text style={styles.quickStatValue}>${totalInvested.toLocaleString()}</Text>
-              <Text style={styles.quickStatLabel}>Invested</Text>
-            </View>
-            <View style={styles.quickStatDivider} />
-            <View style={styles.quickStatItem}>
               <Text style={styles.quickStatValue}>{stats.activePools ?? 0}</Text>
               <Text style={styles.quickStatLabel}>Active Pools</Text>
             </View>

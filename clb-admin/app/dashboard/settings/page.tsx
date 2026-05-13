@@ -180,7 +180,7 @@ export default function SettingsPage() {
             <span className="text-sm text-[#999]">Referral System</span>
             <div className="text-right text-xs space-y-0.5">
               <p className="text-white">5-Level Commission (of Pool Fee)</p>
-              <p className="text-[#F0B90B]">L1: 20% · L2: 8% · L3: 5% · L4: 3% · L5: 1%</p>
+              <p className="text-[#F0B90B]">L1: 20% · L2: 7% · L3: 4% · L4: 3% · L5: 1%</p>
             </div>
           </div>
         </CardContent>
