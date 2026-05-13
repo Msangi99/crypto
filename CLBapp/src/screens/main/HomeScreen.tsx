@@ -284,20 +284,6 @@ export default function HomeScreen({ navigation }: any) {
                 ))}
               </View>
             )}
-            <Text style={styles.balancePortfolioFoot}>
-              {balanceVisible
-                ? `Portfolio total $${totalValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                : ' '}
-            </Text>
-            <View style={styles.pnlRow}>
-              <View style={[styles.pnlBadge, pnl >= 0 ? styles.pnlBadgeProfit : styles.pnlBadgeLoss]}>
-                <Ionicons name={pnl >= 0 ? 'trending-up' : 'trending-down'} size={14} color={pnl >= 0 ? '#00D6A1' : '#FF4757'} />
-                <Text style={[styles.pnlBadgeText, pnl >= 0 && styles.pnlTextProfit, pnl < 0 && styles.pnlTextLoss]}>
-                  {pnl >= 0 ? '+' : ''}{pnlPct}%
-                </Text>
-              </View>
-              <Text style={styles.pnlUsd}>{pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}</Text>
-            </View>
           </View>
 
           {/* Quick Stats */}

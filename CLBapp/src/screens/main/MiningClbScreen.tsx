@@ -20,10 +20,12 @@ import {
   miningPackagesAPI,
   miningUserAPI,
   creditWalletAPI,
+  loansAPI,
   type MiningPackageDto,
   type MiningSubscriptionDto,
 } from '../../services/api';
 import { useAuthStore } from '../../store/authStore';
+import { useLivePrices } from '../../hooks/useLivePrices';
 import { computeMiningProgressLive, type MiningPeriodUnit } from '../../utils/miningProgress';
 
 const STEPS = [
@@ -94,6 +96,7 @@ export default function MiningClbScreen({ navigation }: { navigation: any }) {
   const [payoutInput, setPayoutInput] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [depositCreditUsd, setDepositCreditUsd] = useState(0);
+  const [loans, setLoans] = useState<any[]>([]);
 
   const subscribeModalCantAfford = useMemo(() => {
     if (!pickPackage) return false;
@@ -106,15 +109,18 @@ export default function MiningClbScreen({ navigation }: { navigation: any }) {
       const pkgRes = await miningPackagesAPI.list();
       setPackages(pkgRes.data?.packages ?? []);
       if (isAuthenticated) {
-        const [subRes, balRes] = await Promise.all([
+        const [subRes, balRes, lnRes] = await Promise.all([
           miningUserAPI.subscription().catch(() => ({ data: { subscription: null } })),
           creditWalletAPI.balances().catch(() => null),
+          loansAPI.list().catch(() => ({ data: { loans: [] } })),
         ]);
         setSubscription(subRes.data?.subscription ?? null);
         setDepositCreditUsd(Number(balRes?.data?.balances?.depositCreditUsd ?? 0));
+        setLoans(lnRes.data?.loans || []);
       } else {
         setSubscription(null);
         setDepositCreditUsd(0);
+        setLoans([]);
       }
       setLoadError(null);
     } catch {
@@ -202,6 +208,22 @@ export default function MiningClbScreen({ navigation }: { navigation: any }) {
     );
   }, [subscription, tick]);
 
+  const livePrices = useLivePrices(['BTC', 'ETH', 'BNB']);
+
+  const totalLiveValue = useMemo(() => {
+    const activeLoans = loans.filter((l: any) =>
+      ['ACTIVE', 'PENDING'].includes((l.status || '').toUpperCase()),
+    );
+    return activeLoans.reduce((sum: number, l: any) => {
+      const symbol = (l.collateralChain || 'BNB').toUpperCase();
+      const amount = Number(l.collateralAmount || 0);
+      const originalValueUsd = Number(l.collateralValueUsd || 0);
+      const livePrice = livePrices[symbol]?.price;
+      const liveValueUsd = livePrice && amount > 0 ? amount * livePrice : originalValueUsd;
+      return sum + liveValueUsd;
+    }, 0);
+  }, [loans, livePrices]);
+
   return (
     <View style={styles.root}>
       <LinearGradient colors={['#1A1F35', '#0B0E1A']} style={styles.header}>
@@ -219,6 +241,14 @@ export default function MiningClbScreen({ navigation }: { navigation: any }) {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />
         }
       >
+        {/* Total Value — mirrors Portfolio's Total Position Value */}
+        <View style={styles.totalValueCard}>
+          <Text style={styles.totalValueLabel}>Total Value</Text>
+          <Text style={styles.totalValueAmount}>
+            ${totalLiveValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </Text>
+        </View>
+
         {subscription && liveMining ? (
           <View style={styles.activeHero}>
             <View style={styles.activeHeroTop}>
@@ -467,6 +497,17 @@ const styles = StyleSheet.create({
   headerIcon: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { fontSize: 18, fontWeight: '800', color: Colors.textPrimary },
   scroll: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.lg },
+  totalValueCard: {
+    alignItems: 'center',
+    paddingVertical: Spacing.md,
+    marginBottom: Spacing.md,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+  },
+  totalValueLabel: { fontSize: 13, fontWeight: '600', color: Colors.textMuted },
+  totalValueAmount: { fontSize: 32, fontWeight: '900', color: Colors.textPrimary, marginTop: 4, letterSpacing: -1 },
   hero: { marginBottom: Spacing.md },
   heroIcon: {
     width: 56,
