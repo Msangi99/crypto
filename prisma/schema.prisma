@@ -51,6 +51,7 @@ model User {
   depositCreditUsd       Decimal @default(0) @db.Decimal(36, 18)
   claimedPoolCreditUsd   Decimal @default(0) @db.Decimal(36, 18)
   swapHoldingsUsd        Decimal @default(0) @db.Decimal(36, 18)
+  referralEarningsUsd    Decimal @default(0) @db.Decimal(36, 18)
 
   @@map("users")
 }

@@ -15,8 +15,8 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "CLB Admin Dashboard",
-  description: "CLB DApp — Admin Management System",
+  title: "CryptoLoanBoost",
+  description: "CryptoLoanBoost — Leveraged DeFi on BSC",
   icons: {
     icon: "/favicon.ico",
     shortcut: "/favicon.ico",

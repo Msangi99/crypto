@@ -147,7 +147,7 @@ export default async function userDashboardRoutes(fastify: FastifyInstance) {
       ] = await Promise.all([
         prisma.user.findUnique({
           where: { id: userId },
-          select: { id: true, walletAddress: true, username: true, referralCode: true, createdAt: true },
+          select: { id: true, walletAddress: true, username: true, referralCode: true, referralEarningsUsd: true, createdAt: true },
         }),
         prisma.poolMember.findMany({
           where: { userId },
@@ -199,7 +199,7 @@ export default async function userDashboardRoutes(fastify: FastifyInstance) {
       // Unrealized P&L = current portfolio value - total loan (what was borrowed)
       const unrealizedPnl = portfolioValueUsd - totalLoanUsd;
 
-      const totalReferralEarnings = Number(referralStats._sum.reward || 0);
+      const totalReferralEarnings = Number(user?.referralEarningsUsd || 0);
 
       return {
         success: true,
@@ -222,6 +222,7 @@ export default async function userDashboardRoutes(fastify: FastifyInstance) {
             totalDeposits: deposits.length,
             referralCount,
             referralEarnings: totalReferralEarnings,
+            referralEarningsUsd: totalReferralEarnings,
           },
           prices: {
             BTC: prices.BTC,
@@ -526,8 +527,12 @@ export default async function userDashboardRoutes(fastify: FastifyInstance) {
     async (request: FastifyRequest) => {
       const userId = request.userId!;
 
-      // Fetch all referral bonus transactions and direct referral edges in parallel
-      const [bonusTx, directReferrals] = await Promise.all([
+      // Fetch user balance, referral bonus transactions, and direct referral edges in parallel
+      const [userRecord, bonusTx, directReferrals] = await Promise.all([
+        prisma.user.findUnique({
+          where: { id: userId },
+          select: { referralEarningsUsd: true },
+        }),
         prisma.transaction.findMany({
           where: { userId, type: 'REFERRAL_BONUS' },
           orderBy: { createdAt: 'desc' },
@@ -551,12 +556,13 @@ export default async function userDashboardRoutes(fastify: FastifyInstance) {
         earningsByLevel[lvl] = (earningsByLevel[lvl] ?? 0) + Number(tx.amount);
       }
 
-      const totalBonusReceived = bonusTx.reduce((s, t) => s + Number(t.amount), 0);
+      const totalBonusReceived = Number(userRecord?.referralEarningsUsd || 0);
 
       return {
         success: true,
         earnings: {
           totalBonusReceived: parseFloat(totalBonusReceived.toFixed(6)),
+          referralEarningsUsd: parseFloat(totalBonusReceived.toFixed(6)),
           directReferrals: directReferrals.length,
           commissionRates: REFERRAL_RATES.map((rate, i) => ({
             level: i + 1,

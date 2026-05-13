@@ -46,6 +46,7 @@ export default function HomeScreen({ navigation }: any) {
     depositCreditUsd: number;
     claimedPoolCreditUsd: number;
     swapHoldingsUsd: number;
+    referralEarningsUsd: number;
   } | null>(null);
   const [balanceTab, setBalanceTab] = useState<'deposit' | 'loan' | 'swap'>('swap');
   const [loans, setLoans] = useState<any[]>([]);

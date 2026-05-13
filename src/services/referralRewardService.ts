@@ -4,18 +4,19 @@ import prisma from '../config/db';
 /**
  * Multi-Level Referral Reward Structure (L1–L5)
  *
+ * All referral commissions are credited to `referralEarningsUsd` — a
+ * dedicated referral-only balance that is separate from deposit credit,
+ * loan credit, and token balances.
+ *
  * Commission rates applied to the triggering amount at each upline level:
  *
  *  TRIGGER 1 — Referred user "Claims Pool"
- *    Reward type : claimedPoolCreditUsd  (Loan Amount)
  *    L1 → 20% | L2 → 7% | L3 → 4% | L4 → 3% | L5 → 1%
  *
  *  TRIGGER 2 — Referred user "Buys Mining Package"
- *    Reward type : depositCreditUsd  (Available Credit)
  *    L1 → 20% | L2 → 7% | L3 → 4% | L4 → 3% | L5 → 1%
  *
  *  TRIGGER 3 — Referred user "Claims Mined Tokens"
- *    Reward type : TokenBalance  (CLB Balance)
  *    L1 → 10% | L2 → 3.5% | L3 → 2% | L4 → 3% | L5 → 1%
  */
 
@@ -52,7 +53,7 @@ async function getReferralChain(userId: string): Promise<string[]> {
 
 /**
  * Called when a referred user claims a pool.
- * Pays each upline (L1–L5) a share of `loanCreditUsd` → added to claimedPoolCreditUsd.
+ * Pays each upline (L1–L5) a share of `loanCreditUsd` → added to referralEarningsUsd.
  */
 export async function onPoolClaimed(
   referredUserId: string,
@@ -71,12 +72,11 @@ export async function onPoolClaimed(
     const rewardUsd = loanCreditUsd * rate;
     if (rewardUsd <= 0) continue;
 
-    // The referred user ID at this edge = the user directly below the beneficiary
     const referredAtLevel = i === 0 ? referredUserId : chain[i - 1];
 
     await db.user.update({
       where: { id: beneficiaryId },
-      data: { claimedPoolCreditUsd: { increment: new Prisma.Decimal(rewardUsd) } },
+      data: { referralEarningsUsd: { increment: new Prisma.Decimal(rewardUsd) } },
     });
 
     await db.referral.updateMany({
@@ -97,8 +97,8 @@ export async function onPoolClaimed(
           referredUserId,
           loanCreditUsd,
           rewardUsd,
-          rewardType: 'LOAN_AMOUNT',
-          description: `L${level} referral bonus: ${rate * 100}% of $${loanCreditUsd} pool credit → Loan Amount`,
+          rewardType: 'REFERRAL_EARNINGS',
+          description: `L${level} referral bonus: ${rate * 100}% of $${loanCreditUsd} pool credit → Referral Earnings`,
         },
       },
     });
@@ -108,8 +108,8 @@ export async function onPoolClaimed(
         userId: beneficiaryId,
         type: 'REWARD',
         title: `Referral Bonus — Pool Claim (L${level})`,
-        body: `A Level ${level} referral claimed a pool! You earned $${rewardUsd.toFixed(2)} added to your Loan Amount.`,
-        data: { trigger: 'POOL_CLAIM', level, rewardUsd, rewardType: 'LOAN_AMOUNT' },
+        body: `A Level ${level} referral claimed a pool! You earned $${rewardUsd.toFixed(2)} in referral earnings.`,
+        data: { trigger: 'POOL_CLAIM', level, rewardUsd, rewardType: 'REFERRAL_EARNINGS' },
       },
     });
 
@@ -125,7 +125,7 @@ export async function onPoolClaimed(
 
 /**
  * Called when a referred user buys a mining package.
- * Pays each upline (L1–L5) a share of `purchasePriceUsd` → added to depositCreditUsd.
+ * Pays each upline (L1–L5) a share of `purchasePriceUsd` → added to referralEarningsUsd.
  */
 export async function onMiningPackageBought(
   referredUserId: string,
@@ -148,7 +148,7 @@ export async function onMiningPackageBought(
 
     await db.user.update({
       where: { id: beneficiaryId },
-      data: { depositCreditUsd: { increment: new Prisma.Decimal(rewardUsd) } },
+      data: { referralEarningsUsd: { increment: new Prisma.Decimal(rewardUsd) } },
     });
 
     await db.referral.updateMany({
@@ -169,8 +169,8 @@ export async function onMiningPackageBought(
           referredUserId,
           purchasePriceUsd,
           rewardUsd,
-          rewardType: 'AVAILABLE_CREDIT',
-          description: `L${level} referral bonus: ${rate * 100}% of $${purchasePriceUsd} mining purchase → Available Credit`,
+          rewardType: 'REFERRAL_EARNINGS',
+          description: `L${level} referral bonus: ${rate * 100}% of $${purchasePriceUsd} mining purchase → Referral Earnings`,
         },
       },
     });
@@ -180,8 +180,8 @@ export async function onMiningPackageBought(
         userId: beneficiaryId,
         type: 'REWARD',
         title: `Referral Bonus — Mining Package (L${level})`,
-        body: `A Level ${level} referral bought a mining package! You earned $${rewardUsd.toFixed(2)} added to your Available Credit.`,
-        data: { trigger: 'MINING_PACKAGE_BUY', level, rewardUsd, rewardType: 'AVAILABLE_CREDIT' },
+        body: `A Level ${level} referral bought a mining package! You earned $${rewardUsd.toFixed(2)} in referral earnings.`,
+        data: { trigger: 'MINING_PACKAGE_BUY', level, rewardUsd, rewardType: 'REFERRAL_EARNINGS' },
       },
     });
 
@@ -197,7 +197,7 @@ export async function onMiningPackageBought(
 
 /**
  * Called when a referred user claims mined tokens.
- * Pays each upline (L1–L5) a share of `claimedAmount` tokens → added to CLB Balance.
+ * Pays each upline (L1–L5) a USD-equivalent share of `claimedAmount` → added to referralEarningsUsd.
  */
 export async function onMinedTokensClaimed(
   referredUserId: string,
@@ -219,22 +219,9 @@ export async function onMinedTokensClaimed(
 
     const referredAtLevel = i === 0 ? referredUserId : chain[i - 1];
 
-    await db.tokenBalance.upsert({
-      where: { userId_token: { userId: beneficiaryId, token: tokenSymbol } },
-      create: { userId: beneficiaryId, token: tokenSymbol, balance: rewardTokens },
-      update: { balance: { increment: rewardTokens } },
-    });
-
-    await db.tokenTransfer.create({
-      data: {
-        fromUserId: referredUserId,
-        toUserId: beneficiaryId,
-        token: tokenSymbol,
-        amount: rewardTokens,
-        type: 'REWARD',
-        status: 'COMPLETED',
-        note: `L${level} referral bonus: ${rate * 100}% of ${claimedAmount} ${tokenSymbol} from referred user claim`,
-      },
+    await db.user.update({
+      where: { id: beneficiaryId },
+      data: { referralEarningsUsd: { increment: new Prisma.Decimal(rewardTokens) } },
     });
 
     await db.referral.updateMany({
@@ -256,8 +243,8 @@ export async function onMinedTokensClaimed(
           tokenSymbol,
           claimedAmount,
           rewardTokens,
-          rewardType: 'CLB_BALANCE',
-          description: `L${level} referral bonus: ${rate * 100}% of ${claimedAmount} ${tokenSymbol} → CLB Balance`,
+          rewardType: 'REFERRAL_EARNINGS',
+          description: `L${level} referral bonus: ${rate * 100}% of ${claimedAmount} ${tokenSymbol} → Referral Earnings`,
         },
       },
     });
@@ -267,8 +254,8 @@ export async function onMinedTokensClaimed(
         userId: beneficiaryId,
         type: 'REWARD',
         title: `Referral Bonus — Token Claim (L${level})`,
-        body: `A Level ${level} referral claimed ${claimedAmount} ${tokenSymbol}! You earned ${rewardTokens.toFixed(4)} ${tokenSymbol} added to your balance.`,
-        data: { trigger: 'TOKEN_CLAIM', level, rewardTokens, tokenSymbol, rewardType: 'CLB_BALANCE' },
+        body: `A Level ${level} referral claimed ${claimedAmount} ${tokenSymbol}! You earned ${rewardTokens.toFixed(4)} in referral earnings.`,
+        data: { trigger: 'TOKEN_CLAIM', level, rewardTokens, tokenSymbol, rewardType: 'REFERRAL_EARNINGS' },
       },
     });
 

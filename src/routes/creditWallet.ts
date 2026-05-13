@@ -91,6 +91,7 @@ export default async function creditWalletRoutes(fastify: FastifyInstance) {
           depositCreditUsd: true,
           claimedPoolCreditUsd: true,
           swapHoldingsUsd: true,
+          referralEarningsUsd: true,
         },
       });
       if (!user) {
@@ -102,6 +103,7 @@ export default async function creditWalletRoutes(fastify: FastifyInstance) {
           depositCreditUsd: num(user.depositCreditUsd),
           claimedPoolCreditUsd: num(user.claimedPoolCreditUsd),
           swapHoldingsUsd: num(user.swapHoldingsUsd),
+          referralEarningsUsd: num(user.referralEarningsUsd),
         },
       };
     }

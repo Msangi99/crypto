@@ -146,6 +146,7 @@ export const creditWalletAPI = {
         depositCreditUsd: number;
         claimedPoolCreditUsd: number;
         swapHoldingsUsd: number;
+        referralEarningsUsd: number;
       };
     }>('/api/credit-wallet/balances'),
   confirmDeposit: (txHash: string) =>
