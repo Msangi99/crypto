@@ -125,7 +125,7 @@ function uploadAdminMobileApkWithXhr(
     xhr.onerror = () =>
       reject(
         new Error(
-          "Could not reach API (network or CORS). After deploying API changes, confirm nginx allows large bodies (client_max_body_size) for this route."
+          "Could not reach API (network or CORS). After deploying API changes, confirm nginx allows large bodies (client_max_body_size 200m or higher) and long proxy timeouts for this route."
         )
       );
     xhr.onabort = () => reject(new Error("Upload cancelled"));

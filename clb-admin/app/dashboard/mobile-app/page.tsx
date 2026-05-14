@@ -136,7 +136,7 @@ export default function MobileAppReleasesPage() {
             Upload new build
           </CardTitle>
           <CardDescription className="text-[#999]">
-            Max ~120 MB. After upload, publish the row you want visitors to download.
+            Max ~200 MB. After upload, publish the row you want visitors to download.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4 max-w-lg">
@@ -194,7 +194,7 @@ export default function MobileAppReleasesPage() {
               </div>
               <p className="text-[11px] text-[#666] leading-relaxed">
                 First time can pause at ~99% while the server writes the file. If it fails with a network error, redeploy
-                the API with the latest CORS settings and ensure nginx <code className="text-[#888]">client_max_body_size</code> is at least 128m.
+                the API with the latest CORS settings and ensure nginx <code className="text-[#888]">client_max_body_size</code> is at least 200m for the API host.
               </p>
             </div>
           ) : null}

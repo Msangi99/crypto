@@ -71,15 +71,16 @@ const buildApp = async () => {
   // strip reflected origins or preflight needs predictable Access-Control-Allow-Origin + credentials.
   await fastify.register(cors, {
     origin(origin, cb) {
+      // Never use cb(null, true) with credentials: true — missing Origin would set an invalid ACAO.
       if (!origin) {
-        cb(null, true);
+        cb(null, false);
         return;
       }
       if (env.NODE_ENV === 'development') {
         cb(null, origin);
         return;
       }
-      if (isAllowedBrowserOrigin(origin)) {
+      if (extraCorsOrigins.has(origin) || isAllowedBrowserOrigin(origin)) {
         cb(null, origin);
         return;
       }
@@ -91,6 +92,22 @@ const buildApp = async () => {
     maxAge: 86400,
   });
 
+  // If an allowed browser origin somehow reaches the wire without ACAO (e.g. proxy stripping upstream
+  // headers), attach it on send so 401/403 bodies stay readable to fetch/XHR instead of masking as CORS.
+  fastify.addHook('onSend', async (request, reply, payload) => {
+    const origin = request.headers.origin;
+    if (typeof origin !== 'string' || origin.length === 0) return payload;
+    if (reply.getHeader('access-control-allow-origin')) return payload;
+    const allowed =
+      env.NODE_ENV === 'development' ||
+      extraCorsOrigins.has(origin) ||
+      isAllowedBrowserOrigin(origin);
+    if (!allowed) return payload;
+    reply.header('Access-Control-Allow-Origin', origin);
+    reply.header('Access-Control-Allow-Credentials', 'true');
+    return payload;
+  });
+
   // ─── JWT ───────────────────────────────────────
   await fastify.register(jwt, {
     secret: env.JWT_SECRET,
@@ -98,7 +115,7 @@ const buildApp = async () => {
 
   await fastify.register(multipart, {
     limits: {
-      fileSize: 120 * 1024 * 1024,
+      fileSize: 200 * 1024 * 1024,
       files: 1,
     },
   });

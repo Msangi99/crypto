@@ -9,7 +9,7 @@ import prisma from '../config/db';
 import { adminOnlyMiddleware } from '../middleware/adminOnly';
 
 const APK_SUBDIR = 'apk';
-const MAX_APK_BYTES = 120 * 1024 * 1024;
+const MAX_APK_BYTES = 200 * 1024 * 1024;
 
 function uploadsRoot(): string {
   return path.join(process.cwd(), 'uploads');
