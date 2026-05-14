@@ -39,6 +39,8 @@ export default function MobileAppReleasesPage() {
   const [releaseNotes, setReleaseNotes] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadPct, setUploadPct] = useState<number | null>(null);
+  const [uploadPhase, setUploadPhase] = useState<"idle" | "upload" | "processing">("idle");
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -67,12 +69,20 @@ export default function MobileAppReleasesPage() {
       return;
     }
     setUploading(true);
+    setUploadPct(0);
+    setUploadPhase("upload");
     try {
-      await api.uploadAdminMobileRelease({
-        version: version.trim(),
-        releaseNotes: releaseNotes.trim() || undefined,
-        file,
-      });
+      await api.uploadAdminMobileRelease(
+        {
+          version: version.trim(),
+          releaseNotes: releaseNotes.trim() || undefined,
+          file,
+        },
+        (pct, phase) => {
+          setUploadPct(pct);
+          setUploadPhase(phase === "processing" ? "processing" : "upload");
+        }
+      );
       toast.success("APK uploaded. Publish it when you are ready.");
       setVersion("");
       setReleaseNotes("");
@@ -82,6 +92,8 @@ export default function MobileAppReleasesPage() {
       toast.error(e instanceof Error ? e.message : "Upload failed");
     } finally {
       setUploading(false);
+      setUploadPct(null);
+      setUploadPhase("idle");
     }
   };
 
@@ -134,7 +146,8 @@ export default function MobileAppReleasesPage() {
               value={version}
               onChange={(e) => setVersion(e.target.value)}
               placeholder="e.g. 1.4.2"
-              className="bg-[#0D0D0D] border-[#2A2A2A]"
+              disabled={uploading}
+              className="bg-[#0D0D0D] border-[#2A2A2A] disabled:opacity-50"
             />
           </div>
           <div className="space-y-2">
@@ -143,7 +156,8 @@ export default function MobileAppReleasesPage() {
               value={releaseNotes}
               onChange={(e) => setReleaseNotes(e.target.value)}
               placeholder="Short line shown on the landing popup"
-              className="bg-[#0D0D0D] border-[#2A2A2A]"
+              disabled={uploading}
+              className="bg-[#0D0D0D] border-[#2A2A2A] disabled:opacity-50"
             />
           </div>
           <div className="space-y-2">
@@ -151,17 +165,47 @@ export default function MobileAppReleasesPage() {
             <Input
               type="file"
               accept=".apk,application/vnd.android.package-archive"
-              className="bg-[#0D0D0D] border-[#2A2A2A] text-sm text-[#ccc]"
+              disabled={uploading}
+              className="bg-[#0D0D0D] border-[#2A2A2A] text-sm text-[#ccc] disabled:opacity-50"
               onChange={(e) => setFile(e.target.files?.[0] ?? null)}
             />
+            {file ? (
+              <p className="text-xs text-[#888]">
+                Selected: <span className="text-[#ccc]">{file.name}</span> · {formatBytes(file.size)}
+              </p>
+            ) : null}
           </div>
+
+          {uploading ? (
+            <div className="space-y-2 rounded-lg border border-[#2A2A2A] bg-[#0D0D0D] p-4">
+              <div className="flex justify-between text-xs text-[#aaa]">
+                <span>
+                  {uploadPhase === "processing" ? "Saving on server…" : "Uploading to API…"}
+                </span>
+                <span>{uploadPct != null ? `${uploadPct}%` : "…"}</span>
+              </div>
+              <div className="h-2 w-full overflow-hidden rounded-full bg-[#2A2A2A]">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-[#F0B90B] to-[#00C896] transition-[width] duration-150 ease-out"
+                  style={{
+                    width: `${uploadPct != null ? Math.max(3, uploadPct) : uploadPhase === "processing" ? 100 : 8}%`,
+                  }}
+                />
+              </div>
+              <p className="text-[11px] text-[#666] leading-relaxed">
+                First time can pause at ~99% while the server writes the file. If it fails with a network error, redeploy
+                the API with the latest CORS settings and ensure nginx <code className="text-[#888]">client_max_body_size</code> is at least 128m.
+              </p>
+            </div>
+          ) : null}
+
           <Button
             onClick={onUpload}
             disabled={uploading}
             className="bg-[#F0B90B] text-[#0D0D0D] hover:bg-[#FCD535] font-semibold"
           >
             {uploading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Upload className="w-4 h-4 mr-2" />}
-            Upload APK
+            {uploading ? "Uploading…" : "Upload APK"}
           </Button>
         </CardContent>
       </Card>

@@ -57,6 +57,83 @@ async function request<T>(
   return res.json();
 }
 
+export type AdminMobileReleaseUploadResult = {
+  success: boolean;
+  release: {
+    id: string;
+    version: string;
+    originalFileName: string;
+    fileSizeBytes: number;
+    releaseNotes: string | null;
+    isPublished: boolean;
+    createdAt: string;
+  };
+};
+
+/** Multipart APK upload with XMLHttpRequest so upload progress is observable (fetch has no upload progress). */
+function uploadAdminMobileApkWithXhr(
+  data: { version: string; releaseNotes?: string; file: Blob | File },
+  onProgress?: (pct: number, phase: "upload" | "processing") => void
+): Promise<AdminMobileReleaseUploadResult> {
+  const token = typeof window !== "undefined" ? localStorage.getItem("clb_token") : null;
+  const url = `${API_BASE}/api/admin/mobile-app/releases`;
+  onProgress?.(0, "upload");
+
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    const form = new FormData();
+    form.append("version", data.version);
+    if (data.releaseNotes) form.append("releaseNotes", data.releaseNotes);
+    form.append("file", data.file);
+
+    xhr.open("POST", url);
+    if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+
+    xhr.upload.addEventListener("progress", (e) => {
+      if (e.lengthComputable && e.total > 0) {
+        const pct = Math.min(99, Math.round((100 * e.loaded) / e.total));
+        onProgress?.(pct, "upload");
+      }
+    });
+
+    xhr.onload = () => {
+      onProgress?.(100, "processing");
+      const ok = xhr.status >= 200 && xhr.status < 300;
+      let body: Record<string, unknown> = {};
+      try {
+        body = xhr.responseText ? (JSON.parse(xhr.responseText) as Record<string, unknown>) : {};
+      } catch {
+        if (!ok) {
+          reject(new Error(xhr.statusText || `HTTP ${xhr.status}`));
+          return;
+        }
+        reject(new Error("Invalid JSON from server"));
+        return;
+      }
+      if (!ok) {
+        const msg =
+          (typeof body.error === "string" && body.error) ||
+          (typeof body.message === "string" && body.message) ||
+          xhr.statusText ||
+          `API Error: ${xhr.status}`;
+        reject(new Error(msg));
+        return;
+      }
+      resolve(body as AdminMobileReleaseUploadResult);
+    };
+
+    xhr.onerror = () =>
+      reject(
+        new Error(
+          "Could not reach API (network or CORS). After deploying API changes, confirm nginx allows large bodies (client_max_body_size) for this route."
+        )
+      );
+    xhr.onabort = () => reject(new Error("Upload cancelled"));
+
+    xhr.send(form);
+  });
+}
+
 export const api = {
   // Health
   health: () => request<{ status: string; database: string; blockchain: string }>("/health"),
@@ -488,39 +565,10 @@ export const api = {
       }>;
     }>("/api/admin/mobile-app/releases"),
 
-  uploadAdminMobileRelease: async (data: { version: string; releaseNotes?: string; file: Blob | File }) => {
-    const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
-    const token = typeof window !== "undefined" ? localStorage.getItem("clb_token") : null;
-    const form = new FormData();
-    form.append("version", data.version);
-    if (data.releaseNotes) form.append("releaseNotes", data.releaseNotes);
-    form.append("file", data.file);
-    const res = await fetch(`${API_BASE}/api/admin/mobile-app/releases`, {
-      method: "POST",
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-      body: form,
-    });
-    if (!res.ok) {
-      const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
-      const msg =
-        (typeof body.error === "string" && body.error) ||
-        (typeof body.message === "string" && body.message) ||
-        res.statusText;
-      throw new Error(msg || `API Error: ${res.status}`);
-    }
-    return res.json() as Promise<{
-      success: boolean;
-      release: {
-        id: string;
-        version: string;
-        originalFileName: string;
-        fileSizeBytes: number;
-        releaseNotes: string | null;
-        isPublished: boolean;
-        createdAt: string;
-      };
-    }>;
-  },
+  uploadAdminMobileRelease: async (
+    data: { version: string; releaseNotes?: string; file: Blob | File },
+    onProgress?: (pct: number, phase: "upload" | "processing") => void
+  ) => uploadAdminMobileApkWithXhr(data, onProgress),
 
   publishAdminMobileRelease: (id: string) =>
     request<{ success: boolean; release: unknown }>(`/api/admin/mobile-app/releases/${id}/publish`, {

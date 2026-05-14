@@ -30,6 +30,31 @@ import userMiningRoutes from './routes/userMining';
 import creditWalletRoutes from './routes/creditWallet';
 import { mobileAppPublicPlugin, mobileAppAdminPlugin } from './routes/mobileAppReleases';
 
+function parseExtraCorsOrigins(): Set<string> {
+  const raw = env.CORS_EXTRA_ORIGINS;
+  if (!raw.trim()) return new Set();
+  return new Set(
+    raw
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+  );
+}
+
+const extraCorsOrigins = parseExtraCorsOrigins();
+
+function isAllowedBrowserOrigin(origin: string): boolean {
+  if (extraCorsOrigins.has(origin)) return true;
+  try {
+    const u = new URL(origin);
+    const host = u.hostname.toLowerCase();
+    if (host === 'localhost' || host === '127.0.0.1') return true;
+    if (host === 'cryptoloanboost.com' || host.endsWith('.cryptoloanboost.com')) return true;
+    return false;
+  } catch {
+    return false;
+  }
+}
 const buildApp = async () => {
   const fastify = Fastify({
     logger: {
@@ -42,9 +67,28 @@ const buildApp = async () => {
   });
 
   // ─── CORS ──────────────────────────────────────
+  // Explicit allowlist fixes admin (e.g. cryptoloanboost.com → api.cryptoloanboost.com) when proxies
+  // strip reflected origins or preflight needs predictable Access-Control-Allow-Origin + credentials.
   await fastify.register(cors, {
-    origin: true,
+    origin(origin, cb) {
+      if (!origin) {
+        cb(null, true);
+        return;
+      }
+      if (env.NODE_ENV === 'development') {
+        cb(null, origin);
+        return;
+      }
+      if (isAllowedBrowserOrigin(origin)) {
+        cb(null, origin);
+        return;
+      }
+      cb(null, false);
+    },
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
+    allowedHeaders: ['Authorization', 'Content-Type', 'Accept', 'Origin', 'X-Requested-With'],
+    maxAge: 86400,
   });
 
   // ─── JWT ───────────────────────────────────────

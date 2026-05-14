@@ -20,6 +20,9 @@ export const env = {
   // JWT
   JWT_SECRET: envValue('JWT_SECRET', 'fallback-secret-change-me'),
 
+  /** Comma-separated extra browser origins allowed for CORS (e.g. https://preview.vercel.app). */
+  CORS_EXTRA_ORIGINS: envValue('CORS_EXTRA_ORIGINS', ''),
+
   // Blockchain
   BSC_RPC_URL: envValue('BSC_RPC_URL', 'https://bsc-dataseed1.binance.org'),
   BSC_TESTNET_RPC_URL: envValue('BSC_TESTNET_RPC_URL', 'https://data-seed-prebsc-1-s1.binance.org:8545'),
