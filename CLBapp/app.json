@@ -68,9 +68,7 @@
     "extra": {
       "walletConnectProjectId": "b9d252ad0927504b56f9e3b4ce9f6e1f",
       "dappUrl": "https://app.cryptoloanboost.com",
-      "eas": {
-        "projectId": "9258730d-e6c9-4d46-b6f3-5885de946559"
-      }
+      "eas": {}
     },
     "owner": "erickesn0001"
   }
