@@ -6,6 +6,7 @@ import { liquidationService } from '../services/liquidationService';
 import { serializePoolPublic } from '../services/poolSerialization';
 import { serializeMiningPackage } from './miningPackages';
 import type { MiningPackagePeriodUnit } from '@prisma/client';
+import { loadAdminUserDetailBundle, formatAdminUserDbError } from '../services/adminUserDetail';
 
 // Admin-only middleware — reads role from JWT (no extra DB query)
 async function adminMiddleware(request: FastifyRequest, reply: FastifyReply): Promise<void> {
@@ -13,7 +14,7 @@ async function adminMiddleware(request: FastifyRequest, reply: FastifyReply): Pr
   if (reply.sent) return;
 
   if (request.userRole !== 'ADMIN') {
-    reply.status(403).send({ success: false, error: 'Forbidden — admin access required' });
+    return reply.status(403).send({ success: false, error: 'Forbidden — admin access required' });
   }
 }
 
@@ -279,69 +280,26 @@ export default async function adminRoutes(fastify: FastifyInstance) {
     '/users/:id',
     { schema: adminSchemas.getUser, preHandler: [adminMiddleware] },
     async (request, reply) => {
-      const user = await prisma.user.findUnique({
-        where: { id: request.params.id },
-        include: {
-          poolMemberships: { include: { pool: true } },
-          transactions: { orderBy: { createdAt: 'desc' }, take: 100 },
-          deposits: {
-            orderBy: { createdAt: 'desc' },
-            take: 100,
-            include: { pool: { select: { id: true, name: true, tokenSymbol: true } } },
-          },
-          referrals: {
-            orderBy: { createdAt: 'desc' },
-            take: 80,
-            include: {
-              referred: {
-                select: {
-                  id: true,
-                  walletAddress: true,
-                  username: true,
-                  email: true,
-                  createdAt: true,
-                },
-              },
-            },
-          },
-          referredBy: {
-            include: {
-              referrer: {
-                select: {
-                  id: true,
-                  walletAddress: true,
-                  username: true,
-                  email: true,
-                  referralCode: true,
-                },
-              },
-            },
-          },
-          loans: { orderBy: { updatedAt: 'desc' }, take: 40 },
-          miningSubscription: { include: { package: true } },
-          tokenBalances: true,
-          creditDraws: {
-            orderBy: { createdAt: 'desc' },
-            take: 50,
-            include: { loan: { select: { id: true, loanType: true, status: true } } },
-          },
-        },
-      });
-
-      if (!user) {
-        return reply.status(404).send({ success: false, error: 'User not found' });
+      try {
+        const user = await loadAdminUserDetailBundle(request.params.id, request.log);
+        if (!user) {
+          return reply.status(404).send({ success: false, error: 'User not found' });
+        }
+        const {
+          passwordHash,
+          nonce,
+          pinHash,
+          pinSalt,
+          secretKey,
+          secretKeyIv,
+          ...safeUser
+        } = user;
+        return { success: true, user: safeUser };
+      } catch (err: unknown) {
+        request.log.error(err);
+        const { status, body } = formatAdminUserDbError(err);
+        return reply.status(status).send(body);
       }
-
-      const {
-        passwordHash,
-        nonce,
-        pinHash,
-        pinSalt,
-        secretKey,
-        secretKeyIv,
-        ...safeUser
-      } = user;
-      return { success: true, user: safeUser };
     }
   );
 
@@ -725,25 +683,59 @@ export default async function adminRoutes(fastify: FastifyInstance) {
     '/users/:id',
     { schema: adminSchemas.deleteUser, preHandler: [adminMiddleware] },
     async (request, reply) => {
-      const existing = await prisma.user.findUnique({ where: { id: request.params.id } });
+      const userId = request.params.id;
+      const existing = await prisma.user.findUnique({ where: { id: userId } });
 
       if (!existing) {
         return reply.status(404).send({ success: false, error: 'User not found' });
       }
 
-      // Prevent self-deletion
       if (existing.id === request.userId) {
         return reply.status(400).send({ success: false, error: 'Cannot delete your own account' });
       }
 
-      // Delete dependent records first
-      await prisma.transaction.deleteMany({ where: { userId: request.params.id } });
-      await prisma.deposit.deleteMany({ where: { userId: request.params.id } });
-      await prisma.poolMember.deleteMany({ where: { userId: request.params.id } });
-      await prisma.referral.deleteMany({ where: { OR: [{ referrerId: request.params.id }, { referredId: request.params.id }] } });
-      await prisma.user.delete({ where: { id: request.params.id } });
+      try {
+        await prisma.$transaction(async (tx) => {
+          // Order respects FKs: children of Loan / User first, then User row.
+          await tx.creditDraw.deleteMany({
+            where: { OR: [{ userId }, { loan: { userId } }] },
+          });
+          await tx.deposit.deleteMany({ where: { userId } });
+          await tx.loan.deleteMany({ where: { userId } });
+          await tx.notification.deleteMany({ where: { userId } });
+          await tx.tokenBalance.deleteMany({ where: { userId } });
+          await tx.withdrawal.deleteMany({ where: { userId } });
+          await tx.tokenTransfer.deleteMany({
+            where: { OR: [{ fromUserId: userId }, { toUserId: userId }] },
+          });
+          await tx.userMiningSubscription.deleteMany({ where: { userId } });
+          await tx.transaction.deleteMany({ where: { userId } });
+          await tx.poolMember.deleteMany({ where: { userId } });
+          await tx.referral.deleteMany({
+            where: { OR: [{ referrerId: userId }, { referredId: userId }] },
+          });
+          await tx.user.delete({ where: { id: userId } });
+        });
 
-      return { success: true, message: 'User deleted' };
+        return { success: true, message: 'User deleted' };
+      } catch (err: unknown) {
+        request.log.error({ err, userId }, 'admin delete user failed');
+        if (err instanceof Prisma.PrismaClientKnownRequestError) {
+          if (err.code === 'P2003') {
+            return reply.status(409).send({
+              success: false,
+              error:
+                'Cannot delete user: another record still references this account. Check server logs or run DB cleanup.',
+              prismaCode: err.code,
+            });
+          }
+          if (err.code === 'P2025') {
+            return reply.status(404).send({ success: false, error: 'User was already removed' });
+          }
+        }
+        const msg = err instanceof Error ? err.message : 'Delete failed';
+        return reply.status(500).send({ success: false, error: msg });
+      }
     }
   );
 
