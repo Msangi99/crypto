@@ -97,7 +97,7 @@ function uploadAdminMobileApkWithXhr(
     });
 
     const unreachableMsg =
-      "No response from the API (network drop, CORS, or TLS). If the APK is large, set nginx client_max_body_size to at least 200m and proxy_read_timeout / client_body_timeout (e.g. 600s) on the API host, then reload nginx. Re-login if your admin token expired.";
+      "No response from the API (network drop, CORS, or TLS). If the file is ~96+ “MB” on disk, it may be ~101 million bytes — over Cloudflare Free/Pro’s 100 million-byte proxied upload limit (browser then looks like a generic network error). Fix: DNS-only (grey cloud) on api.*, upgrade CF Business, or shrink the APK. Otherwise check nginx client_max_body_size 200m, proxy/client timeouts, and re-login if the admin token expired.";
 
     xhr.onload = () => {
       onProgress?.(100, "processing");
@@ -108,7 +108,7 @@ function uploadAdminMobileApkWithXhr(
       if (xhr.status === 413) {
         reject(
           new Error(
-            "Payload too large for the reverse proxy. On the API nginx server set client_max_body_size 200m (or higher) for this site and reload nginx."
+            "Payload too large (413). Nginx: raise client_max_body_size. Cloudflare: Free/Pro allows 100 million bytes per request — use DNS-only on api.*, raise the zone upload limit, or upgrade Business (200 MB)."
           )
         );
         return;

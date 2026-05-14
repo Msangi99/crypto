@@ -13,6 +13,11 @@ import { toast } from "sonner";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
 
+/** Cloudflare Free/Pro max proxied request body (decimal); MiB-sized APKs can exceed this while still “~96 MB” in Explorer. */
+const CLOUDFLARE_FREE_PRO_BODY_BYTES = 100 * 1000 * 1000;
+/** Multipart boundaries + fields — stay under CF cap when the file alone is near the limit. */
+const UPLOAD_BODY_OVERHEAD_BYTES = 256 * 1024;
+
 type ReleaseRow = {
   id: string;
   version: string;
@@ -66,6 +71,13 @@ export default function MobileAppReleasesPage() {
     }
     if (!file) {
       toast.error("Choose an .apk file");
+      return;
+    }
+    if (file.size + UPLOAD_BODY_OVERHEAD_BYTES > CLOUDFLARE_FREE_PRO_BODY_BYTES) {
+      toast.error(
+        `This APK is ${formatBytes(file.size)} (${file.size.toLocaleString()} bytes). Cloudflare Free/Pro blocks proxied uploads over ${CLOUDFLARE_FREE_PRO_BODY_BYTES.toLocaleString()} bytes, so ~96 MiB builds often fail with a vague network error even though nginx/your API allow 200 MB. Set api.* to DNS-only (grey cloud), upgrade Cloudflare Business (200 MB), or reduce APK size.`,
+        { duration: 22000 }
+      );
       return;
     }
     setUploading(true);
@@ -136,7 +148,7 @@ export default function MobileAppReleasesPage() {
             Upload new build
           </CardTitle>
           <CardDescription className="text-[#999]">
-            Max ~200 MB. After upload, publish the row you want visitors to download.
+            Server limit ~200 MB. If the API hostname is behind Cloudflare Free/Pro, uploads are capped at 100 million bytes (~95.4 MiB APK + overhead) — use DNS-only on api or upgrade CF.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4 max-w-lg">
@@ -193,8 +205,7 @@ export default function MobileAppReleasesPage() {
                 />
               </div>
               <p className="text-[11px] text-[#666] leading-relaxed">
-                First time can pause at ~99% while the server writes the file. If it fails with a network error, redeploy
-                the API with the latest CORS settings and ensure nginx <code className="text-[#888]">client_max_body_size</code> is at least 200m for the API host.
+                First time can pause at ~99% while the server writes the file. If you see a generic network error on a ~96 MB APK, Cloudflare’s 100 MB (decimal) upload cap is a common cause — not nginx. Otherwise check CORS, nginx <code className="text-[#888]">client_max_body_size</code> 200m, and timeouts.
               </p>
             </div>
           ) : null}
