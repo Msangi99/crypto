@@ -17,7 +17,9 @@
     "android": "npm --prefix CLBapp run android",
     "ios": "npm --prefix CLBapp run ios",
     "e2e:transfer": "ts-node --transpile-only scripts/e2e-transfer-test.ts",
-    "db:purge-non-admin-users": "node scripts/purge-non-admin-users.js"
+    "db:purge-non-admin-users": "node scripts/purge-non-admin-users.js",
+    "mobile-apk:register": "node dist/cli/registerMobileApk.js",
+    "mobile-apk:register:dev": "ts-node --transpile-only src/cli/registerMobileApk.ts"
   },
   "keywords": [
     "blockchain",

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Smartphone, Loader2, Upload, Trash2, Rocket, EyeOff, Settings } from "lucide-react";
+import { Smartphone, Loader2, Upload, Trash2, Rocket, EyeOff, Settings, Server, RefreshCw } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -75,7 +75,7 @@ export default function MobileAppReleasesPage() {
     }
     if (file.size + UPLOAD_BODY_OVERHEAD_BYTES > CLOUDFLARE_FREE_PRO_BODY_BYTES) {
       toast.error(
-        `This APK is ${formatBytes(file.size)} (${file.size.toLocaleString()} bytes). Cloudflare Free/Pro blocks proxied uploads over ${CLOUDFLARE_FREE_PRO_BODY_BYTES.toLocaleString()} bytes, so ~96 MiB builds often fail with a vague network error even though nginx/your API allow 200 MB. Set api.* to DNS-only (grey cloud), upgrade Cloudflare Business (200 MB), or reduce APK size.`,
+        `This APK is ${formatBytes(file.size)} (${file.size.toLocaleString()} bytes). Cloudflare Free/Pro blocks proxied uploads over ${CLOUDFLARE_FREE_PRO_BODY_BYTES.toLocaleString()} bytes, so ~96 MiB builds often fail with a vague network error even though nginx/your API allow 200 MB. Set api.* to DNS-only (grey cloud), upgrade Cloudflare Business (200 MB), reduce APK size, or use Manual upload (server) below with npm run mobile-apk:register.`,
         { duration: 22000 }
       );
       return;
@@ -217,6 +217,56 @@ export default function MobileAppReleasesPage() {
           >
             {uploading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Upload className="w-4 h-4 mr-2" />}
             {uploading ? "Uploading…" : "Upload APK"}
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card className="bg-[#1A1A1A] border-[#2A2A2A]">
+        <CardHeader>
+          <CardTitle className="text-white flex items-center gap-2">
+            <Server className="w-5 h-5 text-[#888]" />
+            Manual upload (server / SSH)
+          </CardTitle>
+          <CardDescription className="text-[#999]">
+            Weka APK kwenye server kwa <code className="text-[#ccc]">scp</code> au{" "}
+            <code className="text-[#ccc]">docker cp</code>, kisha endesha script — draft itaonekana hapa na{" "}
+            <strong className="text-white">Publish</strong> inafanya kazi kawaida (inapita Cloudflare).
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3 text-xs text-[#aaa]">
+          <p className="text-[#888]">
+            From the API project root, same <code className="text-[#666]">DATABASE_URL</code> and{" "}
+            <code className="text-[#666]">uploads/</code> folder as the running backend:
+          </p>
+          <pre className="rounded-md bg-[#0D0D0D] border border-[#2A2A2A] p-3 text-[#ccc] overflow-x-auto whitespace-pre-wrap break-all">
+            npm run build && npm run mobile-apk:register -- /path/to/app.apk 1.4.2
+          </pre>
+          <p className="text-[#888]">Dev (bila build):</p>
+          <pre className="rounded-md bg-[#0D0D0D] border border-[#2A2A2A] p-3 text-[#ccc] overflow-x-auto whitespace-pre-wrap break-all">
+            npm run mobile-apk:register:dev -- /path/to/app.apk 1.4.2
+          </pre>
+          <p className="text-[#888]">Optional release notes (third argument):</p>
+          <pre className="rounded-md bg-[#0D0D0D] border border-[#2A2A2A] p-3 text-[#ccc] overflow-x-auto whitespace-pre-wrap break-all">
+            npm run mobile-apk:register -- /path/to/app.apk 1.4.2 &quot;Bug fixes&quot;
+          </pre>
+          <p className="text-[#888]">Docker:</p>
+          <pre className="rounded-md bg-[#0D0D0D] border border-[#2A2A2A] p-3 text-[#ccc] overflow-x-auto whitespace-pre-wrap break-all">
+            {`docker cp /full/path/on/host/your.apk clb-backend:/tmp/app.apk
+docker exec -it clb-backend node dist/cli/registerMobileApk.js /tmp/app.apk 1.4.2`}
+          </pre>
+          <p className="text-[#666] text-[11px]">
+            <code className="text-[#888]">docker cp</code> ya kwanza: tumia njia halisi ya faili kwenye host (sio ./app.apk kama faili halipo kwenye folda hiyo). Image ya backend lazima iwe imejengwa upya baada ya kuongeza CLI hii.
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => load()}
+            disabled={loading}
+            className="border-[#444] text-[#ccc] hover:bg-[#2A2A2A]"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 mr-2 ${loading ? "animate-spin" : ""}`} />
+            Refresh list
           </Button>
         </CardContent>
       </Card>
