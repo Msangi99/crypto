@@ -33,7 +33,8 @@ const dmSans = DM_Sans({
 });
 
 const APP_URL = "https://app.cryptoloanboost.com";
-const HOME_APK_DOWNLOAD_URL = "/application-9b043f0a-47ff-49d6-800b-66d4874b6305.apk";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+const HOME_APK_DOWNLOAD_URL = `${API_BASE}/api/public/mobile-app/download`;
 function apkDownloadUrl(mobileApp: LandingPublicBundle["mobileApp"] | undefined): string {
   return mobileApp?.downloadUrl ?? HOME_APK_DOWNLOAD_URL;
 }
