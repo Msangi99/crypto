@@ -45,47 +45,45 @@ export default async function withdrawalRoutes(fastify: FastifyInstance) {
       }
 
       if (isPlatform && token === 'USDT') {
-        // USDT withdrawals come from referral earnings stored on the User record
-        const user = await prisma.user.findUnique({ where: { id: userId } });
-        if (!user) {
+        // USDT available = total successful referral rewards - already requested/processed USDT withdrawals
+        const user = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { id: true, referralEarningsUsd: true },
+        });
+        if (!user?.id) {
           return reply.status(404).send({ success: false, error: 'User not found' });
         }
 
-        let available = Number(user.referralEarningsUsd);
+        const [bonusAgg, withdrawnAgg] = await Promise.all([
+          prisma.transaction.aggregate({
+            where: {
+              userId,
+              type: 'REFERRAL_BONUS',
+              status: 'SUCCESS',
+            },
+            _sum: { amount: true },
+          }),
+          prisma.withdrawal.aggregate({
+            where: {
+              userId,
+              token: 'USDT',
+              status: { in: ['PENDING', 'PROCESSING', 'COMPLETED'] },
+            },
+            _sum: { amount: true },
+          }),
+        ]);
 
-        // Legacy accounts may have referral bonus transactions but a zero cached balance.
-        // Rebuild once from ledger and persist so withdrawals work correctly.
-        if (available <= 0) {
-          const [bonusAgg, withdrawnAgg] = await Promise.all([
-            prisma.transaction.aggregate({
-              where: {
-                userId,
-                type: 'REFERRAL_BONUS',
-                status: 'SUCCESS',
-              },
-              _sum: { amount: true },
-            }),
-            prisma.withdrawal.aggregate({
-              where: {
-                userId,
-                token: 'USDT',
-                status: { in: ['PENDING', 'PROCESSING', 'COMPLETED'] },
-              },
-              _sum: { amount: true },
-            }),
-          ]);
+        const totalBonuses = Number(bonusAgg._sum.amount || 0);
+        const totalCommittedWithdrawals = Number(withdrawnAgg._sum.amount || 0);
+        const available = Math.max(0, totalBonuses - totalCommittedWithdrawals);
 
-          const totalBonuses = Number(bonusAgg._sum.amount || 0);
-          const totalWithdrawn = Number(withdrawnAgg._sum.amount || 0);
-          const rebuiltAvailable = Math.max(0, totalBonuses - totalWithdrawn);
-
-          if (rebuiltAvailable > 0) {
-            await prisma.user.update({
-              where: { id: userId },
-              data: { referralEarningsUsd: rebuiltAvailable },
-            });
-            available = rebuiltAvailable;
-          }
+        // Keep cached balance aligned for compatibility with other endpoints/UI reads.
+        const cached = Number(user.referralEarningsUsd || 0);
+        if (Math.abs(cached - available) > 0.000001) {
+          await prisma.user.update({
+            where: { id: userId },
+            data: { referralEarningsUsd: available },
+          });
         }
 
         if (available < amount) {

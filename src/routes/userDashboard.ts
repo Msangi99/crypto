@@ -557,11 +557,7 @@ export default async function userDashboardRoutes(fastify: FastifyInstance) {
       const userId = request.userId!;
 
       // Fetch all referral bonus transactions and direct referral edges in parallel
-      const [user, bonusTx, directReferrals] = await Promise.all([
-        prisma.user.findUnique({
-          where: { id: userId },
-          select: { referralEarningsUsd: true },
-        }),
+      const [bonusTx, directReferrals, withdrawnAgg] = await Promise.all([
         prisma.transaction.findMany({
           where: { userId, type: 'REFERRAL_BONUS' },
           orderBy: { createdAt: 'desc' },
@@ -572,6 +568,14 @@ export default async function userDashboardRoutes(fastify: FastifyInstance) {
             referred: { select: { walletAddress: true, username: true } },
           },
           orderBy: { createdAt: 'desc' },
+        }),
+        prisma.withdrawal.aggregate({
+          where: {
+            userId,
+            token: 'USDT',
+            status: { in: ['PENDING', 'PROCESSING', 'COMPLETED'] },
+          },
+          _sum: { amount: true },
         }),
       ]);
 
@@ -594,12 +598,14 @@ export default async function userDashboardRoutes(fastify: FastifyInstance) {
 
       // Total = sum of ALL referral bonus transactions (pool claim + mining buy + token claim)
       const totalBonusReceived = bonusTx.reduce((s, t) => s + Number(t.amount), 0);
+      const totalCommittedWithdrawals = Number(withdrawnAgg._sum.amount || 0);
+      const availableWithdrawalUsd = Math.max(0, totalBonusReceived - totalCommittedWithdrawals);
 
       return {
         success: true,
         earnings: {
           totalBonusReceived: parseFloat(totalBonusReceived.toFixed(6)),
-          availableWithdrawalUsd: Number(user?.referralEarningsUsd || 0),
+          availableWithdrawalUsd: parseFloat(availableWithdrawalUsd.toFixed(6)),
           referralEarningsUsd: parseFloat(totalBonusReceived.toFixed(6)),
           earningsByTrigger: {
             poolClaim: parseFloat(earningsByTrigger.POOL_CLAIM.toFixed(6)),
