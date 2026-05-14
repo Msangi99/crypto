@@ -102,11 +102,6 @@ export default function WithdrawReferralScreen({ navigation }: any) {
         toAddress: address,
       });
       setModalVisible(false);
-      Alert.alert(
-        'Withdrawal Requested',
-        `Your withdrawal of ${netAmount.toFixed(2)} USDT to ${address.slice(0, 8)}...${address.slice(-4)} has been submitted.\n\nAdmin will review and process it within 24–48 hours.`,
-        [{ text: 'OK' }],
-      );
       load();
     } catch (err: any) {
       Alert.alert('Withdrawal Failed', err?.response?.data?.error || 'Something went wrong. Please try again.');

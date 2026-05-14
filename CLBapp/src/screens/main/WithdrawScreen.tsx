@@ -94,10 +94,6 @@ export default function WithdrawScreen({ navigation }: any) {
       setAmount('');
       setToAddress('');
       loadHistory();
-      Alert.alert(
-        'Withdrawal Requested',
-        `Your withdrawal of ${netAmount.toFixed(2)} ${selectedToken.symbol} has been submitted and is awaiting admin approval. You will be notified once it is processed.`,
-      );
     } catch (err: any) {
       Alert.alert('Error', err?.response?.data?.error || 'Withdrawal failed');
     } finally {

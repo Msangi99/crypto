@@ -29,8 +29,6 @@ export default function DepositReceiveScreen({ navigation }: any) {
   const [depositHistory, setDepositHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [depositAmount, setDepositAmount] = useState('');
-  const [txHash, setTxHash] = useState('');
-  const [submitting, setSubmitting] = useState(false);
   const [creatingRequest, setCreatingRequest] = useState(false);
   const [pendingDeposit, setPendingDeposit] = useState<any>(null);
 
@@ -91,33 +89,6 @@ export default function DepositReceiveScreen({ navigation }: any) {
     if (!treasury) return;
     await Clipboard.setStringAsync(treasury);
     Alert.alert('Copied', 'Treasury address copied to clipboard');
-  };
-
-  const onConfirmTx = async () => {
-    const h = txHash.trim();
-    if (!h.startsWith('0x') || h.length < 66) {
-      Alert.alert('Invalid hash', 'Paste the full BSC transaction hash (0x…).');
-      return;
-    }
-    setSubmitting(true);
-    try {
-      const res = await creditWalletAPI.confirmDeposit(h, pendingDeposit?.id);
-      if (res.data?.success) {
-        loadDepositHistory();
-        setTxHash('');
-        Alert.alert(
-          'Credited',
-          `USDT received. Your Deposit wallet (USDT) is now $${Number(res.data.newDepositCreditUsd ?? 0).toFixed(2)}.`,
-        );
-        return;
-      }
-      Alert.alert('Could not confirm', res.data?.error || 'Unknown error');
-    } catch (e: any) {
-      Alert.alert('Could not confirm', e?.response?.data?.error || e?.message || 'Request failed');
-      loadDepositHistory();
-    } finally {
-      setSubmitting(false);
-    }
   };
 
   const getStatusStyle = (status: string) => {
@@ -328,7 +299,8 @@ export default function DepositReceiveScreen({ navigation }: any) {
                 <View style={{ flex: 1, marginLeft: 8 }}>
                   <Text style={styles.pendingBannerTitle}>Deposit Request Created</Text>
                   <Text style={styles.pendingBannerText}>
-                    Status: {pendingDeposit.status} · Send USDT to the address below, then paste the transaction hash to confirm.
+                    Status: {pendingDeposit.status} · Send USDT to the address below. Your balance updates when the server
+                    credits the deposit (treasury monitoring).
                   </Text>
                 </View>
               </View>
@@ -365,41 +337,13 @@ export default function DepositReceiveScreen({ navigation }: any) {
             <Text style={styles.instructions}>
               1. Send USDT (BEP-20) from the same wallet linked to this CLB account — exchange “internal” sends often
               won’t match your linked address.{'\n'}
-              2. Wait for enough block confirmations (see above).{'\n'}
-              3. The server can auto-credit deposits when treasury monitoring runs (e.g. scheduled job). If nothing
-              updates, use “Confirm transaction” below after the tx is successful on BscScan.
+              2. Wait for enough block confirmations (see above).
             </Text>
 
             <View style={styles.autoDetectBadge}>
               <Ionicons name="flash" size={16} color="#00C853" />
               <Text style={styles.autoDetectText}>Server auto-credit when monitoring runs</Text>
             </View>
-
-            <Text style={styles.sectionLabel}>Confirm with hash</Text>
-            <Text style={styles.instructions}>
-              After the transfer is confirmed on BSC, paste the transaction hash here. The app checks that USDT moved
-              from your linked wallet to the treasury address on the same network as the API.
-            </Text>
-            <TextInput
-              value={txHash}
-              onChangeText={setTxHash}
-              placeholder="0x... transaction hash"
-              placeholderTextColor={Colors.textMuted}
-              style={styles.input}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-            <TouchableOpacity
-              style={[styles.confirmBtn, submitting && { opacity: 0.7 }]}
-              onPress={onConfirmTx}
-              disabled={submitting}
-            >
-              {submitting ? (
-                <ActivityIndicator color="#000" size="small" />
-              ) : (
-                <Text style={styles.confirmBtnText}>Confirm transaction</Text>
-              )}
-            </TouchableOpacity>
 
             {renderDepositHistory()}
           </>
@@ -614,25 +558,6 @@ const styles = StyleSheet.create({
   metaMuted: { fontSize: 12, color: Colors.textMuted },
   metaVal: { fontSize: 12, color: Colors.textSecondary, fontWeight: '600', flex: 1, textAlign: 'right' },
   instructions: { fontSize: 13, color: Colors.textSecondary, lineHeight: 20 },
-  input: {
-    marginTop: Spacing.md,
-    backgroundColor: Colors.bgCard,
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: 14,
-    fontSize: 14,
-    color: Colors.textPrimary,
-  },
-  confirmBtn: {
-    marginTop: Spacing.md,
-    backgroundColor: Colors.primary,
-    paddingVertical: 16,
-    borderRadius: Radius.md,
-    alignItems: 'center',
-  },
-  confirmBtnText: { fontSize: 15, fontWeight: '700', color: '#000' },
   historySection: {
     marginTop: Spacing.lg,
     backgroundColor: Colors.bgCard,
