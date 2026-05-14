@@ -16,7 +16,8 @@
     "prisma:studio": "prisma studio",
     "android": "npm --prefix CLBapp run android",
     "ios": "npm --prefix CLBapp run ios",
-    "e2e:transfer": "ts-node --transpile-only scripts/e2e-transfer-test.ts"
+    "e2e:transfer": "ts-node --transpile-only scripts/e2e-transfer-test.ts",
+    "db:purge-non-admin-users": "node scripts/purge-non-admin-users.js"
   },
   "keywords": [
     "blockchain",
