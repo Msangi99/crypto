@@ -28,6 +28,15 @@ export type LandingPublicBundle = {
     blockchain: string;
     status?: string;
   } | null;
+  /** Published Android APK for landing download prompt (null if none). */
+  mobileApp: {
+    version: string;
+    originalFileName: string;
+    releaseNotes: string | null;
+    updatedAt: string;
+    fileSizeBytes: number;
+    downloadUrl: string;
+  } | null;
 };
 
 async function readJson<T>(res: Response): Promise<T | null> {
@@ -47,6 +56,7 @@ const emptyBundle = (): LandingPublicBundle => ({
   referralStats: null,
   miningPackagesCount: null,
   health: null,
+  mobileApp: null,
 });
 
 /**
@@ -64,6 +74,7 @@ export async function fetchLandingPublicBundle(): Promise<LandingPublicBundle> {
       refRes,
       miningRes,
       healthRes,
+      mobileAppRes,
     ] = await Promise.all([
       fetch(`${base}/api/pools?status=ACTIVE&limit=50&page=1`, { cache: "no-store" }),
       fetch(`${base}/api/pools/stats`, { cache: "no-store" }),
@@ -72,6 +83,7 @@ export async function fetchLandingPublicBundle(): Promise<LandingPublicBundle> {
       fetch(`${base}/api/referrals/stats`, { cache: "no-store" }),
       fetch(`${base}/api/mining-packages`, { cache: "no-store" }),
       fetch(`${base}/health`, { cache: "no-store" }),
+      fetch(`${base}/api/public/mobile-app`, { cache: "no-store" }),
     ]);
 
     const poolsBody = await readJson<{ success?: boolean; data?: ApiPublicPool[] }>(poolsRes);
@@ -120,6 +132,30 @@ export async function fetchLandingPublicBundle(): Promise<LandingPublicBundle> {
           }
         : null;
 
+    const mobileBody = await readJson<{
+      success?: boolean;
+      published?: {
+        version: string;
+        originalFileName: string;
+        releaseNotes: string | null;
+        updatedAt: string;
+        fileSizeBytes: number;
+        downloadPath: string;
+      } | null;
+    }>(mobileAppRes);
+    const pub = mobileBody?.published;
+    const mobileApp =
+      pub && mobileBody?.success
+        ? {
+            version: pub.version,
+            originalFileName: pub.originalFileName,
+            releaseNotes: pub.releaseNotes,
+            updatedAt: pub.updatedAt,
+            fileSizeBytes: pub.fileSizeBytes,
+            downloadUrl: `${base.replace(/\/$/, "")}${pub.downloadPath}`,
+          }
+        : null;
+
     return {
       pools,
       poolStats,
@@ -128,6 +164,7 @@ export async function fetchLandingPublicBundle(): Promise<LandingPublicBundle> {
       referralStats,
       miningPackagesCount,
       health,
+      mobileApp,
     };
   } catch {
     return emptyBundle();

@@ -26,6 +26,7 @@ import {
   ArrowUpFromLine,
   DollarSign,
   ArrowDownToLine,
+  Smartphone,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useSidebar } from "@/lib/sidebar-context";
@@ -52,6 +53,7 @@ const navItems = [
   { href: "/dashboard/calculator", label: "Calculator", icon: Calculator },
   { href: "/dashboard/roadmap", label: "Roadmap", icon: Rocket },
   { href: "/dashboard/settings", label: "Settings", icon: Settings },
+  { href: "/dashboard/mobile-app", label: "Mobile APK", icon: Smartphone },
 ];
 
 export function Sidebar() {

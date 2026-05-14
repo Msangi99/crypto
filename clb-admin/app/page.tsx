@@ -170,6 +170,7 @@ function CryptoLanding() {
   const [pools, setPools] = useState<LandingPoolRow[]>([]);
   const [poolsStatus, setPoolsStatus] = useState<"loading" | "live" | "empty" | "demo">("loading");
   const [bundle, setBundle] = useState<LandingPublicBundle | null>(null);
+  const [apkModal, setApkModal] = useState<LandingPublicBundle["mobileApp"]>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -194,6 +195,22 @@ function CryptoLanding() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    const m = bundle?.mobileApp;
+    if (!m || typeof window === "undefined") return;
+    const key = `clb_landing_apk_dismiss_${m.version}`;
+    if (localStorage.getItem(key)) return;
+    const t = window.setTimeout(() => setApkModal(m), 2200);
+    return () => window.clearTimeout(t);
+  }, [bundle?.mobileApp]);
+
+  const dismissApkModal = useCallback(() => {
+    if (apkModal && typeof window !== "undefined") {
+      localStorage.setItem(`clb_landing_apk_dismiss_${apkModal.version}`, "1");
+    }
+    setApkModal(null);
+  }, [apkModal]);
 
   const tier =
     pools.length > 0 ? pools[Math.min(activeTier, Math.max(0, pools.length - 1))] : null;
@@ -380,6 +397,32 @@ function CryptoLanding() {
     <div className={`clb-landing-page ${syne.variable} ${dmSans.variable}`}>
       <canvas ref={canvasRef} id="bg-canvas" aria-hidden />
 
+      {apkModal ? (
+        <div className="clb-apk-modal-root" role="dialog" aria-modal="true" aria-labelledby="clb-apk-modal-title">
+          <button type="button" className="clb-apk-modal-backdrop" aria-label="Close" onClick={dismissApkModal} />
+          <div className="clb-apk-modal-panel">
+            <h2 id="clb-apk-modal-title" className="clb-apk-modal-title">
+              Get the CLB app
+            </h2>
+            <p className="clb-apk-modal-version">Android · v{apkModal.version}</p>
+            {apkModal.releaseNotes ? (
+              <p className="clb-apk-modal-notes">{apkModal.releaseNotes}</p>
+            ) : null}
+            <p className="clb-apk-modal-meta">
+              {(apkModal.fileSizeBytes / (1024 * 1024)).toFixed(1)} MB · {apkModal.originalFileName}
+            </p>
+            <div className="clb-apk-modal-actions">
+              <a className="clb-apk-modal-download" href={apkModal.downloadUrl}>
+                Download APK
+              </a>
+              <button type="button" className="clb-apk-modal-later" onClick={dismissApkModal}>
+                Not now
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <nav ref={navRef} id="nav">
         <a href="#top" className="nav-logo">
           <div className="nav-logo-mark" />
@@ -436,6 +479,14 @@ function CryptoLanding() {
             How it works
           </button>
         </div>
+
+        {bundle?.mobileApp ? (
+          <p className="hero-apk-hint reveal">
+            <a href={bundle.mobileApp.downloadUrl} className="hero-apk-link">
+              Android: download APK v{bundle.mobileApp.version}
+            </a>
+          </p>
+        ) : null}
 
         <div className="hero-stats">
           <div className="stat">

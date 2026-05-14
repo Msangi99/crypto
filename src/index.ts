@@ -3,6 +3,7 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import fastifyStatic from '@fastify/static';
 import jwt from '@fastify/jwt';
+import multipart from '@fastify/multipart';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
 import { env } from './config/env';
@@ -27,6 +28,7 @@ import withdrawalRoutes from './routes/withdrawals';
 import miningPackageRoutes from './routes/miningPackages';
 import userMiningRoutes from './routes/userMining';
 import creditWalletRoutes from './routes/creditWallet';
+import { mobileAppPublicPlugin, mobileAppAdminPlugin } from './routes/mobileAppReleases';
 
 const buildApp = async () => {
   const fastify = Fastify({
@@ -48,6 +50,13 @@ const buildApp = async () => {
   // ─── JWT ───────────────────────────────────────
   await fastify.register(jwt, {
     secret: env.JWT_SECRET,
+  });
+
+  await fastify.register(multipart, {
+    limits: {
+      fileSize: 120 * 1024 * 1024,
+      files: 1,
+    },
   });
 
   // ─── Swagger Documentation ─────────────────────
@@ -189,6 +198,8 @@ const buildApp = async () => {
   await fastify.register(miningPackageRoutes, { prefix: '/api/mining-packages' });
   await fastify.register(userMiningRoutes, { prefix: '/api/mining' });
   await fastify.register(creditWalletRoutes, { prefix: '/api/credit-wallet' });
+  await fastify.register(mobileAppPublicPlugin, { prefix: '/api/public' });
+  await fastify.register(mobileAppAdminPlugin, { prefix: '/api/admin/mobile-app' });
 
   // ─── Root: JSON discovery (production) or static DApp (development) ──
   if (env.NODE_ENV !== 'development') {
@@ -212,6 +223,8 @@ const buildApp = async () => {
         miningPackages: '/api/mining-packages',
         mining: '/api/mining',
         creditWallet: '/api/credit-wallet',
+        publicMobileApp: '/api/public/mobile-app',
+        adminMobileApp: '/api/admin/mobile-app',
       },
     }));
   }

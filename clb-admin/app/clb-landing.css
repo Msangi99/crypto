@@ -1362,3 +1362,117 @@
     padding: 40px 24px;
   }
 }
+
+/* ——— Android APK offer (landing) ——— */
+.clb-landing-page .hero-apk-hint {
+  margin-top: 18px;
+  text-align: center;
+}
+
+.clb-landing-page .hero-apk-link {
+  font-size: 14px;
+  color: var(--accent-teal);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.clb-landing-page .hero-apk-link:hover {
+  color: var(--gold-light);
+}
+
+.clb-apk-modal-root {
+  position: fixed;
+  inset: 0;
+  z-index: 240;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.clb-apk-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  border: none;
+  background: rgba(5, 10, 6, 0.72);
+  backdrop-filter: blur(6px);
+  cursor: pointer;
+}
+
+.clb-apk-modal-panel {
+  position: relative;
+  max-width: 420px;
+  width: 100%;
+  padding: 28px 26px 24px;
+  border-radius: 18px;
+  background: linear-gradient(165deg, var(--surface2) 0%, var(--surface) 100%);
+  border: 1px solid var(--border);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
+}
+
+.clb-apk-modal-title {
+  font-family: var(--font-syne), Syne, sans-serif;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 6px;
+}
+
+.clb-apk-modal-version {
+  font-size: 13px;
+  color: var(--gold);
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.clb-apk-modal-notes {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--ink-mid);
+  margin-bottom: 12px;
+}
+
+.clb-apk-modal-meta {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 22px;
+}
+
+.clb-apk-modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.clb-apk-modal-download {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 22px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 14px;
+  background: linear-gradient(135deg, var(--green) 0%, #00a344 100%);
+  color: #041208;
+  text-decoration: none;
+}
+
+.clb-apk-modal-download:hover {
+  filter: brightness(1.08);
+}
+
+.clb-apk-modal-later {
+  padding: 10px 18px;
+  border-radius: 999px;
+  font-size: 14px;
+  border: 1px solid rgba(0, 200, 83, 0.25);
+  background: transparent;
+  color: var(--ink-mid);
+  cursor: pointer;
+}
+
+.clb-apk-modal-later:hover {
+  border-color: var(--gold);
+  color: var(--ink);
+}

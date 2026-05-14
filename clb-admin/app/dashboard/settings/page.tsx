@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Settings, User, Shield, Globe, Loader2, Save, FlaskConical } from "lucide-react";
+import Link from "next/link";
+import { Settings, User, Shield, Globe, Loader2, Save, FlaskConical, Smartphone } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -293,6 +294,26 @@ export default function SettingsPage() {
             {savingSettings ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
             Save Pool Access Mode
           </Button>
+        </CardContent>
+      </Card>
+
+      <Card className="bg-[#1A1A1A] border-[#2A2A2A]">
+        <CardHeader>
+          <CardTitle className="text-white flex items-center gap-2">
+            <Smartphone className="w-5 h-5 text-[#00C896]" />
+            Mobile app (APK)
+          </CardTitle>
+          <CardDescription className="text-[#999]">
+            Upload Android builds, manage versions, and control what visitors download from the landing page.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Link
+            href="/dashboard/mobile-app"
+            className="inline-flex items-center justify-center rounded-md text-sm font-semibold h-10 px-4 bg-[#00C896] text-[#041208] hover:bg-[#00E676]"
+          >
+            Open APK &amp; releases
+          </Link>
         </CardContent>
       </Card>
 

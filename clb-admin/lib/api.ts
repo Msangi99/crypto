@@ -471,4 +471,69 @@ export const api = {
       success: boolean;
       prices: Record<string, { usd: number; usd_24h_change: number }>;
     }>("/api/prices"),
+
+  // Admin — mobile app (Android APK)
+  getAdminMobileReleases: () =>
+    request<{
+      success: boolean;
+      releases: Array<{
+        id: string;
+        version: string;
+        originalFileName: string;
+        fileSizeBytes: number;
+        releaseNotes: string | null;
+        isPublished: boolean;
+        createdAt: string;
+        updatedAt: string;
+      }>;
+    }>("/api/admin/mobile-app/releases"),
+
+  uploadAdminMobileRelease: async (data: { version: string; releaseNotes?: string; file: Blob | File }) => {
+    const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+    const token = typeof window !== "undefined" ? localStorage.getItem("clb_token") : null;
+    const form = new FormData();
+    form.append("version", data.version);
+    if (data.releaseNotes) form.append("releaseNotes", data.releaseNotes);
+    form.append("file", data.file);
+    const res = await fetch(`${API_BASE}/api/admin/mobile-app/releases`, {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: form,
+    });
+    if (!res.ok) {
+      const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+      const msg =
+        (typeof body.error === "string" && body.error) ||
+        (typeof body.message === "string" && body.message) ||
+        res.statusText;
+      throw new Error(msg || `API Error: ${res.status}`);
+    }
+    return res.json() as Promise<{
+      success: boolean;
+      release: {
+        id: string;
+        version: string;
+        originalFileName: string;
+        fileSizeBytes: number;
+        releaseNotes: string | null;
+        isPublished: boolean;
+        createdAt: string;
+      };
+    }>;
+  },
+
+  publishAdminMobileRelease: (id: string) =>
+    request<{ success: boolean; release: unknown }>(`/api/admin/mobile-app/releases/${id}/publish`, {
+      method: "POST",
+    }),
+
+  unpublishAdminMobileRelease: (id: string) =>
+    request<{ success: boolean }>(`/api/admin/mobile-app/releases/${id}/unpublish`, {
+      method: "POST",
+    }),
+
+  deleteAdminMobileRelease: (id: string) =>
+    request<{ success: boolean }>(`/api/admin/mobile-app/releases/${id}`, {
+      method: "DELETE",
+    }),
 };

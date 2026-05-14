@@ -476,3 +476,22 @@ model UserMiningSubscription {
   @@index([packageId])
   @@map("user_mining_subscriptions")
 }
+
+// ─── Mobile app (Android APK) — admin uploads, public download on landing ─────
+model MobileAppRelease {
+  id               String   @id @default(uuid())
+  /// Human-readable version label (e.g. 1.4.2)
+  version          String
+  originalFileName String
+  /// Path relative to server uploads root, e.g. apk/<id>.apk
+  storagePath      String
+  fileSizeBytes    BigInt
+  releaseNotes     String?
+  isPublished      Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([isPublished])
+  @@index([createdAt])
+  @@map("mobile_app_releases")
+}
