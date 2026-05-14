@@ -6,6 +6,7 @@ import { liquidationService } from '../services/liquidationService';
 import { serializePoolPublic } from '../services/poolSerialization';
 import { serializeMiningPackage } from './miningPackages';
 import type { MiningPackagePeriodUnit } from '@prisma/client';
+import { loadAdminUserDetailBundle, formatAdminUserDbError } from '../services/adminUserDetail';
 
 // Admin-only middleware — reads role from JWT (no extra DB query)
 async function adminMiddleware(request: FastifyRequest, reply: FastifyReply): Promise<void> {
@@ -280,59 +281,10 @@ export default async function adminRoutes(fastify: FastifyInstance) {
     { schema: adminSchemas.getUser, preHandler: [adminMiddleware] },
     async (request, reply) => {
       try {
-        const user = await prisma.user.findUnique({
-          where: { id: request.params.id },
-          include: {
-            poolMemberships: { include: { pool: true } },
-            transactions: { orderBy: { createdAt: 'desc' }, take: 100 },
-            deposits: {
-              orderBy: { createdAt: 'desc' },
-              take: 100,
-              include: { pool: { select: { id: true, name: true, tokenSymbol: true } } },
-            },
-            referrals: {
-              orderBy: { createdAt: 'desc' },
-              take: 80,
-              include: {
-                referred: {
-                  select: {
-                    id: true,
-                    walletAddress: true,
-                    username: true,
-                    email: true,
-                    createdAt: true,
-                  },
-                },
-              },
-            },
-            referredBy: {
-              include: {
-                referrer: {
-                  select: {
-                    id: true,
-                    walletAddress: true,
-                    username: true,
-                    email: true,
-                    referralCode: true,
-                  },
-                },
-              },
-            },
-            loans: { orderBy: { updatedAt: 'desc' }, take: 40 },
-            miningSubscription: { include: { package: true } },
-            tokenBalances: true,
-            creditDraws: {
-              orderBy: { createdAt: 'desc' },
-              take: 50,
-              include: { loan: { select: { id: true, loanType: true, status: true } } },
-            },
-          },
-        });
-
+        const user = await loadAdminUserDetailBundle(request.params.id, request.log);
         if (!user) {
           return reply.status(404).send({ success: false, error: 'User not found' });
         }
-
         const {
           passwordHash,
           nonce,
@@ -344,14 +296,9 @@ export default async function adminRoutes(fastify: FastifyInstance) {
         } = user;
         return { success: true, user: safeUser };
       } catch (err: unknown) {
-        if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2022') {
-          const col = (err.meta as { column?: string } | undefined)?.column ?? 'unknown column';
-          return reply.status(503).send({
-            success: false,
-            error: `Database schema is out of date (${col}). Run migrations on the API server: npx prisma migrate deploy`,
-          });
-        }
-        throw err;
+        request.log.error(err);
+        const { status, body } = formatAdminUserDbError(err);
+        return reply.status(status).send(body);
       }
     }
   );
