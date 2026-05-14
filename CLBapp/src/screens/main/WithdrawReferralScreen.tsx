@@ -57,6 +57,7 @@ export default function WithdrawReferralScreen({ navigation }: any) {
 
   const earningsData = earnings?.earnings ?? {};
   const totalEarned: number = earningsData.totalBonusReceived ?? 0;
+  const availableToWithdraw: number = earningsData.availableWithdrawalUsd ?? totalEarned;
   const recentBonuses: any[] = earningsData.recentBonuses ?? [];
   const referralList: any[] = earningsData.referralList ?? [];
 
@@ -65,7 +66,7 @@ export default function WithdrawReferralScreen({ navigation }: any) {
 
   const openWithdrawModal = () => {
     setToAddress('');
-    setWithdrawAmount(totalEarned > 0 ? totalEarned.toFixed(2) : '');
+    setWithdrawAmount(availableToWithdraw > 0 ? availableToWithdraw.toFixed(2) : '');
     setModalVisible(true);
   };
 
@@ -88,8 +89,8 @@ export default function WithdrawReferralScreen({ navigation }: any) {
       Alert.alert('Amount Too Low', `Amount must be greater than the ${USDT_FEE} USDT network fee.`);
       return;
     }
-    if (numAmount > totalEarned) {
-      Alert.alert('Insufficient Balance', `Your available referral earnings: ${fmt(totalEarned)} USDT`);
+    if (numAmount > availableToWithdraw) {
+      Alert.alert('Insufficient Balance', `Your available referral earnings: ${fmt(availableToWithdraw)} USDT`);
       return;
     }
 
@@ -141,17 +142,17 @@ export default function WithdrawReferralScreen({ navigation }: any) {
             <Ionicons name="arrow-up-circle" size={32} color="#00D6A1" />
           </View>
           <Text style={styles.balanceLabel}>Referral Earnings</Text>
-          <Text style={styles.balanceValue}>{fmt(totalEarned)} USDT</Text>
-          <Text style={styles.balanceSub}>Total earned from referral commissions</Text>
+          <Text style={styles.balanceValue}>{fmt(availableToWithdraw)} USDT</Text>
+          <Text style={styles.balanceSub}>Available to withdraw now</Text>
 
           <TouchableOpacity
             style={[styles.withdrawBtn, totalEarned <= 0 && styles.withdrawBtnDisabled]}
             onPress={openWithdrawModal}
-            disabled={totalEarned <= 0}
+            disabled={availableToWithdraw <= 0}
             activeOpacity={0.8}
           >
-            <Ionicons name="arrow-up-circle-outline" size={18} color={totalEarned > 0 ? '#000' : Colors.textMuted} />
-            <Text style={[styles.withdrawBtnText, totalEarned <= 0 && styles.withdrawBtnTextDisabled]}>
+            <Ionicons name="arrow-up-circle-outline" size={18} color={availableToWithdraw > 0 ? '#000' : Colors.textMuted} />
+            <Text style={[styles.withdrawBtnText, availableToWithdraw <= 0 && styles.withdrawBtnTextDisabled]}>
               Request Withdrawal
             </Text>
           </TouchableOpacity>
@@ -355,7 +356,7 @@ export default function WithdrawReferralScreen({ navigation }: any) {
             {/* Available balance */}
             <View style={styles.modalBalanceRow}>
               <Text style={styles.modalBalanceLabel}>Available</Text>
-              <Text style={styles.modalBalanceValue}>{fmt(totalEarned)} USDT</Text>
+              <Text style={styles.modalBalanceValue}>{fmt(availableToWithdraw)} USDT</Text>
             </View>
 
             {/* Address input */}
@@ -393,7 +394,7 @@ export default function WithdrawReferralScreen({ navigation }: any) {
               />
               <TouchableOpacity
                 style={styles.maxBtn}
-                onPress={() => setWithdrawAmount(totalEarned.toFixed(2))}
+                onPress={() => setWithdrawAmount(availableToWithdraw.toFixed(2))}
                 disabled={submitting}
               >
                 <Text style={styles.maxBtnText}>MAX</Text>

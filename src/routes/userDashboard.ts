@@ -557,7 +557,11 @@ export default async function userDashboardRoutes(fastify: FastifyInstance) {
       const userId = request.userId!;
 
       // Fetch all referral bonus transactions and direct referral edges in parallel
-      const [bonusTx, directReferrals] = await Promise.all([
+      const [user, bonusTx, directReferrals] = await Promise.all([
+        prisma.user.findUnique({
+          where: { id: userId },
+          select: { referralEarningsUsd: true },
+        }),
         prisma.transaction.findMany({
           where: { userId, type: 'REFERRAL_BONUS' },
           orderBy: { createdAt: 'desc' },
@@ -595,6 +599,7 @@ export default async function userDashboardRoutes(fastify: FastifyInstance) {
         success: true,
         earnings: {
           totalBonusReceived: parseFloat(totalBonusReceived.toFixed(6)),
+          availableWithdrawalUsd: Number(user?.referralEarningsUsd || 0),
           referralEarningsUsd: parseFloat(totalBonusReceived.toFixed(6)),
           earningsByTrigger: {
             poolClaim: parseFloat(earningsByTrigger.POOL_CLAIM.toFixed(6)),
