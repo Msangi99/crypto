@@ -15,8 +15,28 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "CryptoLoanBoost",
-  description: "CryptoLoanBoost — Leveraged DeFi on BSC",
+  metadataBase: new URL("https://cryptoloanboost.com"),
+  title: {
+    default: "Crypto Loan Boost",
+    template: "%s · Crypto Loan Boost",
+  },
+  description:
+    "CryptoLoanBoost runs on BNB Smart Chain — leveraged pools, CLB loans, referrals, and on-chain transparency.",
+  applicationName: "Crypto Loan Boost",
+  openGraph: {
+    title: "Crypto Loan Boost",
+    description:
+      "Leveraged DeFi on BNB Smart Chain. Pools, loans, and liquidation logic you can verify on-chain.",
+    url: "https://cryptoloanboost.com",
+    siteName: "Crypto Loan Boost",
+    type: "website",
+    locale: "en_US",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Crypto Loan Boost",
+    description: "Leveraged DeFi on BNB Smart Chain — CryptoLoanBoost.",
+  },
   icons: {
     icon: "/favicon.ico",
     shortcut: "/favicon.ico",

@@ -260,7 +260,7 @@ function CryptoLanding() {
   }, [pools.length]);
 
   useEffect(() => {
-    document.title = "CryptoLoanBoost — Leveraged DeFi on BSC";
+    document.title = "Crypto Loan Boost — Leveraged DeFi on BSC";
     const prev = document.documentElement.style.scrollBehavior;
     document.documentElement.style.scrollBehavior = "smooth";
     return () => {
