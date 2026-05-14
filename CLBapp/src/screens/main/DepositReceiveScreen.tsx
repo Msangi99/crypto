@@ -16,6 +16,9 @@ import * as Clipboard from 'expo-clipboard';
 import { Colors, FontSize, Spacing, Radius } from '../../constants/theme';
 import { creditWalletAPI } from '../../services/api';
 
+const maskHash = (hash: string) =>
+  hash.length > 14 ? `${hash.slice(0, 8)}…${hash.slice(-6)}` : hash;
+
 type Step = 'pick' | 'receive';
 
 export default function DepositReceiveScreen({ navigation }: any) {
@@ -153,12 +156,12 @@ export default function DepositReceiveScreen({ navigation }: any) {
                 </View>
                 {dep.txHash && (
                   <Text style={styles.historyHash} numberOfLines={1}>
-                    Tx: {dep.txHash}
+                    Tx: {maskHash(dep.txHash)}
                   </Text>
                 )}
                 {dep.fromAddress && (
                   <Text style={styles.historyAddr} numberOfLines={1}>
-                    From: {dep.fromAddress}
+                    From: {maskHash(dep.fromAddress)}
                   </Text>
                 )}
                 <Text style={styles.historyDate}>
