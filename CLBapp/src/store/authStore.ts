@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { appKit } from '../config/appKit';
 
 interface User {
   id: string;
@@ -43,6 +45,10 @@ export const useAuthStore = create<AuthState>((set) => ({
   logout: async () => {
     await SecureStore.deleteItemAsync('clb_token');
     await SecureStore.deleteItemAsync('clb_user');
+    try {
+      await appKit.disconnect();
+    } catch {}
+    await AsyncStorage.clear();
     set({ token: null, user: null, isAuthenticated: false, pinVerified: false });
   },
 

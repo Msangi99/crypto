@@ -29,10 +29,9 @@ export const DAPP_UNIVERSAL_URL = DAPP_URL;
 
 /**
  * Reown Cloud / WalletConnect Cloud project id.
- * Get one for free at https://cloud.reown.com and place it here
- * (and mirror it in `expo.extra.walletConnectProjectId` in app.json).
+ * Set via EXPO_PUBLIC_WC_PROJECT_ID env var, or in app.json extra.
  */
-export const WALLETCONNECT_PROJECT_ID = 'b9d252ad0927504b56f9e3b4ce9f6e1f';
+export const WALLETCONNECT_PROJECT_ID = process.env.EXPO_PUBLIC_WC_PROJECT_ID || '';
 
 /** Public URLs of icons shown by wallets while the user is approving the connection. */
 export const DAPP_ICONS: string[] = [
