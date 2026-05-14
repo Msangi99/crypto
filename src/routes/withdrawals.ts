@@ -47,7 +47,46 @@ export default async function withdrawalRoutes(fastify: FastifyInstance) {
       if (isPlatform && token === 'USDT') {
         // USDT withdrawals come from referral earnings stored on the User record
         const user = await prisma.user.findUnique({ where: { id: userId } });
-        const available = user ? Number(user.referralEarningsUsd) : 0;
+        if (!user) {
+          return reply.status(404).send({ success: false, error: 'User not found' });
+        }
+
+        let available = Number(user.referralEarningsUsd);
+
+        // Legacy accounts may have referral bonus transactions but a zero cached balance.
+        // Rebuild once from ledger and persist so withdrawals work correctly.
+        if (available <= 0) {
+          const [bonusAgg, withdrawnAgg] = await Promise.all([
+            prisma.transaction.aggregate({
+              where: {
+                userId,
+                type: 'REFERRAL_BONUS',
+                status: 'SUCCESS',
+              },
+              _sum: { amount: true },
+            }),
+            prisma.withdrawal.aggregate({
+              where: {
+                userId,
+                token: 'USDT',
+                status: { in: ['PENDING', 'PROCESSING', 'COMPLETED'] },
+              },
+              _sum: { amount: true },
+            }),
+          ]);
+
+          const totalBonuses = Number(bonusAgg._sum.amount || 0);
+          const totalWithdrawn = Number(withdrawnAgg._sum.amount || 0);
+          const rebuiltAvailable = Math.max(0, totalBonuses - totalWithdrawn);
+
+          if (rebuiltAvailable > 0) {
+            await prisma.user.update({
+              where: { id: userId },
+              data: { referralEarningsUsd: rebuiltAvailable },
+            });
+            available = rebuiltAvailable;
+          }
+        }
 
         if (available < amount) {
           return reply.status(400).send({
