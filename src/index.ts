@@ -43,17 +43,20 @@ function parseExtraCorsOrigins(): Set<string> {
 
 const extraCorsOrigins = parseExtraCorsOrigins();
 
-function isAllowedBrowserOrigin(origin: string): boolean {
-  if (extraCorsOrigins.has(origin)) return true;
-  try {
-    const u = new URL(origin);
-    const host = u.hostname.toLowerCase();
-    if (host === 'localhost' || host === '127.0.0.1') return true;
-    if (host === 'cryptoloanboost.com' || host.endsWith('.cryptoloanboost.com')) return true;
-    return false;
-  } catch {
-    return false;
-  }
+/** HTTPS apex + any subdomain of cryptoloanboost.com (RegExp avoids subtle URL-parse mismatches). */
+const CLB_HTTPS_ORIGIN = /^https:\/\/([a-z0-9-]+\.)*cryptoloanboost\.com$/i;
+const LOCAL_DEV_ORIGINS = [/^http:\/\/localhost(?::\d+)?$/i, /^http:\/\/127\.0\.0\.1(?::\d+)?$/i];
+
+function browserOriginAllowed(origin: string): boolean {
+  const o = origin.trim();
+  if (!o) return false;
+  if (extraCorsOrigins.has(o)) return true;
+  if (CLB_HTTPS_ORIGIN.test(o)) return true;
+  return LOCAL_DEV_ORIGINS.some((re) => re.test(o));
+}
+
+function productionCorsOriginOption(): (string | RegExp)[] {
+  return [...extraCorsOrigins, CLB_HTTPS_ORIGIN, ...LOCAL_DEV_ORIGINS];
 }
 const buildApp = async () => {
   const fastify = Fastify({
@@ -70,22 +73,9 @@ const buildApp = async () => {
   // Explicit allowlist fixes admin (e.g. cryptoloanboost.com → api.cryptoloanboost.com) when proxies
   // strip reflected origins or preflight needs predictable Access-Control-Allow-Origin + credentials.
   await fastify.register(cors, {
-    origin(origin, cb) {
-      // Never use cb(null, true) with credentials: true — missing Origin would set an invalid ACAO.
-      if (!origin) {
-        cb(null, false);
-        return;
-      }
-      if (env.NODE_ENV === 'development') {
-        cb(null, origin);
-        return;
-      }
-      if (extraCorsOrigins.has(origin) || isAllowedBrowserOrigin(origin)) {
-        cb(null, origin);
-        return;
-      }
-      cb(null, false);
-    },
+    // In dev, reflect any Origin. In prod, use string + RegExp list so @fastify/cors always sets ACAO
+    // when the browser Origin matches (including 401 responses).
+    origin: env.NODE_ENV === 'development' ? true : productionCorsOriginOption(),
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
     allowedHeaders: ['Authorization', 'Content-Type', 'Accept', 'Origin', 'X-Requested-With'],
@@ -95,13 +85,11 @@ const buildApp = async () => {
   // If an allowed browser origin somehow reaches the wire without ACAO (e.g. proxy stripping upstream
   // headers), attach it on send so 401/403 bodies stay readable to fetch/XHR instead of masking as CORS.
   fastify.addHook('onSend', async (request, reply, payload) => {
-    const origin = request.headers.origin;
-    if (typeof origin !== 'string' || origin.length === 0) return payload;
+    const raw = request.headers.origin;
+    if (typeof raw !== 'string' || raw.length === 0) return payload;
+    const origin = raw.trim();
     if (reply.getHeader('access-control-allow-origin')) return payload;
-    const allowed =
-      env.NODE_ENV === 'development' ||
-      extraCorsOrigins.has(origin) ||
-      isAllowedBrowserOrigin(origin);
+    const allowed = env.NODE_ENV === 'development' || browserOriginAllowed(origin);
     if (!allowed) return payload;
     reply.header('Access-Control-Allow-Origin', origin);
     reply.header('Access-Control-Allow-Credentials', 'true');
