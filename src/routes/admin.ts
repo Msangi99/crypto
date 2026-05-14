@@ -13,7 +13,7 @@ async function adminMiddleware(request: FastifyRequest, reply: FastifyReply): Pr
   if (reply.sent) return;
 
   if (request.userRole !== 'ADMIN') {
-    reply.status(403).send({ success: false, error: 'Forbidden — admin access required' });
+    return reply.status(403).send({ success: false, error: 'Forbidden — admin access required' });
   }
 }
 
@@ -279,69 +279,80 @@ export default async function adminRoutes(fastify: FastifyInstance) {
     '/users/:id',
     { schema: adminSchemas.getUser, preHandler: [adminMiddleware] },
     async (request, reply) => {
-      const user = await prisma.user.findUnique({
-        where: { id: request.params.id },
-        include: {
-          poolMemberships: { include: { pool: true } },
-          transactions: { orderBy: { createdAt: 'desc' }, take: 100 },
-          deposits: {
-            orderBy: { createdAt: 'desc' },
-            take: 100,
-            include: { pool: { select: { id: true, name: true, tokenSymbol: true } } },
-          },
-          referrals: {
-            orderBy: { createdAt: 'desc' },
-            take: 80,
-            include: {
-              referred: {
-                select: {
-                  id: true,
-                  walletAddress: true,
-                  username: true,
-                  email: true,
-                  createdAt: true,
+      try {
+        const user = await prisma.user.findUnique({
+          where: { id: request.params.id },
+          include: {
+            poolMemberships: { include: { pool: true } },
+            transactions: { orderBy: { createdAt: 'desc' }, take: 100 },
+            deposits: {
+              orderBy: { createdAt: 'desc' },
+              take: 100,
+              include: { pool: { select: { id: true, name: true, tokenSymbol: true } } },
+            },
+            referrals: {
+              orderBy: { createdAt: 'desc' },
+              take: 80,
+              include: {
+                referred: {
+                  select: {
+                    id: true,
+                    walletAddress: true,
+                    username: true,
+                    email: true,
+                    createdAt: true,
+                  },
                 },
               },
             },
-          },
-          referredBy: {
-            include: {
-              referrer: {
-                select: {
-                  id: true,
-                  walletAddress: true,
-                  username: true,
-                  email: true,
-                  referralCode: true,
+            referredBy: {
+              include: {
+                referrer: {
+                  select: {
+                    id: true,
+                    walletAddress: true,
+                    username: true,
+                    email: true,
+                    referralCode: true,
+                  },
                 },
               },
             },
+            loans: { orderBy: { updatedAt: 'desc' }, take: 40 },
+            miningSubscription: { include: { package: true } },
+            tokenBalances: true,
+            creditDraws: {
+              orderBy: { createdAt: 'desc' },
+              take: 50,
+              include: { loan: { select: { id: true, loanType: true, status: true } } },
+            },
           },
-          loans: { orderBy: { updatedAt: 'desc' }, take: 40 },
-          miningSubscription: { include: { package: true } },
-          tokenBalances: true,
-          creditDraws: {
-            orderBy: { createdAt: 'desc' },
-            take: 50,
-            include: { loan: { select: { id: true, loanType: true, status: true } } },
-          },
-        },
-      });
+        });
 
-      if (!user) {
-        return reply.status(404).send({ success: false, error: 'User not found' });
+        if (!user) {
+          return reply.status(404).send({ success: false, error: 'User not found' });
+        }
+
+        const {
+          passwordHash,
+          nonce,
+          pinHash,
+          pinSalt,
+          secretKey,
+          secretKeyIv,
+          ...safeUser
+        } = user;
+        return { success: true, user: safeUser };
+      } catch (err: unknown) {
+        if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2022') {
+          const col = (err.meta as { column?: string } | undefined)?.column ?? 'unknown column';
+          return reply.status(503).send({
+            success: false,
+            error: `Database schema is out of date (${col}). Run migrations on the API server: npx prisma migrate deploy`,
+          });
+        }
+        throw err;
       }
-
-      const {
-        passwordHash,
-        nonce,
-        pinHash,
-        pinSalt,
-        secretKey,
-        secretKeyIv,
-        ...safeUser
-      } = user;
-      return { success: true, user: safeUser };
     }
   );
 
