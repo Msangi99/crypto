@@ -96,8 +96,31 @@ function uploadAdminMobileApkWithXhr(
       }
     });
 
+    const unreachableMsg =
+      "No response from the API (network drop, CORS, or TLS). If the APK is large, set nginx client_max_body_size to at least 200m and proxy_read_timeout / client_body_timeout (e.g. 600s) on the API host, then reload nginx. Re-login if your admin token expired.";
+
     xhr.onload = () => {
       onProgress?.(100, "processing");
+      if (xhr.status === 0) {
+        reject(new Error(unreachableMsg));
+        return;
+      }
+      if (xhr.status === 413) {
+        reject(
+          new Error(
+            "Payload too large for the reverse proxy. On the API nginx server set client_max_body_size 200m (or higher) for this site and reload nginx."
+          )
+        );
+        return;
+      }
+      if (xhr.status === 502 || xhr.status === 504) {
+        reject(
+          new Error(
+            "Gateway timeout or bad gateway — increase nginx proxy_read_timeout / proxy_send_timeout, confirm the API container is up, then retry."
+          )
+        );
+        return;
+      }
       const ok = xhr.status >= 200 && xhr.status < 300;
       let body: Record<string, unknown> = {};
       try {
@@ -122,12 +145,14 @@ function uploadAdminMobileApkWithXhr(
       resolve(body as AdminMobileReleaseUploadResult);
     };
 
-    xhr.onerror = () =>
+    xhr.onerror = () => reject(new Error(unreachableMsg));
+    xhr.ontimeout = () =>
       reject(
         new Error(
-          "Could not reach API (network or CORS). After deploying API changes, confirm nginx allows large bodies (client_max_body_size 200m or higher) and long proxy timeouts for this route."
+          "Upload timed out. Raise nginx proxy_read_timeout and client_body_timeout (e.g. 600s) or split a very slow connection."
         )
       );
+    xhr.timeout = 45 * 60 * 1000;
     xhr.onabort = () => reject(new Error("Upload cancelled"));
 
     xhr.send(form);
