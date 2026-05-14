@@ -447,6 +447,28 @@ export default async function userDashboardRoutes(fastify: FastifyInstance) {
     async (request: FastifyRequest) => {
       const userId = request.userId!;
 
+      // Fetch user info and all REFERRAL_BONUS transactions in parallel
+      const [user, bonusTx] = await Promise.all([
+        prisma.user.findUnique({
+          where: { id: userId },
+          select: { referralCode: true },
+        }),
+        prisma.transaction.findMany({
+          where: { userId, type: 'REFERRAL_BONUS' },
+        }),
+      ]);
+
+      // Bucket earnings by level from transaction metadata (source of truth)
+      const earningsByLevel: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+      for (const tx of bonusTx) {
+        const meta = tx.metadata as Record<string, unknown> | null;
+        const lvl = typeof meta?.level === 'number' && meta.level >= 1 && meta.level <= 5
+          ? meta.level
+          : 1;
+        earningsByLevel[lvl] = (earningsByLevel[lvl] ?? 0) + Number(tx.amount);
+      }
+      const totalBonusAll = bonusTx.reduce((s, t) => s + Number(t.amount), 0);
+
       // Build 5-level tree by traversing referral chains
       const tree: Array<{
         level: number;
@@ -465,7 +487,7 @@ export default async function userDashboardRoutes(fastify: FastifyInstance) {
             commissionRate: `${Math.round(REFERRAL_RATES[level] * 100)}%`,
             members: [],
             totalMembers: 0,
-            totalEarnings: 0,
+            totalEarnings: parseFloat((earningsByLevel[level + 1] ?? 0).toFixed(6)),
           });
           continue;
         }
@@ -479,22 +501,33 @@ export default async function userDashboardRoutes(fastify: FastifyInstance) {
           },
         });
 
+        // Per-member rewards: sum transactions for this user at this level
+        // that reference each specific referred user
+        const memberRewards: Record<string, number> = {};
+        for (const tx of bonusTx) {
+          const meta = tx.metadata as Record<string, unknown> | null;
+          const txLevel = typeof meta?.level === 'number' ? meta.level : 1;
+          if (txLevel !== level + 1) continue;
+          const refUserId = typeof meta?.referredUserId === 'string' ? meta.referredUserId : '';
+          if (refUserId) {
+            memberRewards[refUserId] = (memberRewards[refUserId] ?? 0) + Number(tx.amount);
+          }
+        }
+
         const members = referrals.map(r => ({
           walletAddress: r.referred.walletAddress,
           username: r.referred.username,
           joinedAt: r.createdAt.toISOString(),
           status: r.status,
-          reward: Number(r.reward),
+          reward: parseFloat((memberRewards[r.referred.id] ?? 0).toFixed(6)),
         }));
-
-        const totalEarnings = members.reduce((s, m) => s + m.reward, 0);
 
         tree.push({
           level: level + 1,
           commissionRate: `${Math.round(REFERRAL_RATES[level] * 100)}%`,
           members,
           totalMembers: members.length,
-          totalEarnings: parseFloat(totalEarnings.toFixed(6)),
+          totalEarnings: parseFloat((earningsByLevel[level + 1] ?? 0).toFixed(6)),
         });
 
         // Next level: the referred users become the referrers
@@ -503,25 +536,12 @@ export default async function userDashboardRoutes(fastify: FastifyInstance) {
 
       const totalNetwork = tree.reduce((s, l) => s + l.totalMembers, 0);
 
-      // Total earnings = sum of ALL referral bonus transactions (all triggers combined)
-      const [user, refBonusAgg] = await Promise.all([
-        prisma.user.findUnique({
-          where: { id: userId },
-          select: { referralCode: true },
-        }),
-        prisma.transaction.aggregate({
-          where: { userId, type: 'REFERRAL_BONUS' },
-          _sum: { amount: true },
-        }),
-      ]);
-      const totalEarnings = Number(refBonusAgg._sum.amount || 0);
-
       return {
         success: true,
         referralCode: user?.referralCode || null,
         referralLink: user?.referralCode ? buildReferralLink(user.referralCode) : null,
         totalNetwork,
-        totalEarnings: parseFloat(totalEarnings.toFixed(6)),
+        totalEarnings: parseFloat(totalBonusAll.toFixed(6)),
         levels: tree,
       };
     }
