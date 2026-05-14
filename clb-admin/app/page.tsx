@@ -289,7 +289,7 @@ function CryptoLanding() {
     );
     el.forEach((node) => observer.observe(node));
     return () => observer.disconnect();
-  }, []);
+  }, []);``
 
   useEffect(() => {
     const canvas = canvasRef.current;

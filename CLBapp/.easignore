@@ -1,36 +1,44 @@
-# EAS Build — exclude large/unnecessary files from upload tarball
+# EAS Build — shrink upload tarball (Pods + node_modules are huge; EAS reinstalls them).
+# See: https://docs.expo.dev/build-reference/easignore/
 
-# Dependencies (reinstalled on build server)
+# npm (reinstalled on EAS)
 node_modules/
 
-# Generated native projects
-ios/
+# iOS — CocoaPods + local build outputs only (keep Podfile / project for iOS builds)
+ios/Pods/
+ios/build/
 
-# Expo local cache
+# CocoaPods anywhere (defensive)
+**/Pods/
+
+# Expo / Metro / web
 .expo/
-
-# Build outputs
 dist/
 web-build/
+.metro-health-check*
+
+# Android local caches (keep android/ Gradle project)
+android/.gradle/
+android/build/
+android/app/build/
+.gradle/
+
+# Generic build dirs at repo root
 build/
 
-# macOS
-.DS_Store
-**/.DS_Store
-
-# Logs
 *.log
 npm-debug.*
 yarn-debug.*
 yarn-error.*
-
-# Local env (use EAS secrets instead)
 .env*.local
 .env.local
 
-# TypeScript cache
 *.tsbuildinfo
-
-# Editor
 .vscode/
 .idea/
+
+.DS_Store
+**/.DS_Store
+
+# Loose large file at repo root (not used by the app bundle)
+/CLB logo.png
