@@ -44,7 +44,24 @@ export default async function withdrawalRoutes(fastify: FastifyInstance) {
         });
       }
 
-      if (isPlatform) {
+      if (isPlatform && token === 'USDT') {
+        // USDT withdrawals come from referral earnings stored on the User record
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        const available = user ? Number(user.referralEarningsUsd) : 0;
+
+        if (available < amount) {
+          return reply.status(400).send({
+            success: false,
+            error: `Insufficient USDT balance. Available: ${available.toFixed(2)}`,
+          });
+        }
+
+        // Deduct immediately to prevent double-spend while PENDING
+        await prisma.user.update({
+          where: { id: userId },
+          data: { referralEarningsUsd: { decrement: amount } },
+        });
+      } else if (isPlatform) {
         const balance = await prisma.tokenBalance.findUnique({
           where: { userId_token: { userId, token } },
         });

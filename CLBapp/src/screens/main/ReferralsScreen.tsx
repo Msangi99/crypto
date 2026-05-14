@@ -92,14 +92,35 @@ export default function ReferralsScreen() {
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
             <Ionicons name="people-outline" size={16} color={Colors.primary} />
-            <Text style={styles.statValue}>{earnings?.earnings?.directReferrals ?? 0}</Text>
-            <Text style={styles.statLabel}>Direct Referrals</Text>
+            <Text style={styles.statValue}>{tree?.totalNetwork ?? 0}</Text>
+            <Text style={styles.statLabel}>All Referrals</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
             <Ionicons name="wallet-outline" size={16} color={Colors.primary} />
             <Text style={[styles.statValue, { color: Colors.primary }]}>{formatReferralUsdt(earnings?.earnings?.totalBonusReceived ?? 0)}</Text>
-            <Text style={styles.statLabel}>Total rewards</Text>
+            <Text style={styles.statLabel}>Total Rewards</Text>
+          </View>
+        </View>
+
+        {/* Commission Breakdown */}
+        <View style={styles.commissionBreakdownRow}>
+          <View style={styles.commissionBreakdownItem}>
+            <Text style={styles.commissionBreakdownValue}>
+              {formatReferralUsdt(earnings?.earnings?.commissionRates?.[0]?.earned ?? 0)}
+            </Text>
+            <Text style={styles.commissionBreakdownLabel}>Direct (L1)</Text>
+          </View>
+          <Text style={styles.commissionBreakdownPlus}>+</Text>
+          <View style={styles.commissionBreakdownItem}>
+            <Text style={styles.commissionBreakdownValue}>
+              {formatReferralUsdt(
+                (earnings?.earnings?.commissionRates ?? [])
+                  .slice(1)
+                  .reduce((sum: number, r: any) => sum + (r.earned ?? 0), 0)
+              )}
+            </Text>
+            <Text style={styles.commissionBreakdownLabel}>Network (L2–L5)</Text>
           </View>
         </View>
       </LinearGradient>
@@ -341,6 +362,19 @@ const styles = StyleSheet.create({
   statValue: { fontSize: 16, fontWeight: '800', color: Colors.textPrimary },
   statLabel: { fontSize: 11, fontWeight: '600', color: Colors.textMuted },
   statDivider: { width: 1, backgroundColor: 'rgba(255,255,255,0.08)' },
+
+  commissionBreakdownRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    marginHorizontal: Spacing.lg, marginTop: Spacing.sm,
+    backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: Radius.md,
+    paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.04)',
+    gap: Spacing.sm,
+  },
+  commissionBreakdownItem: { flex: 1, alignItems: 'center', gap: 2 },
+  commissionBreakdownValue: { fontSize: 13, fontWeight: '700', color: Colors.primary },
+  commissionBreakdownLabel: { fontSize: 10, fontWeight: '600', color: Colors.textMuted },
+  commissionBreakdownPlus: { fontSize: 16, fontWeight: '800', color: Colors.textMuted },
 
   // Tabs
   tabRow: {

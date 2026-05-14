@@ -21,7 +21,10 @@ function isValidBep20Address(address: string): boolean {
 
 export default function WithdrawReferralScreen({ navigation }: any) {
   const [earnings, setEarnings] = useState<any>(null);
+  const [tree, setTree] = useState<any>(null);
+  const [withdrawals, setWithdrawals] = useState<any[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [historyTab, setHistoryTab] = useState<'earnings' | 'withdrawals'>('earnings');
 
   // Withdraw modal state
   const [modalVisible, setModalVisible] = useState(false);
@@ -31,8 +34,14 @@ export default function WithdrawReferralScreen({ navigation }: any) {
 
   const load = useCallback(async () => {
     try {
-      const res = await userAPI.referralEarnings();
-      setEarnings(res.data);
+      const [eRes, tRes, wRes] = await Promise.all([
+        userAPI.referralEarnings(),
+        userAPI.referralTree(),
+        withdrawalsAPI.list(1, 50),
+      ]);
+      setEarnings(eRes.data);
+      setTree(tRes.data);
+      setWithdrawals(wRes.data?.withdrawals ?? []);
     } catch (e) {
       console.error(e);
     }
@@ -152,14 +161,14 @@ export default function WithdrawReferralScreen({ navigation }: any) {
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
             <Ionicons name="people-outline" size={16} color={Colors.primary} />
-            <Text style={styles.statValue}>{earningsData.directReferrals ?? 0}</Text>
-            <Text style={styles.statLabel}>Direct Referrals</Text>
+            <Text style={styles.statValue}>{tree?.totalNetwork ?? 0}</Text>
+            <Text style={styles.statLabel}>All Referrals</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
             <Ionicons name="git-network-outline" size={16} color={Colors.primary} />
-            <Text style={styles.statValue}>{earningsData.totalNetwork ?? referralList.length}</Text>
-            <Text style={styles.statLabel}>Total Network</Text>
+            <Text style={styles.statValue}>{fmt(earningsData.totalBonusReceived ?? 0)}</Text>
+            <Text style={styles.statLabel}>Total Commission</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
@@ -169,72 +178,152 @@ export default function WithdrawReferralScreen({ navigation }: any) {
           </View>
         </View>
 
-        {/* History */}
+        {/* History Tabs */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Earning History</Text>
-
-          {!earnings ? (
-            /* Loading skeletons */
-            [0, 1, 2].map((i) => (
-              <View key={i} style={styles.skeletonRow}>
-                <View style={styles.skeletonIcon} />
-                <View style={{ flex: 1, gap: 6 }}>
-                  <View style={[styles.skeletonLine, { width: '60%' }]} />
-                  <View style={[styles.skeletonLine, { width: '40%' }]} />
-                </View>
-                <View style={[styles.skeletonLine, { width: 70 }]} />
-              </View>
-            ))
-          ) : recentBonuses.length === 0 && referralList.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Ionicons name="receipt-outline" size={36} color={Colors.textMuted} />
-              <Text style={styles.emptyText}>No earnings yet</Text>
-              <Text style={styles.emptyHint}>
-                Share your referral code to start earning commissions when your referrals deposit.
+          <View style={styles.historyTabRow}>
+            <TouchableOpacity
+              onPress={() => setHistoryTab('earnings')}
+              style={[styles.historyTab, historyTab === 'earnings' && styles.historyTabActive]}
+            >
+              <Text style={[styles.historyTabText, historyTab === 'earnings' && styles.historyTabTextActive]}>
+                Earning History
               </Text>
-            </View>
-          ) : (
-            <>
-              {/* Recent bonus transactions */}
-              {recentBonuses.map((bonus: any, i: number) => (
-                <View key={`bonus-${i}`} style={styles.historyRow}>
-                  <View style={styles.historyIconWrap}>
-                    <Ionicons name="gift-outline" size={18} color="#00D6A1" />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.historyTitle}>Referral Bonus</Text>
-                    <Text style={styles.historyDate}>
-                      {new Date(bonus.createdAt).toLocaleDateString('en-US', {
-                        day: '2-digit', month: 'short', year: 'numeric',
-                      })}
-                    </Text>
-                  </View>
-                  <Text style={styles.historyAmount}>+{fmt(bonus.amount)} USDT</Text>
-                </View>
-              ))}
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setHistoryTab('withdrawals')}
+              style={[styles.historyTab, historyTab === 'withdrawals' && styles.historyTabActive]}
+            >
+              <Text style={[styles.historyTabText, historyTab === 'withdrawals' && styles.historyTabTextActive]}>
+                Withdrawal History
+              </Text>
+            </TouchableOpacity>
+          </View>
 
-              {/* Per-referral rewards */}
-              {referralList.map((ref: any, i: number) => (
-                <View key={`ref-${i}`} style={styles.historyRow}>
-                  <View style={[styles.historyIconWrap, { backgroundColor: 'rgba(240,185,11,0.12)' }]}>
-                    <Text style={styles.avatarText}>
-                      {(ref.username ?? ref.wallet ?? '?')[0].toUpperCase()}
-                    </Text>
+          {historyTab === 'earnings' ? (
+            /* ── Earning History ── */
+            !earnings ? (
+              [0, 1, 2].map((i) => (
+                <View key={i} style={styles.skeletonRow}>
+                  <View style={styles.skeletonIcon} />
+                  <View style={{ flex: 1, gap: 6 }}>
+                    <View style={[styles.skeletonLine, { width: '60%' }]} />
+                    <View style={[styles.skeletonLine, { width: '40%' }]} />
                   </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.historyTitle}>{ref.username || 'Anonymous'}</Text>
-                    <Text style={styles.historyDate}>
-                      {ref.wallet
-                        ? `${ref.wallet.slice(0, 8)}...${ref.wallet.slice(-4)}`
-                        : 'Referral'}
-                    </Text>
-                  </View>
-                  {ref.reward > 0 && (
-                    <Text style={styles.historyAmount}>+{fmt(ref.reward)} USDT</Text>
-                  )}
+                  <View style={[styles.skeletonLine, { width: 70 }]} />
                 </View>
-              ))}
-            </>
+              ))
+            ) : recentBonuses.length === 0 && referralList.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Ionicons name="receipt-outline" size={36} color={Colors.textMuted} />
+                <Text style={styles.emptyText}>No earnings yet</Text>
+                <Text style={styles.emptyHint}>
+                  Share your referral code to start earning commissions when your referrals deposit.
+                </Text>
+              </View>
+            ) : (
+              <>
+                {recentBonuses.map((bonus: any, i: number) => (
+                  <View key={`bonus-${i}`} style={styles.historyRow}>
+                    <View style={styles.historyIconWrap}>
+                      <Ionicons name="gift-outline" size={18} color="#00D6A1" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.historyTitle}>Referral Bonus</Text>
+                      <Text style={styles.historyDate}>
+                        {new Date(bonus.createdAt).toLocaleDateString('en-US', {
+                          day: '2-digit', month: 'short', year: 'numeric',
+                        })}
+                      </Text>
+                    </View>
+                    <Text style={styles.historyAmount}>+{fmt(bonus.amount)} USDT</Text>
+                  </View>
+                ))}
+
+                {referralList.map((ref: any, i: number) => (
+                  <View key={`ref-${i}`} style={styles.historyRow}>
+                    <View style={[styles.historyIconWrap, { backgroundColor: 'rgba(240,185,11,0.12)' }]}>
+                      <Text style={styles.avatarText}>
+                        {(ref.username ?? ref.wallet ?? '?')[0].toUpperCase()}
+                      </Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.historyTitle}>{ref.username || 'Anonymous'}</Text>
+                      <Text style={styles.historyDate}>
+                        {ref.wallet
+                          ? `${ref.wallet.slice(0, 8)}...${ref.wallet.slice(-4)}`
+                          : 'Referral'}
+                      </Text>
+                    </View>
+                    {ref.reward > 0 && (
+                      <Text style={styles.historyAmount}>+{fmt(ref.reward)} USDT</Text>
+                    )}
+                  </View>
+                ))}
+              </>
+            )
+          ) : (
+            /* ── Withdrawal History ── */
+            !earnings ? (
+              [0, 1, 2].map((i) => (
+                <View key={i} style={styles.skeletonRow}>
+                  <View style={styles.skeletonIcon} />
+                  <View style={{ flex: 1, gap: 6 }}>
+                    <View style={[styles.skeletonLine, { width: '60%' }]} />
+                    <View style={[styles.skeletonLine, { width: '40%' }]} />
+                  </View>
+                  <View style={[styles.skeletonLine, { width: 70 }]} />
+                </View>
+              ))
+            ) : withdrawals.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Ionicons name="arrow-up-circle-outline" size={36} color={Colors.textMuted} />
+                <Text style={styles.emptyText}>No withdrawals yet</Text>
+                <Text style={styles.emptyHint}>
+                  Your withdrawal requests will appear here once you make one.
+                </Text>
+              </View>
+            ) : (
+              withdrawals.map((w: any, i: number) => {
+                const statusColor = w.status === 'COMPLETED' ? '#00D6A1'
+                  : w.status === 'PENDING' ? Colors.warning
+                  : w.status === 'REJECTED' ? Colors.error
+                  : Colors.textMuted;
+                const statusIcon = w.status === 'COMPLETED' ? 'checkmark-circle'
+                  : w.status === 'PENDING' ? 'time-outline'
+                  : w.status === 'REJECTED' ? 'close-circle'
+                  : 'ellipse-outline';
+                return (
+                  <View key={`wd-${i}`} style={styles.historyRow}>
+                    <View style={[styles.historyIconWrap, { backgroundColor: `${statusColor}18` }]}>
+                      <Ionicons name={statusIcon as any} size={18} color={statusColor} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.historyTitle}>Withdrawal</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                        <Text style={styles.historyDate}>
+                          {new Date(w.createdAt).toLocaleDateString('en-US', {
+                            day: '2-digit', month: 'short', year: 'numeric',
+                          })}
+                        </Text>
+                        <View style={[styles.statusBadge, { backgroundColor: `${statusColor}18` }]}>
+                          <Text style={[styles.statusBadgeText, { color: statusColor }]}>
+                            {w.status}
+                          </Text>
+                        </View>
+                      </View>
+                      {w.toAddress && (
+                        <Text style={styles.historyDate}>
+                          To: {w.toAddress.slice(0, 8)}...{w.toAddress.slice(-4)}
+                        </Text>
+                      )}
+                    </View>
+                    <Text style={[styles.historyAmount, { color: Colors.error }]}>
+                      -{fmt(w.amount)} USDT
+                    </Text>
+                  </View>
+                );
+              })
+            )
           )}
         </View>
 
@@ -439,6 +528,46 @@ const styles = StyleSheet.create({
   // Section
   section: { gap: Spacing.sm },
   sectionTitle: { fontSize: 16, fontWeight: '800', color: Colors.textPrimary, marginBottom: 4 },
+
+  // History Tabs
+  historyTabRow: {
+    flexDirection: 'row',
+    backgroundColor: Colors.bgCard,
+    borderRadius: 99,
+    padding: 3,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    marginBottom: Spacing.sm,
+  },
+  historyTab: {
+    flex: 1,
+    paddingVertical: 9,
+    alignItems: 'center',
+    borderRadius: 99,
+  },
+  historyTabActive: {
+    backgroundColor: '#00D6A1',
+  },
+  historyTabText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.textMuted,
+  },
+  historyTabTextActive: {
+    color: '#000',
+  },
+
+  // Status badge
+  statusBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  statusBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+  },
 
   // History rows
   historyRow: {

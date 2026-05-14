@@ -1212,7 +1212,8 @@ export default async function adminRoutes(fastify: FastifyInstance) {
           },
         });
 
-        if (isPlatform) {
+        if (isPlatform && withdrawal.token !== 'USDT') {
+          // CLB and other platform tokens use TokenBalance
           await tx.tokenBalance.update({
             where: { userId_token: { userId: withdrawal.userId, token: withdrawal.token } },
             data: {
@@ -1221,6 +1222,7 @@ export default async function adminRoutes(fastify: FastifyInstance) {
             },
           });
         }
+        // USDT: already deducted from referralEarningsUsd at request time
 
         await tx.transaction.updateMany({
           where: {
@@ -1278,7 +1280,14 @@ export default async function adminRoutes(fastify: FastifyInstance) {
           data: { status: 'REJECTED', processedAt: new Date() },
         });
 
-        if (isPlatform) {
+        if (isPlatform && withdrawal.token === 'USDT') {
+          // Restore referral earnings that were deducted at request time
+          await tx.user.update({
+            where: { id: withdrawal.userId },
+            data: { referralEarningsUsd: { increment: Number(withdrawal.amount) } },
+          });
+        } else if (isPlatform) {
+          // Unlock CLB / other platform tokens
           await tx.tokenBalance.update({
             where: { userId_token: { userId: withdrawal.userId, token: withdrawal.token } },
             data: { locked: { decrement: Number(withdrawal.amount) } },
