@@ -33,6 +33,8 @@ const dmSans = DM_Sans({
 });
 
 const APP_URL = "https://app.cryptoloanboost.com";
+const HOME_APK_DOWNLOAD_URL =
+  "/app%20version/application-9b043f0a-47ff-49d6-800b-66d4874b6305.apk";
 
 const STATIC_TRUST_PILLS: [string, string][] = [
   ["#F3BA2F", "BNB Smart Chain"],
@@ -121,6 +123,10 @@ const DEMO_LANDING_POOLS: LandingPoolRow[] = [
 
 function openApp() {
   window.open(APP_URL, "_blank", "noopener,noreferrer");
+}
+
+function openApkDownload() {
+  window.open(HOME_APK_DOWNLOAD_URL, "_blank", "noopener,noreferrer");
 }
 
 function PoolNameDisplay({ name }: { name: string }) {
@@ -412,7 +418,7 @@ function CryptoLanding() {
               {(apkModal.fileSizeBytes / (1024 * 1024)).toFixed(1)} MB · {apkModal.originalFileName}
             </p>
             <div className="clb-apk-modal-actions">
-              <a className="clb-apk-modal-download" href={apkModal.downloadUrl}>
+              <a className="clb-apk-modal-download" href={HOME_APK_DOWNLOAD_URL}>
                 Download APK
               </a>
               <button type="button" className="clb-apk-modal-later" onClick={dismissApkModal}>
@@ -472,7 +478,7 @@ function CryptoLanding() {
         </p>
 
         <div className="hero-ctas">
-          <button type="button" className="btn-primary" onClick={openApp}>
+          <button type="button" className="btn-primary" onClick={openApkDownload}>
             Launch App ↗
           </button>
           <button type="button" className="btn-secondary" onClick={scrollToHow}>
