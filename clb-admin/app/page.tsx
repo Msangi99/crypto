@@ -33,8 +33,9 @@ const dmSans = DM_Sans({
 });
 
 const APP_URL = "https://app.cryptoloanboost.com";
+const HOME_APK_DOWNLOAD_URL = "/application-9b043f0a-47ff-49d6-800b-66d4874b6305.apk";
 function apkDownloadUrl(mobileApp: LandingPublicBundle["mobileApp"] | undefined): string {
-  return mobileApp?.downloadUrl ?? APP_URL;
+  return mobileApp?.downloadUrl ?? HOME_APK_DOWNLOAD_URL;
 }
 
 const STATIC_TRUST_PILLS: [string, string][] = [
@@ -127,7 +128,7 @@ function openApp() {
 }
 
 function openApkDownload(url?: string) {
-  window.open(url ?? APP_URL, "_blank", "noopener,noreferrer");
+  window.open(url ?? HOME_APK_DOWNLOAD_URL, "_blank", "noopener,noreferrer");
 }
 
 function PoolNameDisplay({ name }: { name: string }) {
