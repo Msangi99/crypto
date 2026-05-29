@@ -359,9 +359,9 @@ function CryptoLanding() {
           <button
             type="button"
             className="btn-signup"
-            onClick={() => downloadApp(bundle?.mobileApp)}
+            onClick={openWebApp}
           >
-            Download App
+            Launch App
           </button>
         </div>
       </nav>
