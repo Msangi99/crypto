@@ -48,6 +48,7 @@ services:
       ADMIN_DASHBOARD_URL: "${ADMIN_DASHBOARD_URL:-https://cryptoloanboost.com/dashboard}"
     volumes:
       - ./contracts/abi:/app/contracts/abi:ro
+      - backend_uploads:/app/uploads
     ports:
       - "127.0.0.1:3001:3000"
 
@@ -97,3 +98,4 @@ services:
 volumes:
   postgres_data:
   whatsapp_auth:
+  backend_uploads:

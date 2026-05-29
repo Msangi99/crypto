@@ -117,12 +117,13 @@ const DEMO_LANDING_POOLS: LandingPoolRow[] = [
   },
 ];
 
-function openApp() {
-  window.open(APP_URL, "_blank", "noopener,noreferrer");
+function downloadApp(url?: string) {
+  const href = url ?? HOME_APK_DOWNLOAD_URL;
+  window.open(href, "_blank", "noopener,noreferrer");
 }
 
-function openApkDownload(url?: string) {
-  window.open(url ?? HOME_APK_DOWNLOAD_URL, "_blank", "noopener,noreferrer");
+function openWebApp() {
+  window.open(APP_URL, "_blank", "noopener,noreferrer");
 }
 
 function PoolNameDisplay({ name }: { name: string }) {
@@ -345,8 +346,12 @@ function CryptoLanding() {
           </li>
         </ul>
         <div className="nav-actions">
-          <button type="button" className="btn-signup" onClick={openApp}>
-            Launch App
+          <button
+            type="button"
+            className="btn-signup"
+            onClick={() => downloadApp(apkDownloadUrl(bundle?.mobileApp))}
+          >
+            Download App
           </button>
         </div>
       </nav>
@@ -368,8 +373,15 @@ function CryptoLanding() {
             </p>
 
             <div className="hero-ctas">
-              <button type="button" className="btn-primary" onClick={() => openApkDownload(apkDownloadUrl(bundle?.mobileApp))}>
-                Get started
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => downloadApp(apkDownloadUrl(bundle?.mobileApp))}
+              >
+                Download App
+              </button>
+              <button type="button" className="btn-secondary hero-web-app" onClick={openWebApp}>
+                Open Web App
               </button>
             </div>
 
@@ -637,8 +649,13 @@ function CryptoLanding() {
                       )}
                     </div>
                   </div>
-                  <button type="button" className="btn-primary" style={{ padding: "12px 22px", fontSize: "14px" }} onClick={openApp}>
-                    Open App ↗
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    style={{ padding: "12px 22px", fontSize: "14px" }}
+                    onClick={() => downloadApp(apkDownloadUrl(bundle?.mobileApp))}
+                  >
+                    Download App
                   </button>
                 </div>
               </>
@@ -783,11 +800,15 @@ function CryptoLanding() {
           Connect your BSC wallet and start exploring pools, loans, and referral rewards today.
         </p>
         <div className="cta-buttons reveal">
-          <button type="button" className="btn-gold" onClick={openApp}>
-            Launch CLB App ↗
+          <button
+            type="button"
+            className="btn-gold"
+            onClick={() => downloadApp(apkDownloadUrl(bundle?.mobileApp))}
+          >
+            Download App
           </button>
-          <button type="button" className="btn-secondary" onClick={openApp}>
-            View Portfolio
+          <button type="button" className="btn-secondary" onClick={openWebApp}>
+            Open Web App ↗
           </button>
         </div>
       </section>
