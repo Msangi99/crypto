@@ -27,9 +27,12 @@ function uploadsRoot(): string {
 }
 
 async function main() {
-  const fileArg = process.argv[2];
-  const version = (process.argv[3] || '').trim();
-  const releaseNotes = (process.argv[4] || '').trim() || null;
+  const args = process.argv.slice(2);
+  const publish = args.includes('--publish');
+  const positional = args.filter((a) => a !== '--publish');
+  const fileArg = positional[0];
+  const version = (positional[1] || '').trim();
+  const releaseNotes = (positional[2] || '').trim() || null;
 
   if (!fileArg || !version) {
     console.error(
@@ -81,25 +84,33 @@ async function main() {
   const originalFileName = path.basename(src);
 
   try {
-    const row = await prisma.mobileAppRelease.create({
-      data: {
-        id,
-        version,
-        originalFileName,
-        storagePath: relPath,
-        fileSizeBytes: BigInt(st.size),
-        releaseNotes,
-        isPublished: false,
-      },
+    const row = await prisma.$transaction(async (tx) => {
+      if (publish) {
+        await tx.mobileAppRelease.updateMany({
+          where: { isPublished: true },
+          data: { isPublished: false },
+        });
+      }
+      return tx.mobileAppRelease.create({
+        data: {
+          id,
+          version,
+          originalFileName,
+          storagePath: relPath,
+          fileSizeBytes: BigInt(st.size),
+          releaseNotes,
+          isPublished: publish,
+        },
+      });
     });
 
-    console.log('\n✓ Draft release created.');
+    console.log('\n✓ Release created' + (publish ? ' and published.' : ' (draft).'));
     console.log('  id:              ', row.id);
     console.log('  version:         ', row.version);
     console.log('  file:            ', row.originalFileName);
     console.log('  size (bytes):    ', st.size);
     console.log('  storagePath:     ', row.storagePath);
-    console.log('\nOpen Admin → Mobile app (Android APK) → Publish this row when ready.\n');
+    console.log('\nOpen Admin → Mobile app (Android APK)' + (publish ? ' — live on landing now.' : ' → Publish this row when ready.') + '\n');
   } catch (e) {
     await fs.unlink(destAbs).catch(() => undefined);
     console.error('Failed to insert DB row:', e);

@@ -28,6 +28,25 @@ const plusJakarta = Plus_Jakarta_Sans({
 const APP_URL = "https://app.cryptoloanboost.com";
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
 const HOME_APK_DOWNLOAD_URL = `${API_BASE}/api/public/mobile-app/download`;
+
+function downloadApp(mobileApp: LandingPublicBundle["mobileApp"] | undefined) {
+  if (!mobileApp?.downloadUrl) {
+    const useWeb = window.confirm(
+      "Android app is not published yet.\n\nOpen the CLB web app in your browser instead?",
+    );
+    if (useWeb) openWebApp();
+    return;
+  }
+  window.open(mobileApp.downloadUrl, "_blank", "noopener,noreferrer");
+}
+
+function openWebApp() {
+  window.open(APP_URL, "_blank", "noopener,noreferrer");
+}
+
+const hasPublishedApk = (mobileApp: LandingPublicBundle["mobileApp"] | undefined) =>
+  Boolean(mobileApp?.downloadUrl);
+
 function apkDownloadUrl(mobileApp: LandingPublicBundle["mobileApp"] | undefined): string {
   return mobileApp?.downloadUrl ?? HOME_APK_DOWNLOAD_URL;
 }
@@ -116,15 +135,6 @@ const DEMO_LANDING_POOLS: LandingPoolRow[] = [
     phase2Target: null,
   },
 ];
-
-function downloadApp(url?: string) {
-  const href = url ?? HOME_APK_DOWNLOAD_URL;
-  window.open(href, "_blank", "noopener,noreferrer");
-}
-
-function openWebApp() {
-  window.open(APP_URL, "_blank", "noopener,noreferrer");
-}
 
 function PoolNameDisplay({ name }: { name: string }) {
   const base = name.replace(" Pool", "");
@@ -349,7 +359,7 @@ function CryptoLanding() {
           <button
             type="button"
             className="btn-signup"
-            onClick={() => downloadApp(apkDownloadUrl(bundle?.mobileApp))}
+            onClick={() => downloadApp(bundle?.mobileApp)}
           >
             Download App
           </button>
@@ -376,7 +386,7 @@ function CryptoLanding() {
               <button
                 type="button"
                 className="btn-primary"
-                onClick={() => downloadApp(apkDownloadUrl(bundle?.mobileApp))}
+                onClick={() => downloadApp(bundle?.mobileApp)}
               >
                 Download App
               </button>
@@ -653,7 +663,7 @@ function CryptoLanding() {
                     type="button"
                     className="btn-primary"
                     style={{ padding: "12px 22px", fontSize: "14px" }}
-                    onClick={() => downloadApp(apkDownloadUrl(bundle?.mobileApp))}
+                    onClick={() => downloadApp(bundle?.mobileApp)}
                   >
                     Download App
                   </button>
@@ -803,7 +813,7 @@ function CryptoLanding() {
           <button
             type="button"
             className="btn-gold"
-            onClick={() => downloadApp(apkDownloadUrl(bundle?.mobileApp))}
+            onClick={() => downloadApp(bundle?.mobileApp)}
           >
             Download App
           </button>
