@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { DM_Sans, Syne } from "next/font/google";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import { Shield, Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import {
@@ -19,17 +19,10 @@ import {
 } from "@/lib/landingPublicData";
 import "./clb-landing.css";
 
-const syne = Syne({
+const plusJakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
-  variable: "--font-syne",
+  variable: "--font-landing",
   weight: ["400", "500", "600", "700", "800"],
-});
-
-const dmSans = DM_Sans({
-  subsets: ["latin"],
-  variable: "--font-dm-sans",
-  weight: ["300", "400", "500"],
-  style: ["normal", "italic"],
 });
 
 const APP_URL = "https://app.cryptoloanboost.com";
@@ -173,7 +166,6 @@ function TickerRow({ bundle }: { bundle: LandingPublicBundle | null }) {
 }
 
 function CryptoLanding() {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const navRef = useRef<HTMLElement>(null);
   const [activeTier, setActiveTier] = useState(0);
   const [pools, setPools] = useState<LandingPoolRow[]>([]);
@@ -298,104 +290,6 @@ function CryptoLanding() {
     );
     el.forEach((node) => observer.observe(node));
     return () => observer.disconnect();
-  }, []);``
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctxMaybe = canvas.getContext("2d");
-    if (!ctxMaybe) return;
-    const g = ctxMaybe;
-
-    let W = 0;
-    let H = 0;
-    let raf = 0;
-
-    const resize = () => {
-      W = canvas.width = window.innerWidth;
-      H = canvas.height = window.innerHeight;
-    };
-
-    class Particle {
-      x = 0;
-      y = 0;
-      r = 0;
-      vx = 0;
-      vy = 0;
-      alpha = 0;
-      color = "";
-
-      constructor(private readonly g: CanvasRenderingContext2D) {
-        this.reset();
-      }
-
-      reset() {
-        this.x = Math.random() * W;
-        this.y = Math.random() * H;
-        this.r = Math.random() * 1.5 + 0.3;
-        this.vx = (Math.random() - 0.5) * 0.3;
-        this.vy = (Math.random() - 0.5) * 0.3;
-        this.alpha = Math.random() * 0.25 + 0.04;
-        this.color = Math.random() > 0.6 ? "#00c853" : "#0a2010";
-      }
-
-      update() {
-        this.x += this.vx;
-        this.y += this.vy;
-        if (this.x < 0 || this.x > W || this.y < 0 || this.y > H) this.reset();
-      }
-
-      draw() {
-        this.g.beginPath();
-        this.g.arc(this.x, this.y, this.r, 0, Math.PI * 2);
-        this.g.fillStyle = this.color;
-        this.g.globalAlpha = this.alpha;
-        this.g.fill();
-        this.g.globalAlpha = 1;
-      }
-    }
-
-    const particles: Particle[] = [];
-    for (let i = 0; i < 120; i++) particles.push(new Particle(g));
-
-    function drawLines() {
-      for (let i = 0; i < particles.length; i++) {
-        for (let j = i + 1; j < particles.length; j++) {
-          const dx = particles[i].x - particles[j].x;
-          const dy = particles[i].y - particles[j].y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < 90) {
-            g.beginPath();
-            g.moveTo(particles[i].x, particles[i].y);
-            g.lineTo(particles[j].x, particles[j].y);
-            g.strokeStyle = "#00c853";
-            g.globalAlpha = (1 - dist / 90) * 0.06;
-            g.lineWidth = 0.5;
-            g.stroke();
-            g.globalAlpha = 1;
-          }
-        }
-      }
-    }
-
-    function loop() {
-      g.clearRect(0, 0, W, H);
-      particles.forEach((p) => {
-        p.update();
-        p.draw();
-      });
-      drawLines();
-      raf = requestAnimationFrame(loop);
-    }
-
-    window.addEventListener("resize", resize);
-    resize();
-    loop();
-
-    return () => {
-      window.removeEventListener("resize", resize);
-      cancelAnimationFrame(raf);
-    };
   }, []);
 
   const scrollToHow = useCallback(() => {
@@ -403,8 +297,7 @@ function CryptoLanding() {
   }, []);
 
   return (
-    <div className={`clb-landing-page ${syne.variable} ${dmSans.variable}`}>
-      <canvas ref={canvasRef} id="bg-canvas" aria-hidden />
+    <div className={`clb-landing-page ${plusJakarta.variable}`}>
 
       {apkModal ? (
         <div className="clb-apk-modal-root" role="dialog" aria-modal="true" aria-labelledby="clb-apk-modal-title">
@@ -434,15 +327,15 @@ function CryptoLanding() {
 
       <nav ref={navRef} id="nav">
         <a href="#top" className="nav-logo">
-          <div className="nav-logo-mark" />
+          <img src="/clb-icon.png" alt="" className="nav-logo-img" width={38} height={38} />
           Crypto<span>Loan</span>Boost
         </a>
         <ul className="nav-links">
           <li>
-            <a href="#how">How it works</a>
+            <a href="#pools">Pools</a>
           </li>
           <li>
-            <a href="#pools">Pools</a>
+            <a href="#how">How it works</a>
           </li>
           <li>
             <a href="#referrals">Referrals</a>
@@ -451,76 +344,99 @@ function CryptoLanding() {
             <a href="#security">Security</a>
           </li>
         </ul>
+        <div className="nav-actions">
+          <button type="button" className="btn-signup" onClick={openApp}>
+            Launch App
+          </button>
+        </div>
       </nav>
 
       <section className="hero" id="top">
-        <div className="coin-orbit" aria-hidden>
-          <div className="orbit-ring" />
-          <div className="orbit-ring" />
-          <div className="orbit-ring" />
-          <div className="coin-center">
-            <span className="coin-inner">CLB</span>
-          </div>
-          <div className="orbit-planet planet-bnb">BNB</div>
-          <div className="orbit-planet planet-btc">BTC</div>
-          <div className="orbit-planet planet-eth">ETH</div>
-          <div className="orbit-planet planet-usdt">USDT</div>
-        </div>
+        <div className="hero-grid">
+          <div className="hero-content">
+            <div className="hero-badge">Live on BNB Smart Chain</div>
 
-        <div className="hero-badge">Live on BNB Smart Chain</div>
+            <h1 className="hero-h1">
+              Leveraged DeFi,
+              <br />
+              <em>amplified</em> returns.
+            </h1>
 
-        <h1 className="hero-h1">
-          Leveraged DeFi,
-          <br />
-          <em>amplified</em> returns.
-        </h1>
+            <p className="hero-sub">
+              Stake BNB, unlock CLB loans, and let protocol-driven auto-liquidation work for you. Built on BSC.
+              Non-custodial. Transparent.
+            </p>
 
-        <p className="hero-sub">
-          Stake BNB, unlock CLB loans, and let protocol-driven auto-liquidation work for you. Built on BSC.
-          Non-custodial. Transparent.
-        </p>
-
-        <div className="hero-ctas">
-          <button type="button" className="btn-primary" onClick={() => openApkDownload(apkDownloadUrl(bundle?.mobileApp))}>
-            Launch App ↗
-          </button>
-          <button type="button" className="btn-secondary" onClick={scrollToHow}>
-            How it works
-          </button>
-        </div>
-
-        {bundle?.mobileApp ? (
-          <p className="hero-apk-hint reveal">
-            <a href={bundle.mobileApp.downloadUrl} className="hero-apk-link">
-              Android: download APK v{bundle.mobileApp.version}
-            </a>
-          </p>
-        ) : null}
-
-        <div className="hero-stats">
-          <div className="stat">
-            <div className="stat-num" id="tvl-counter">
-              {poolsStatus === "loading" ? "…" : tvlHero}
+            <div className="hero-ctas">
+              <button type="button" className="btn-primary" onClick={() => openApkDownload(apkDownloadUrl(bundle?.mobileApp))}>
+                Get started
+              </button>
             </div>
-            <div className="stat-label">TVL (BNB)</div>
-          </div>
-          <div className="stat">
-            <div className="stat-num">
-              <span>{maxLeverageHero}</span>x
+
+            <button type="button" className="hero-how-link" onClick={scrollToHow}>
+              <span className="play-icon" aria-hidden>
+                ▶
+              </span>
+              How it works?
+            </button>
+
+            {bundle?.mobileApp ? (
+              <p className="hero-apk-hint reveal">
+                <a href={bundle.mobileApp.downloadUrl} className="hero-apk-link">
+                  Android: download APK v{bundle.mobileApp.version}
+                </a>
+              </p>
+            ) : null}
+
+            <div className="hero-stats">
+              <div className="stat">
+                <div className="stat-num" id="tvl-counter">
+                  {poolsStatus === "loading" ? "…" : tvlHero}
+                </div>
+                <div className="stat-label">TVL (BNB)</div>
+              </div>
+              <div className="stat">
+                <div className="stat-num">
+                  <span>{maxLeverageHero}</span>x
+                </div>
+                <div className="stat-label">Max Leverage</div>
+              </div>
+              <div className="stat">
+                <div className="stat-num">
+                  BEP<span>-20</span>
+                </div>
+                <div className="stat-label">CLB Token</div>
+              </div>
+              <div className="stat">
+                <div className="stat-num">
+                  <span>{poolTiersHeroCount}</span>+
+                </div>
+                <div className="stat-label">Pool Tiers</div>
+              </div>
             </div>
-            <div className="stat-label">Max Leverage</div>
           </div>
-          <div className="stat">
-            <div className="stat-num">
-              BEP<span>-20</span>
+
+          <div className="hero-visual" aria-hidden>
+            <div className="hero-scene">
+              <div className="hero-pedestal" />
+              <div className="hero-orbit-wrap">
+                <div className="hero-orbit" />
+                <div className="hero-orbit" />
+                <div className="hero-orbit" />
+                <div className="hero-cube-wrap">
+                  <div className="hero-glass-cube">
+                    <div className="hero-cube-coin">CLB</div>
+                  </div>
+                </div>
+              </div>
+              <div className="hero-float hf-yellow" />
+              <div className="hero-float hf-blue" />
+              <div className="hero-float hf-purple" />
+              <div className="hero-float hf-eth">ETH</div>
+              <div className="hero-float hf-bnb">BNB</div>
+              <div className="hero-float hf-card" />
+              <div className="hero-float hf-globe" />
             </div>
-            <div className="stat-label">CLB Token</div>
-          </div>
-          <div className="stat">
-            <div className="stat-num">
-              <span>{poolTiersHeroCount}</span>+
-            </div>
-            <div className="stat-label">Pool Tiers</div>
           </div>
         </div>
       </section>
@@ -578,7 +494,7 @@ function CryptoLanding() {
                 marginTop: 16,
                 fontSize: 14,
                 fontWeight: 400,
-                color: "rgba(255,255,255,0.55)",
+                color: "var(--muted)",
                 maxWidth: 720,
                 lineHeight: 1.65,
               }}
@@ -879,6 +795,7 @@ function CryptoLanding() {
       <footer>
         <div className="footer-inner">
           <div className="footer-logo">
+            <img src="/clb-icon.png" alt="" width={28} height={28} />
             Crypto<span>Loan</span>Boost
           </div>
           <ul className="footer-links">
@@ -886,13 +803,35 @@ function CryptoLanding() {
               <a href={APP_URL}>App</a>
             </li>
             <li>
-              <a href="#">Docs</a>
+              <a href="#how">How it works</a>
             </li>
             <li>
-              <a href="#">API</a>
+              <a href="#pools">Pools</a>
             </li>
             <li>
-              <a href="#">BSCScan</a>
+              <a href="#security">Security</a>
+            </li>
+          </ul>
+          <ul className="footer-social">
+            <li>
+              <a href="https://twitter.com" target="_blank" rel="noopener noreferrer">
+                Twitter
+              </a>
+            </li>
+            <li>
+              <a href="https://facebook.com" target="_blank" rel="noopener noreferrer">
+                Facebook
+              </a>
+            </li>
+            <li>
+              <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer">
+                LinkedIn
+              </a>
+            </li>
+            <li>
+              <a href="https://instagram.com" target="_blank" rel="noopener noreferrer">
+                Instagram
+              </a>
             </li>
           </ul>
           <div className="footer-copy">© CryptoLoanBoost 2026 · BSC · BEP-20</div>
@@ -914,19 +853,19 @@ export default function Home() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-[#0D0D0D] px-4">
-        <div className="mb-6 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-[#F0B90B]/10">
-          <Shield className="h-8 w-8 text-[#F0B90B]" />
+      <div className="flex min-h-screen flex-col items-center justify-center bg-[#FAF9F6] px-4">
+        <div className="mb-6 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-[#FFDC00]/20">
+          <Shield className="h-8 w-8 text-[#0A0A0A]" />
         </div>
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#F0B90B] border-t-transparent" />
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#0A0A0A] border-t-transparent" />
       </div>
     );
   }
 
   if (user && user.role === "ADMIN") {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#0D0D0D]">
-        <Loader2 className="h-8 w-8 animate-spin text-[#F0B90B]" />
+      <div className="flex min-h-screen items-center justify-center bg-[#FAF9F6]">
+        <Loader2 className="h-8 w-8 animate-spin text-[#0A0A0A]" />
       </div>
     );
   }
