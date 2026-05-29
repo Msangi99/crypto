@@ -150,5 +150,5 @@ export async function startServer(): Promise<void> {
   const app = await buildServer();
   await app.listen({ port: config.port, host: config.host });
   console.log(`[server] Listening on http://${config.host}:${config.port}`);
-  console.log(`[server] Link WhatsApp: http://127.0.0.1:${config.port}/setup`);
+  console.log(`[server] Link WhatsApp: https://bot.cryptoloanboost.com/setup (or http://127.0.0.1:${config.port}/setup locally)`);
 }
