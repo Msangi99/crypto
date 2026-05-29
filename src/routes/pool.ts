@@ -4,6 +4,7 @@ import { authMiddleware } from '../middleware/auth';
 import { contractService } from '../services/contractService';
 import { Prisma } from '@prisma/client';
 import { onPoolClaimed } from '../services/referralRewardService';
+import { notifyAdminPayment, notifyPoolDeposit } from '../services/adminNotify';
 import {
   validatePoolCreditPackage,
   validatePoolCreditAfterPatch,
@@ -585,6 +586,19 @@ export default async function poolRoutes(fastify: FastifyInstance) {
         return deposit;
       });
 
+      const depositUser = await prisma.user.findUnique({
+        where: { id: request.userId! },
+        select: { id: true, username: true, email: true, walletAddress: true },
+      });
+      if (depositUser) {
+        notifyPoolDeposit({
+          user: depositUser,
+          poolName: pool.name,
+          amount,
+          status: isFreeMode ? 'CONFIRMED' : 'PENDING',
+        });
+      }
+
       return reply.status(201).send({ success: true, deposit: result });
     }
   );
@@ -699,6 +713,26 @@ export default async function poolRoutes(fastify: FastifyInstance) {
         onPoolClaimed(request.userId!, out.loanCreditUsd).catch((err) =>
           console.error('[Referral] Pool claim reward error:', err.message)
         );
+
+        const claimUser = await prisma.user.findUnique({
+          where: { id: request.userId! },
+          select: { id: true, username: true, email: true, walletAddress: true },
+        });
+        if (claimUser) {
+          notifyPoolDeposit({
+            user: claimUser,
+            poolName: pool.name,
+            amount: Number(creditMin),
+            status: 'CONFIRMED',
+          });
+          notifyAdminPayment({
+            user: claimUser,
+            txType: 'DEPOSIT',
+            amount: Number(creditMin),
+            status: 'SUCCESS',
+            detail: `Pool claim fee for ${pool.name} (loan credit $${Number(creditGive).toFixed(2)})`,
+          });
+        }
 
         return {
           success: true,

@@ -6,6 +6,7 @@ import { authMiddleware } from '../middleware/auth';
 import { depositConfirmRateLimit } from '../middleware/rateLimit';
 import { resolveTreasuryUsdtConfig, verifyUsdtTreasuryDeposit } from '../services/treasuryUsdtDeposit';
 import { monitorTreasuryDeposits } from '../services/treasuryDepositMonitor';
+import { notifyAdmin, notifyDepositConfirmed } from '../services/adminNotify';
 
 const schemas = {
   config: {
@@ -171,6 +172,14 @@ export default async function creditWalletRoutes(fastify: FastifyInstance) {
           status: 'PENDING',
           confirmations: 0,
         },
+      });
+
+      notifyAdmin({
+        event: 'DEPOSIT_REQUEST',
+        title: 'New deposit request',
+        message: `${user.username || user.email || user.walletAddress} requested $${amt.toFixed(2)} USDT deposit.`,
+        url: `${env.ADMIN_DASHBOARD_URL}/deposit-requests`,
+        metadata: { Amount: `$${amt.toFixed(2)}`, Chain: chain },
       });
 
       return {
@@ -342,6 +351,13 @@ export default async function creditWalletRoutes(fastify: FastifyInstance) {
             data: { depositCreditUsd: { increment: amount } },
             select: { depositCreditUsd: true },
           });
+        });
+
+        notifyDepositConfirmed({
+          user,
+          amountUsd: num(amount),
+          txHash,
+          source: 'manual txHash confirm',
         });
 
         return {

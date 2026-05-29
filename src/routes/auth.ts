@@ -6,6 +6,7 @@ import prisma from '../config/db';
 import { Prisma } from '@prisma/client';
 import { env } from '../config/env';
 import { authMiddleware } from '../middleware/auth';
+import { notifyNewUserRegistered } from '../services/adminNotify';
 
 // ─── Secret Key Generation ──────────────────────────────────
 // Generate a 12-word recovery phrase (BIP39-like)
@@ -225,6 +226,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
         user = await prisma.user.create({
           data: { walletAddress: normalized, secretKey: encrypted, secretKeyIv: iv, referralCode },
         });
+        notifyNewUserRegistered(user);
       }
 
       return { success: true, nonce: user.nonce };
@@ -462,6 +464,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
         throw e;
       }
       fastify.log.info(`🆕 New user created via dev-login: ${normalized} (referral: ${referralCode})`);
+      notifyNewUserRegistered(user);
 
       // Increment tokenVersion (invalidates old tokens on other devices)
       const updatedUser = await prisma.user.update({
@@ -548,6 +551,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
       );
 
       fastify.log.info(`🆕 New wallet created: ${walletAddress}`);
+      notifyNewUserRegistered(user);
 
       return {
         success: true,

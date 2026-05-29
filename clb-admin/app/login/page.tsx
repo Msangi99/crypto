@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Mail, Lock, Shield, Loader2, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,11 +11,16 @@ import { api } from "@/lib/api";
 import { toast } from "sonner";
 
 export default function LoginPage() {
+  const [mounted, setMounted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const router = useRouter();
   const { login } = useAuth();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,6 +87,14 @@ export default function LoginPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {!mounted ? (
+              <div className="space-y-4" aria-hidden="true">
+                <div className="h-10 rounded-lg bg-[#0D0D0D] border border-[#2A2A2A] animate-pulse" />
+                <div className="h-11 rounded-md bg-[#0D0D0D] border border-[#2A2A2A] animate-pulse" />
+                <div className="h-11 rounded-md bg-[#0D0D0D] border border-[#2A2A2A] animate-pulse" />
+                <div className="h-12 rounded-md bg-[#F0B90B]/20 animate-pulse" />
+              </div>
+            ) : (
             <Tabs defaultValue="email" className="w-full">
               <TabsList className="w-full bg-[#0D0D0D] border border-[#2A2A2A] mb-4">
                 <TabsTrigger value="email" className="flex-1 data-[state=active]:bg-[#F0B90B] data-[state=active]:text-[#0D0D0D]">
@@ -100,6 +113,8 @@ export default function LoginPage() {
                       <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#666]" />
                       <input
                         type="email"
+                        name="email"
+                        autoComplete="username"
                         placeholder="admin@clb.com"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
@@ -113,6 +128,8 @@ export default function LoginPage() {
                       <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#666]" />
                       <input
                         type="password"
+                        name="password"
+                        autoComplete="current-password"
                         placeholder="••••••••"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
@@ -145,6 +162,7 @@ export default function LoginPage() {
                 </div>
               </TabsContent>
             </Tabs>
+            )}
 
             <p className="text-xs text-[#666] text-center mt-6">
               Only ADMIN accounts can access this dashboard

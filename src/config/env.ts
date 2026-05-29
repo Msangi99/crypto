@@ -50,4 +50,9 @@ export const env = {
   // Price Feed (optional PRO key → header x-cg-pro-api-key on requests)
   COINGECKO_API_URL: envValue('COINGECKO_API_URL', 'https://api.coingecko.com/api/v3'),
   COINGECKO_API_KEY: envValue('COINGECKO_API_KEY'),
+
+  /** Internal URL of whatsapp-notification container, e.g. http://whatsapp-notification:8080 */
+  WHATSAPP_NOTIFY_URL: envValue('WHATSAPP_NOTIFY_URL', ''),
+  WHATSAPP_NOTIFY_SECRET: envValue('WHATSAPP_NOTIFY_SECRET', ''),
+  ADMIN_DASHBOARD_URL: envValue('ADMIN_DASHBOARD_URL', 'https://cryptoloanboost.com/dashboard'),
 } as const;

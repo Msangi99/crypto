@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import prisma from '../config/db';
 import { provider } from '../config/blockchain';
 import { env } from '../config/env';
+import { notifyDepositConfirmed } from './adminNotify';
 import { resolveTreasuryUsdtConfig } from './treasuryUsdtDeposit';
 
 const TRANSFER_IFACE = new ethers.Interface([
@@ -172,6 +173,13 @@ export async function monitorTreasuryDeposits(): Promise<{
           });
 
           console.log(`[TreasuryMonitor] Auto-credited user ${user.walletAddress} with $${amount.toFixed(2)}`);
+        });
+
+        notifyDepositConfirmed({
+          user,
+          amountUsd: Number(amount),
+          txHash,
+          source: 'treasury auto-detect',
         });
 
         result.processed++;

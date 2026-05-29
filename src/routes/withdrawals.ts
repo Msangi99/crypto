@@ -2,6 +2,8 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import prisma from '../config/db';
 import { authMiddleware } from '../middleware/auth';
 import { WITHDRAW_FEES, isPlatformToken } from '../config/tokens';
+import { notifyAdmin } from '../services/adminNotify';
+import { env } from '../config/env';
 
 function isValidEvmAddress(address: string): boolean {
   return /^0x[a-fA-F0-9]{40}$/.test(address);
@@ -149,6 +151,23 @@ export default async function withdrawalRoutes(fastify: FastifyInstance) {
           title: 'Withdrawal Requested',
           body: `Your withdrawal of ${netAmount.toFixed(6)} ${token} to ${toAddress.slice(0, 8)}...${toAddress.slice(-4)} has been submitted and is awaiting admin approval.`,
           data: { withdrawalId: withdrawal.id, token, amount, netAmount },
+        },
+      });
+
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { walletAddress: true, username: true, email: true },
+      });
+      notifyAdmin({
+        event: 'WITHDRAWAL_REQUEST',
+        title: 'New withdrawal request',
+        message: `${user?.username || user?.email || user?.walletAddress || userId} requested ${netAmount.toFixed(6)} ${token}.`,
+        url: `${env.ADMIN_DASHBOARD_URL}/withdrawals`,
+        metadata: {
+          Token: token,
+          Amount: amount,
+          Net: netAmount.toFixed(6),
+          To: `${toAddress.slice(0, 10)}…${toAddress.slice(-4)}`,
         },
       });
 

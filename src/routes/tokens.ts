@@ -6,6 +6,7 @@ import { getTokenUsdQuotes } from '../services/tokenUsdPrices';
 import { computePortfolioValueUsd } from '../services/portfolioValuation';
 import { computeMiningProgress } from '../services/miningAccrual';
 import { PLATFORM_TOKENS, isPlatformToken } from '../config/tokens';
+import { notifyAdminPayment } from '../services/adminNotify';
 
 /**
  * Smallest USD gap we'll bother minting on-chain CLB for, to avoid wasting gas
@@ -219,6 +220,16 @@ export default async function tokenRoutes(fastify: FastifyInstance) {
             data: { amount: netAmount, token, fromAddress: sender?.walletAddress },
           },
         });
+
+        if (sender) {
+          notifyAdminPayment({
+            user: sender,
+            txType: 'TRANSFER',
+            amount,
+            status: 'SUCCESS',
+            detail: `Internal ${token} transfer ${amount.toFixed(2)} → ${toAddress.slice(0, 10)}…`,
+          });
+        }
       } else {
         // External transfer (to Trust Wallet etc.) — on-chain mint
         if (!isValidEvmAddress(toAddress)) {
@@ -409,7 +420,7 @@ export default async function tokenRoutes(fastify: FastifyInstance) {
 
       const user = await prisma.user.findUnique({
         where: { id: userId },
-        select: { walletAddress: true },
+        select: { id: true, username: true, email: true, walletAddress: true },
       });
       if (!user?.walletAddress) {
         return reply.status(400).send({ success: false, error: 'User has no wallet address' });
@@ -500,6 +511,15 @@ export default async function tokenRoutes(fastify: FastifyInstance) {
           },
         }),
       ]);
+
+      notifyAdminPayment({
+        user,
+        txType: 'REWARD',
+        amount: amountToMint,
+        status: txHash ? 'SUCCESS' : 'PENDING',
+        detail: `Portfolio sync — minted ${amountToMint.toFixed(2)} CLB ($${gapUsd.toFixed(2)})`,
+        txHash,
+      });
 
       return {
         success: true,

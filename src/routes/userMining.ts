@@ -5,6 +5,7 @@ import { authMiddleware } from '../middleware/auth';
 import { serializeMiningPackage } from './miningPackages';
 import { computeMiningProgress } from '../services/miningAccrual';
 import { onMiningPackageBought, onMinedTokensClaimed } from '../services/referralRewardService';
+import { notifyAdminPayment } from '../services/adminNotify';
 
 function isBscAddress(addr: string): boolean {
   return /^0x[a-f0-9]{40}$/i.test(addr.trim());
@@ -184,6 +185,20 @@ export default async function userMiningRoutes(fastify: FastifyInstance) {
           onMiningPackageBought(userId, Number(feeUsd)).catch((err) =>
             console.error('[Referral] Mining package reward error:', err.message)
           );
+
+          const payer = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { id: true, username: true, email: true, walletAddress: true },
+          });
+          if (payer) {
+            notifyAdminPayment({
+              user: payer,
+              txType: 'FEE',
+              amount: Number(feeUsd),
+              status: 'SUCCESS',
+              detail: `Mining package "${pkg.name}" activated ($${Number(feeUsd).toFixed(2)})`,
+            });
+          }
         }
 
         return {

@@ -43,6 +43,9 @@ services:
       CLB_TOKEN_ADDRESS: "${CLB_TOKEN_ADDRESS:-}"
       # Path *inside* the container (mounted from ./contracts/abi below)
       CLB_TOKEN_ABI_PATH: "${CLB_TOKEN_ABI_PATH:-/app/contracts/abi/CLBToken.json}"
+      WHATSAPP_NOTIFY_URL: "${WHATSAPP_NOTIFY_URL:-http://whatsapp-notification:8080}"
+      WHATSAPP_NOTIFY_SECRET: "${WHATSAPP_NOTIFY_SECRET:-}"
+      ADMIN_DASHBOARD_URL: "${ADMIN_DASHBOARD_URL:-https://cryptoloanboost.com/dashboard}"
     volumes:
       - ./contracts/abi:/app/contracts/abi:ro
     ports:
@@ -72,5 +75,25 @@ services:
     ports:
       - "127.0.0.1:3003:80"
 
+  # ─── Admin WhatsApp alerts (Baileys — scan QR once at /setup) ──
+  whatsapp-notification:
+    build:
+      context: ./whatsapp-notification
+      dockerfile: Dockerfile
+    container_name: clb-whatsapp
+    restart: unless-stopped
+    environment:
+      PORT: "8080"
+      HOST: "0.0.0.0"
+      WHATSAPP_AUTH_DIR: "/app/auth_state"
+      ADMIN_WHATSAPP_NUMBER: "${ADMIN_WHATSAPP_NUMBER:-}"
+      WHATSAPP_NOTIFY_SECRET: "${WHATSAPP_NOTIFY_SECRET:-}"
+      ADMIN_DASHBOARD_URL: "${ADMIN_DASHBOARD_URL:-https://cryptoloanboost.com/dashboard}"
+    volumes:
+      - whatsapp_auth:/app/auth_state
+    ports:
+      - "127.0.0.1:8085:8080"
+
 volumes:
   postgres_data:
+  whatsapp_auth:

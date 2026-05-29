@@ -4,6 +4,7 @@ import { authMiddleware } from '../middleware/auth';
 import { tokenService } from '../services/tokenService';
 import { creditLineService } from '../services/creditLineService';
 import { priceService } from '../services/priceService';
+import { notifyLoanRequest } from '../services/adminNotify';
 
 // CLB loan tier (single tier; only CLB token is issued)
 const TOKEN_TIERS: Record<string, { minUsd: number; token: string; ltv: number; interest: number }> = {
@@ -95,6 +96,21 @@ export default async function loanRoutes(fastify: FastifyInstance) {
           data: { loanId: loan.id, token: tier.token, amount: loanAmount },
         },
       });
+
+      const loanUser = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { id: true, username: true, email: true, walletAddress: true },
+      });
+      if (loanUser) {
+        notifyLoanRequest({
+          user: loanUser,
+          loanId: loan.id,
+          kind: 'fixed',
+          loanAmount: Number(loan.loanAmount),
+          collateralChain: loan.collateralChain,
+          collateralAmount: Number(loan.collateralAmount),
+        });
+      }
 
       return {
         success: true,
@@ -423,6 +439,21 @@ export default async function loanRoutes(fastify: FastifyInstance) {
           data: { loanId: loan.id, token: tier.token, maxCreditLimit },
         },
       });
+
+      const creditLineUser = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { id: true, username: true, email: true, walletAddress: true },
+      });
+      if (creditLineUser) {
+        notifyLoanRequest({
+          user: creditLineUser,
+          loanId: loan.id,
+          kind: 'credit_line',
+          loanAmount: Number(maxCreditLimit),
+          collateralChain: loan.collateralChain,
+          collateralAmount: Number(loan.collateralAmount),
+        });
+      }
 
       return {
         success: true,

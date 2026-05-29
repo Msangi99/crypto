@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-clb-dapp-ui="2026-05-09b">
+<html lang="en" data-clb-dapp-ui="2026-05-29a">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -11,455 +11,87 @@
   <meta name="description" content="Connect your BEP-20 wallet to view your CryptoLoanBoost portfolio, balances, mining, and referrals on BSC." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./dapp.css" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-  <style>
-    :root {
-      --void: #12142b;
-      --deep: #1a1d3d;
-      --layer: #22264f;
-      --card: #2a2e5c;
-      --lift: #32376b;
-      --border: rgba(255,255,255,0.14);
-      --border2: rgba(255,255,255,0.24);
-      --gold: #F6B73B;
-      --gold-d: #D4952A;
-      --gold-bg: rgba(246,183,59,0.16);
-      --gold-bh: rgba(246,183,59,0.30);
-      --mint: #05D68F;
-      --mint-bg: rgba(5,214,143,0.16);
-      --violet: #a78bfa;
-      --violet-bg: rgba(167,139,250,0.16);
-      --red: #FF4F4F;
-      --red-bg: rgba(255,79,79,0.16);
-      --ink: #F3F5FF;
-      --muted: rgba(243,245,255,0.55);
-      --faint: rgba(243,245,255,0.28);
-    }
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html { font-size: 16px; }
-    body {
-      font-family: 'DM Sans', sans-serif;
-      background: var(--void);
-      color: var(--ink);
-      -webkit-font-smoothing: antialiased;
-      overflow-x: hidden;
-      min-height: 100vh;
-      position: relative;
-    }
-
-    /* ─── Animated Background Layer ───────────────────────── */
-    .bg-layer {
-      position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden;
-    }
-    /* Animated gradient mesh */
-    .bg-mesh {
-      position: absolute; inset: -20%;
-      background:
-        radial-gradient(ellipse 80% 50% at 20% 40%, rgba(124,92,252,0.18) 0%, transparent 55%),
-        radial-gradient(ellipse 60% 40% at 80% 20%, rgba(246,183,59,0.14) 0%, transparent 50%),
-        radial-gradient(ellipse 70% 60% at 50% 90%, rgba(5,214,143,0.10) 0%, transparent 45%),
-        radial-gradient(ellipse 50% 30% at 70% 70%, rgba(59,130,246,0.10) 0%, transparent 40%);
-      animation: meshMove 20s ease-in-out infinite alternate;
-      filter: blur(60px);
-    }
-    @keyframes meshMove {
-      0% { transform: translate(0,0) scale(1); }
-      33% { transform: translate(3%,-2%) scale(1.05); }
-      66% { transform: translate(-2%,3%) scale(0.97); }
-      100% { transform: translate(1%,1%) scale(1.02); }
-    }
-
-    /* Floating orbs */
-    .orb {
-      position: absolute; border-radius: 50%; pointer-events: none; filter: blur(40px); opacity: 0.45;
-      animation: orbFloat 12s ease-in-out infinite;
-    }
-    .orb-1 { width: 350px; height: 350px; background: radial-gradient(circle, rgba(246,183,59,0.55) 0%, transparent 70%); top: 5%; left: -5%; animation-delay: 0s; }
-    .orb-2 { width: 280px; height: 280px; background: radial-gradient(circle, rgba(5,214,143,0.50) 0%, transparent 70%); top: 40%; right: -8%; animation-delay: -4s; animation-duration: 15s; }
-    .orb-3 { width: 320px; height: 320px; background: radial-gradient(circle, rgba(124,92,252,0.50) 0%, transparent 70%); bottom: 10%; left: 30%; animation-delay: -8s; animation-duration: 18s; }
-    .orb-4 { width: 200px; height: 200px; background: radial-gradient(circle, rgba(59,130,246,0.45) 0%, transparent 70%); top: 70%; right: 20%; animation-delay: -2s; animation-duration: 14s; }
-    @keyframes orbFloat {
-      0%, 100% { transform: translate(0,0); }
-      25% { transform: translate(30px,-20px); }
-      50% { transform: translate(-20px,30px); }
-      75% { transform: translate(20px,20px); }
-    }
-
-    /* ─── Image styling ───────────────────────────────────── */
-    .img-glow { box-shadow: 0 0 60px rgba(246,183,59,0.35), 0 0 120px rgba(246,183,59,0.15); }
-    .img-glow-mint { box-shadow: 0 0 60px rgba(5,214,143,0.30), 0 0 120px rgba(5,214,143,0.12); }
-    .float-slow { animation: floatSlow 6s ease-in-out infinite; }
-    .float-slower { animation: floatSlower 8s ease-in-out infinite; }
-    @keyframes floatSlow {
-      0%, 100% { transform: translateY(0) rotate(0deg); }
-      50% { transform: translateY(-14px) rotate(2deg); }
-    }
-    @keyframes floatSlower {
-      0%, 100% { transform: translateY(0) rotate(0deg); }
-      50% { transform: translateY(-10px) rotate(-1deg); }
-    }
-    .coin-ring {
-      border: 2px solid rgba(246,183,59,0.40);
-      border-radius: 50%;
-      padding: 8px;
-      background: linear-gradient(145deg, rgba(246,183,59,0.12), transparent);
-    }
-    .hero-inner { display: flex; align-items: center; justify-content: space-between; gap: 32px; flex-wrap: wrap; }
-    .hero-text { flex: 1 1 480px; }
-    .hero-visual { flex: 0 0 280px; display: grid; place-items: center; }
-    .hero-visual img { width: 260px; height: 260px; object-fit: cover; border-radius: 50%; }
-    .token-showcase { display: flex; align-items: center; gap: 32px; flex-wrap: wrap; }
-    .token-visual { flex: 0 0 320px; }
-    .token-visual img { width: 100%; border-radius: 20px; object-fit: cover; }
-    .token-info { flex: 1 1 400px; }
-
-    /* Particle stars */
-    .stars {
-      position: absolute; inset: 0;
-      background-image:
-        radial-gradient(2px 2px at 20px 30px, rgba(255,255,255,0.35), transparent),
-        radial-gradient(2px 2px at 40px 70px, rgba(246,183,59,0.30), transparent),
-        radial-gradient(1.5px 1.5px at 90px 40px, rgba(5,214,143,0.25), transparent),
-        radial-gradient(2px 2px at 160px 120px, rgba(124,92,252,0.25), transparent),
-        radial-gradient(1.5px 1.5px at 250px 80px, rgba(255,255,255,0.20), transparent),
-        radial-gradient(2px 2px at 300px 200px, rgba(246,183,59,0.20), transparent),
-        radial-gradient(1.5px 1.5px at 450px 50px, rgba(5,214,143,0.20), transparent),
-        radial-gradient(2px 2px at 500px 300px, rgba(124,92,252,0.20), transparent),
-        radial-gradient(1.5px 1.5px at 600px 150px, rgba(255,255,255,0.15), transparent),
-        radial-gradient(2px 2px at 700px 250px, rgba(246,183,59,0.15), transparent),
-        radial-gradient(1.5px 1.5px at 800px 100px, rgba(5,214,143,0.15), transparent),
-        radial-gradient(2px 2px at 900px 350px, rgba(124,92,252,0.15), transparent),
-        radial-gradient(1.5px 1.5px at 100px 400px, rgba(255,255,255,0.20), transparent),
-        radial-gradient(2px 2px at 350px 450px, rgba(246,183,59,0.20), transparent),
-        radial-gradient(1.5px 1.5px at 550px 500px, rgba(5,214,143,0.20), transparent),
-        radial-gradient(2px 2px at 750px 480px, rgba(124,92,252,0.20), transparent);
-      background-repeat: repeat;
-      background-size: 1000px 600px;
-      animation: twinkle 8s ease-in-out infinite alternate;
-    }
-    @keyframes twinkle {
-      0% { opacity: 0.6; }
-      100% { opacity: 1; }
-    }
-
-    /* Subtle grid overlay */
-    .grid-overlay {
-      position: absolute; inset: 0;
-      background-image:
-        linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
-      background-size: 60px 60px;
-      mask-image: radial-gradient(ellipse 80% 60% at 50% 40%, black 30%, transparent 80%);
-      -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 40%, black 30%, transparent 80%);
-    }
-
-    /* Light beams */
-    .beam {
-      position: absolute; width: 2px; height: 200px; pointer-events: none;
-      background: linear-gradient(to bottom, transparent, rgba(246,183,59,0.25), transparent);
-      filter: blur(1px);
-      animation: beamFloat 10s ease-in-out infinite;
-    }
-    .beam-1 { top: -50px; left: 15%; transform: rotate(25deg); animation-delay: 0s; }
-    .beam-2 { top: -30px; left: 55%; transform: rotate(-15deg); animation-delay: -3s; height: 250px; background: linear-gradient(to bottom, transparent, rgba(5,214,143,0.20), transparent); }
-    .beam-3 { top: -40px; left: 80%; transform: rotate(35deg); animation-delay: -6s; height: 180px; background: linear-gradient(to bottom, transparent, rgba(124,92,252,0.20), transparent); }
-    @keyframes beamFloat {
-      0%, 100% { opacity: 0.3; transform: translateY(0) rotate(var(--r, 0deg)); }
-      50% { opacity: 0.8; transform: translateY(30px) rotate(var(--r, 0deg)); }
-    }
-    .display { font-family: 'Bricolage Grotesque', sans-serif; }
-    .mono { font-family: 'DM Mono', monospace; }
-
-    /* Nav */
-    .nav {
-      position: sticky; top: 0; z-index: 50;
-      display: flex; align-items: center; justify-content: space-between; gap: 12px;
-      padding: 12px 20px;
-      border-bottom: 1px solid var(--border);
-      background: color-mix(in srgb, var(--deep) 92%, transparent);
-      backdrop-filter: blur(8px);
-    }
-    .brand { display: flex; align-items: center; gap: 12px; }
-    .brand img { width: 38px; height: 38px; border-radius: 10px; border: 1px solid #334362; object-fit: cover; background: #0a1020; }
-    .brand-name { font-family: 'Bricolage Grotesque', sans-serif; font-size: 18px; font-weight: 700; letter-spacing: 0.2px; }
-    .brand-name span { color: var(--gold); }
-    .nav-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-    .hamburger { display: none; flex-direction: column; gap: 4px; background: none; border: none; cursor: pointer; padding: 6px; }
-    .hamburger span { display: block; width: 22px; height: 2px; background: var(--ink); border-radius: 2px; transition: all .25s ease; }
-    .hamburger.active span:nth-child(1) { transform: translateY(6px) rotate(45deg); }
-    .hamburger.active span:nth-child(2) { opacity: 0; }
-    .hamburger.active span:nth-child(3) { transform: translateY(-6px) rotate(-45deg); }
-    .mobile-menu { display: none; position: fixed; top: 62px; left: 0; right: 0; z-index: 49; background: color-mix(in srgb, var(--deep) 96%, transparent); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); padding: 16px 20px; gap: 10px; flex-direction: column; }
-    .mobile-menu.open { display: flex; }
-    .btn {
-      border: 1px solid transparent; border-radius: 11px; padding: 10px 14px;
-      font-size: 13px; font-weight: 650; text-decoration: none; cursor: pointer; transition: all .2s ease;
-      display: inline-flex; align-items: center; gap: 6px;
-    }
-    .btn-primary { color: #1f1a00; background: linear-gradient(135deg, var(--gold), var(--gold-d)); }
-    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(246,183,59,0.25); }
-    .btn-ghost { color: #d9e3f7; border-color: #374760; background: #1a2333; }
-    .btn-ghost:hover { border-color: #50658a; }
-    .btn-sm { padding: 7px 11px; font-size: 12px; }
-    .btn-danger { color: #ffd4d4; border-color: rgba(255,79,79,0.45); background: var(--red-bg); }
-    .btn-danger:hover { border-color: #ff6b6b; background: rgba(255,79,79,0.22); }
-
-    /* Signed-in hub */
-    .user-hub { margin-top: 8px; }
-    .user-hub[hidden] { display: none !important; }
-    .uh-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
-    .uh-title { font-family: 'Bricolage Grotesque', sans-serif; font-size: 22px; font-weight: 800; letter-spacing: 0.3px; }
-    .uh-sub { color: var(--muted); font-size: 14px; margin-top: 6px; line-height: 1.5; max-width: 640px; }
-    .uh-code { font-family: 'DM Mono', monospace; font-size: 13px; padding: 6px 10px; border-radius: 8px; background: rgba(246,183,59,0.12); border: 1px solid rgba(246,183,59,0.28); color: var(--gold); }
-    .uh-kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin-bottom: 18px; }
-    .uh-kpi {
-      border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px;
-      background: rgba(255,255,255,0.03);
-    }
-    .uh-kpi .l { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; }
-    .uh-kpi .v { font-family: 'Bricolage Grotesque', sans-serif; font-size: 17px; font-weight: 700; margin-top: 6px; }
-    .uh-kpi .d { font-size: 11px; color: var(--faint); margin-top: 4px; }
-    .uh-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-    @media (max-width: 900px) { .uh-grid { grid-template-columns: 1fr; } }
-    .data-list { display: flex; flex-direction: column; gap: 8px; max-height: 280px; overflow-y: auto; }
-    .data-row {
-      display: flex; justify-content: space-between; align-items: center; gap: 10px;
-      padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); background: rgba(0,0,0,0.15);
-      font-size: 13px;
-    }
-    .data-row .l { color: var(--muted); font-size: 12px; }
-    .ref-level { margin-bottom: 12px; }
-    .ref-level h5 { font-size: 12px; color: var(--muted); margin-bottom: 6px; font-weight: 600; }
-    .mining-pill { display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 999px; background: var(--mint-bg); border: 1px solid rgba(5,214,143,0.35); font-size: 13px; }
-    .table-mini { width: 100%; border-collapse: collapse; font-size: 13px; }
-    .table-mini th, .table-mini td { padding: 8px 6px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.06); }
-    .table-mini th { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
-
-    /* Layout */
-    .container { max-width: 1200px; margin: 0 auto; padding: 24px 20px 48px; }
-    .section { margin-top: 24px; }
-
-    /* Hero */
-    .hero {
-      position: relative; padding: 56px 28px 64px; border-radius: 20px;
-      border: 1px solid var(--border); overflow: hidden;
-      background: linear-gradient(130deg, var(--deep), var(--layer) 55%, var(--card));
-    }
-    .hero-orb1 { position: absolute; border-radius: 50%; pointer-events: none; top: -140px; right: -80px; width: 520px; height: 520px; background: radial-gradient(circle, rgba(246,183,59,0.13) 0%, transparent 60%); }
-    .hero-orb2 { position: absolute; border-radius: 50%; pointer-events: none; bottom: -120px; left: 60px; width: 380px; height: 380px; background: radial-gradient(circle, rgba(5,214,143,0.07) 0%, transparent 65%); }
-    .hero-label { display: inline-flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 600; letter-spacing: 3px; text-transform: uppercase; color: var(--gold); margin-bottom: 20px; }
-    .hero-label::before { content: ''; width: 24px; height: 2px; background: var(--gold); border-radius: 2px; }
-    .hero h1 { font-family: 'Bricolage Grotesque', sans-serif; font-size: clamp(32px, 5vw, 56px); font-weight: 800; line-height: 1.05; margin-bottom: 16px; letter-spacing: -1.5px; }
-    .hero h1 em { font-style: normal; color: var(--gold); }
-    .hero p { font-size: 16px; color: var(--muted); line-height: 1.7; max-width: 640px; margin-bottom: 28px; }
-    .hero-chips { display: flex; flex-wrap: wrap; gap: 10px; }
-    .chip { display: inline-flex; align-items: center; gap: 6px; padding: 7px 16px; border-radius: 100px; font-size: 12px; font-weight: 600; border: 1px solid var(--border2); background: var(--layer); }
-    .chip.gold { border-color: rgba(246,183,59,0.4); background: var(--gold-bg); color: var(--gold); }
-    .chip.mint { border-color: rgba(5,214,143,0.3); background: var(--mint-bg); color: var(--mint); }
-    .chip.violet { border-color: rgba(124,92,252,0.35); background: var(--violet-bg); color: var(--violet); }
-
-    /* Connect hero card */
-    .connect-surface { margin-top: 4px; }
-    .connect-card { position: relative; border-radius: 24px; padding: 1px;
-      background: linear-gradient(125deg, rgba(246,183,59,0.55), rgba(124,92,252,0.45), rgba(5,214,143,0.4));
-      box-shadow: 0 24px 80px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.06) inset;
-    }
-    .connect-card-glow {
-      position: absolute; inset: -40% -20% auto -20%; height: 60%; pointer-events: none;
-      background: radial-gradient(ellipse 70% 50% at 50% 0%, rgba(246,183,59,0.15), transparent 70%);
-    }
-    .connect-card-inner { position: relative; border-radius: 23px; background: linear-gradient(168deg, #1a1d38 0%, #12142b 55%, #0f1124 100%); padding: 32px 28px 28px; }
-    .connect-eyebrow { font-size: 11px; text-transform: uppercase; letter-spacing: 0.16em; color: var(--gold); font-weight: 700; margin-bottom: 10px; }
-    .connect-title { font-family: 'Bricolage Grotesque', sans-serif; font-size: clamp(26px, 4.2vw, 38px); font-weight: 800; line-height: 1.12; margin-bottom: 14px; letter-spacing: -0.5px; }
-    .connect-lead { color: var(--muted); font-size: 15px; line-height: 1.7; max-width: 680px; margin-bottom: 22px; }
-    .wallet-display { font-family: 'DM Mono', monospace; font-size: 14px; word-break: break-all; padding: 16px 18px; border-radius: 14px; border: 1px solid var(--border2); background: rgba(0,0,0,0.35); color: var(--ink); }
-    .connect-meta-grid { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 12px; margin-top: 16px; }
-    .connect-meta { padding: 14px 16px; border-radius: 14px; border: 1px solid var(--border); background: rgba(255,255,255,0.03); }
-    .connect-meta-label { display: block; font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px; font-weight: 600; }
-    .connect-meta-value { font-weight: 700; font-size: 14px; line-height: 1.45; display: block; }
-    .connect-meta-hint { display: block; font-size: 11px; color: var(--faint); margin-top: 10px; line-height: 1.5; }
-
-    .user-hub .sec-title { letter-spacing: -0.5px; }
-    .uh-glow-panel {
-      border-radius: 20px; padding: 1px;
-      background: linear-gradient(135deg, rgba(5,214,143,0.35), rgba(246,183,59,0.2), rgba(167,139,250,0.25));
-    }
-    .uh-glow-panel > .panel { border: none; border-radius: 19px; background: linear-gradient(165deg, #232746, #1a1d38); }
-
-    .about-split { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 4px; }
-    .about-card { padding: 22px; border-radius: 16px; border: 1px solid var(--border); background: linear-gradient(160deg, var(--card), var(--lift)); font-size: 14px; color: var(--muted); line-height: 1.75; }
-    .about-card strong { color: var(--ink); }
-    .about-card-gold { border-color: rgba(246,183,59,0.35); background: linear-gradient(165deg, rgba(246,183,59,0.1), var(--card)); }
-
-    /* KPI strip */
-    .kpi-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 20px; }
-    .kpi {
-      border: 1px solid var(--border); border-radius: 16px; padding: 20px;
-      background: linear-gradient(160deg, var(--card), var(--lift));
-      position: relative; overflow: hidden;
-    }
-    .kpi::before { content: ''; position: absolute; inset: 0; border-radius: 16px; background: linear-gradient(145deg, rgba(255,255,255,0.04), transparent); pointer-events: none; }
-    .kpi-n { font-family: 'Bricolage Grotesque', sans-serif; font-size: 28px; font-weight: 800; line-height: 1; color: var(--gold); }
-    .kpi-l { font-size: 12px; color: var(--muted); margin-top: 8px; text-transform: uppercase; letter-spacing: 1.2px; }
-    .kpi-delta { font-size: 12px; margin-top: 6px; font-weight: 600; }
-    .kpi-delta.up { color: var(--mint); }
-    .kpi-delta.down { color: var(--red); }
-
-    /* Section heads */
-    .sec-head { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
-    .sec-badge { padding: 6px 14px; border-radius: 100px; font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; }
-    .sb-gold { background: var(--gold); color: #000; }
-    .sb-mint { background: var(--mint); color: #000; }
-    .sb-viol { background: var(--violet); color: #fff; }
-    .sec-title { font-family: 'Bricolage Grotesque', sans-serif; font-size: 28px; font-weight: 800; }
-
-    /* Cards / Panels */
-    .panel { border: 1px solid var(--border); border-radius: 16px; background: linear-gradient(160deg, var(--card), var(--lift)); padding: 20px; }
-    .panel-title { margin: 0 0 14px; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; }
-
-    /* Grid layouts */
-    .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
-    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
-    .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
-
-    /* Price cards */
-    .price-card { border: 1px solid var(--border); border-radius: 16px; padding: 18px; background: linear-gradient(160deg, var(--card), var(--lift)); position: relative; }
-    .price-card .top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
-    .price-card .sym { display: flex; align-items: center; gap: 10px; }
-    .price-card .sym .icon { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 14px; }
-    .price-card .sym .name { font-weight: 700; font-size: 15px; }
-    .price-card .sym .sub { font-size: 11px; color: var(--muted); }
-    .price-card .amt { font-family: 'Bricolage Grotesque', sans-serif; font-size: 26px; font-weight: 800; }
-    .price-card .chg { font-size: 13px; font-weight: 600; margin-top: 6px; }
-    .price-card .chg.up { color: var(--mint); }
-    .price-card .chg.down { color: var(--red); }
-    .price-card canvas { margin-top: 10px; height: 60px !important; }
-
-    /* Tables */
-    .table-wrap { overflow-x: auto; }
-    table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    th { text-align: left; padding: 10px 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; font-size: 11px; border-bottom: 1px solid var(--border); }
-    td { padding: 12px; border-bottom: 1px solid var(--border); }
-    tr:hover td { background: rgba(255,255,255,0.02); }
-    .tag { font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 100px; background: rgba(255,255,255,0.06); border: 1px solid var(--border); }
-    .tag.active { background: var(--mint-bg); border-color: rgba(5,214,143,0.25); color: var(--mint); }
-    .tag.paused { background: rgba(255,159,90,0.10); border-color: rgba(255,159,90,0.25); color: #ff9f5a; }
-
-    /* How it works */
-    .step { border: 1px solid var(--border); border-radius: 16px; padding: 22px; background: linear-gradient(145deg, rgba(255,255,255,0.02), transparent); }
-    .step .num { width: 32px; height: 32px; border-radius: 50%; background: var(--gold-bg); color: var(--gold); display: grid; place-items: center; font-weight: 700; font-size: 13px; margin-bottom: 12px; border: 1px solid rgba(246,183,59,0.25); }
-    .step h4 { font-family: 'Bricolage Grotesque', sans-serif; font-size: 16px; margin-bottom: 6px; }
-    .step p { font-size: 13px; color: var(--muted); line-height: 1.7; }
-    .tier-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-top: 10px; }
-    .tier { border: 1px solid var(--border); border-radius: 12px; padding: 10px; text-align: center; background: rgba(255,255,255,0.02); }
-    .tier .fee { font-family: 'Bricolage Grotesque', sans-serif; font-size: 18px; font-weight: 700; color: var(--gold); }
-    .tier .lev { font-size: 12px; color: var(--muted); margin-top: 4px; }
-
-    /* Chart wrappers */
-    .chart-wrap { position: relative; height: 260px; }
-    .chart-wrap.sm { height: 180px; }
-
-    /* Status box */
-    .status { border: 1px solid #32415e; background: #121d2f; border-radius: 12px; padding: 10px 12px; font-size: 13px; }
-    .status.ok { color: var(--mint); }
-    .status.warn { color: var(--red); }
-
-    /* Footer */
-    .footer { margin-top: 40px; padding-top: 24px; border-top: 1px solid var(--border); color: var(--muted); font-size: 12px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
-
-    /* Responsive */
-    @media (max-width: 960px) {
-      .grid-4 { grid-template-columns: repeat(2, 1fr); }
-    }
-    @media (max-width: 720px) {
-      .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
-      .connect-meta-grid { grid-template-columns: 1fr; }
-      .about-split { grid-template-columns: 1fr; }
-      #desktopNav { display: none; }
-      .hamburger { display: flex; }
-      .hero-inner { flex-direction: column; }
-      .hero-visual { order: -1; }
-      .hero-visual img { width: 180px; height: 180px; }
-      .token-showcase { flex-direction: column; }
-      .token-visual { order: -1; }
-    }
-  </style>
 </head>
 <body>
-  <!-- Animated background -->
-  <div class="bg-layer">
-    <div class="bg-mesh"></div>
-    <div class="stars"></div>
-    <div class="grid-overlay"></div>
-    <div class="orb orb-1"></div>
-    <div class="orb orb-2"></div>
-    <div class="orb orb-3"></div>
-    <div class="orb orb-4"></div>
-    <div class="beam beam-1" style="--r:25deg"></div>
-    <div class="beam beam-2" style="--r:-15deg"></div>
-    <div class="beam beam-3" style="--r:35deg"></div>
-  </div>
-
-  <div style="position:relative;z-index:1;">
+  <div class="page-shell">
   <nav class="nav">
-    <div class="brand">
-      <img src="./logo.png" alt="CryptoLoanBoost logo" />
+    <a class="brand" href="https://cryptoloanboost.com/" target="_blank" rel="noopener noreferrer">
+      <img src="./logo.png" alt="CryptoLoanBoost" />
       <div class="brand-name">Crypto<span>Loan</span>Boost</div>
-    </div>
+    </a>
+    <ul class="nav-center" id="desktopNavLinks">
+      <li><a href="#connect">Portfolio</a></li>
+      <li><a href="#markets">Markets</a></li>
+      <li><a href="#how">How it works</a></li>
+      <li><a href="https://cryptoloanboost.com/" target="_blank" rel="noopener noreferrer">Home</a></li>
+    </ul>
     <div class="nav-actions" id="desktopNav">
-      <button id="refreshBtn" class="btn btn-ghost btn-sm">Sync</button>
+      <button id="refreshBtn" class="btn btn-ghost btn-sm" type="button">Sync</button>
       <button id="disconnectBtn" class="btn btn-danger btn-sm" type="button" style="display:none">Sign out</button>
-      <button id="connectBtn" class="btn btn-primary">Connect Wallet</button>
+      <button id="connectBtn" class="btn btn-primary" type="button">Connect Wallet</button>
     </div>
-    <button class="hamburger" id="hamburger" aria-label="Menu">
+    <button class="hamburger" id="hamburger" aria-label="Menu" type="button">
       <span></span><span></span><span></span>
     </button>
   </nav>
   <div class="mobile-menu" id="mobileMenu">
-    <button id="mobileRefreshBtn" class="btn btn-ghost">Sync</button>
+    <a href="#connect">Portfolio</a>
+    <a href="#markets">Markets</a>
+    <a href="#how">How it works</a>
+    <button id="mobileRefreshBtn" class="btn btn-ghost" type="button">Sync</button>
     <button id="mobileDisconnectBtn" class="btn btn-danger" type="button" style="display:none">Sign out</button>
-    <button id="mobileConnectBtn" class="btn btn-primary">Connect Wallet</button>
+    <button id="mobileConnectBtn" class="btn btn-primary" type="button">Connect Wallet</button>
   </div>
 
   <main class="container">
-    <!-- Hero -->
     <section class="hero">
-      <div class="hero-orb1"></div>
-      <div class="hero-orb2"></div>
-      <div class="hero-inner">
-        <div class="hero-text">
-          <div class="hero-label">CryptoLoanBoost</div>
+      <div class="hero-grid">
+        <div class="hero-copy">
+          <div class="hero-badge">BSC · BEP-20</div>
           <h1>Your CLB world, <em>in one view.</em></h1>
-          <p>Open from Trust Wallet, MetaMask, or Binance Web3 on BSC. Connect the same address you use in the app — then see your positions, balances, mining, and referrals in a layout built for you, not for admin dashboards.</p>
+          <p class="hero-lead">Open from Trust Wallet, MetaMask, or Binance Web3. Connect the same address you use in the app — then see your positions, balances, mining, and referrals in a clean portfolio mirror built for you.</p>
           <div class="hero-chips">
-            <span class="chip gold">BSC · BEP-20</span>
+            <span class="chip gold">Non-custodial</span>
             <span class="chip mint">Sign once</span>
             <span class="chip violet">Your data only</span>
           </div>
         </div>
-        <div class="hero-visual">
-          <div class="coin-ring float-slow">
-            <img src="./images/Gemini_Generated_Image_v9xjjjv9xjjjv9xj.png" alt="CLB Coin" class="img-glow" />
+        <div class="hero-visual-wrap" aria-hidden="true">
+          <div class="hero-scene">
+            <div class="hero-pedestal"></div>
+            <div class="hero-orbit-wrap">
+              <div class="hero-orbit"></div>
+              <div class="hero-orbit"></div>
+              <div class="hero-cube-wrap">
+                <div class="hero-glass">
+                  <img src="./logo.png" alt="" />
+                </div>
+              </div>
+            </div>
+            <div class="hero-float hf-y"></div>
+            <div class="hero-float hf-b"></div>
+            <div class="hero-float hf-bnb">BNB</div>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- Connect -->
-    <section class="section connect-surface">
+    <section class="section" id="connect">
       <div class="connect-card">
-        <div class="connect-card-glow"></div>
-        <div class="connect-card-inner">
+        <div class="connect-card-top"></div>
+        <div class="connect-card-body">
           <p class="connect-eyebrow">Your wallet</p>
           <h2 class="connect-title display">Your CLB portfolio</h2>
-          <p class="connect-lead">Use the same BEP-20 address as in the CLB app. Tap <strong>Connect Wallet</strong> above, switch to <strong>BNB Smart Chain</strong> when the wallet asks, then sign once. Your personal overview appears in the next section — no global admin totals on this page.</p>
+          <p class="connect-lead">Use the same BEP-20 address as in the CLB app. Tap <strong>Connect Wallet</strong>, switch to <strong>BNB Smart Chain</strong> when prompted, then sign once. Your personal overview appears below — no admin totals on this page.</p>
           <div class="wallet-display" id="walletAddress">Not connected</div>
           <div class="connect-meta-grid">
             <div class="connect-meta">
               <span class="connect-meta-label">Network</span>
               <span class="connect-meta-value" id="network">—</span>
-              <span class="connect-meta-hint">Your <span class="mono">0x…</span> address is the same on Ethereum and BSC. CLB tokens and pools use <strong>BSC</strong>.</span>
+              <span class="connect-meta-hint">Your <span class="mono">0x…</span> address is the same on Ethereum and BSC. CLB uses <strong>BSC</strong>.</span>
             </div>
             <div class="connect-meta">
               <span class="connect-meta-label">Status</span>
@@ -472,14 +104,12 @@
       </div>
     </section>
 
-    <!-- Signed-in portfolio -->
     <section class="section user-hub" id="userHub" hidden>
       <div class="sec-head">
         <span class="sec-badge sb-mint">You</span>
         <h2 class="sec-title">Your overview</h2>
       </div>
-      <div class="uh-glow-panel" style="margin-bottom:14px;">
-        <div class="panel" style="margin:0;">
+      <div class="uh-panel">
           <div class="uh-head">
             <div>
               <div class="uh-title" id="uhGreeting">Welcome</div>
@@ -489,7 +119,6 @@
             <div id="uhMiningWrap" style="min-width:200px;"></div>
           </div>
           <div class="uh-kpis" id="uhKpis"></div>
-        </div>
       </div>
       <div class="uh-grid">
         <div class="panel">
@@ -524,23 +153,21 @@
       </div>
     </section>
 
-    <!-- Reference prices (optional context) -->
-    <section class="section">
+    <section class="section" id="markets">
       <div class="sec-head">
         <span class="sec-badge sb-gold">Markets</span>
         <h2 class="sec-title">BTC · ETH · BNB</h2>
       </div>
-      <p style="color:var(--muted);font-size:14px;margin:-8px 0 16px;max-width:560px;">Quick reference for assets tied to many CLB positions — not protocol administration data.</p>
+      <p class="section-lead">Quick reference for assets tied to many CLB positions — not protocol administration data.</p>
       <div class="grid-3" id="pricesGrid"></div>
     </section>
 
-    <!-- How It Works -->
-    <section class="section">
+    <section class="section" id="how">
       <div class="sec-head">
         <span class="sec-badge sb-gold">Mechanics</span>
         <h2 class="sec-title">How CLB works</h2>
       </div>
-      <div class="grid-3">
+      <div class="grid-3-steps">
         <div class="step">
           <div class="num">1</div>
           <h4>Deposit &amp; lock</h4>
@@ -577,8 +204,19 @@
     </section>
 
     <footer class="footer">
-      <span>© CryptoLoanBoost <span class="mono" style="opacity:0.45;font-size:11px;margin-left:6px;">UI 2026-05-09b</span></span>
-      <span>Reference prices refresh about every minute. <a id="footerDevLink" href="#" target="_blank" rel="noreferrer" style="color:var(--faint);margin-left:8px;">API docs</a> (developers).</span>
+      <div>
+        <div class="footer-brand">CryptoLoanBoost</div>
+        <p class="footer-meta" style="margin-top:8px;">
+          © CryptoLoanBoost 2026 · BSC · BEP-20
+          <span class="mono" style="opacity:0.6;font-size:11px;margin-left:6px;">UI 2026-05-29a</span>
+        </p>
+        <p class="footer-meta" style="margin-top:6px;">Reference prices refresh about every minute. <a id="footerDevLink" href="#" target="_blank" rel="noreferrer">API docs</a> (developers).</p>
+      </div>
+      <ul class="footer-social">
+        <li><a href="https://cryptoloanboost.com/" target="_blank" rel="noopener noreferrer">Home</a></li>
+        <li><a href="https://twitter.com" target="_blank" rel="noopener noreferrer">Twitter</a></li>
+        <li><a href="https://linkedin.com" target="_blank" rel="noopener noreferrer">LinkedIn</a></li>
+      </ul>
     </footer>
   </main>
 
@@ -895,9 +533,9 @@
       }
 
       // Chart.js defaults
-      Chart.defaults.color = 'rgba(238,240,255,0.6)';
-      Chart.defaults.borderColor = 'rgba(255,255,255,0.06)';
-      Chart.defaults.font.family = "'DM Sans', sans-serif";
+      Chart.defaults.color = 'rgba(107,114,128,0.85)';
+      Chart.defaults.borderColor = 'rgba(0,0,0,0.06)';
+      Chart.defaults.font.family = "'Plus Jakarta Sans', sans-serif";
 
       function sparklineCanvas(id, data, color) {
         const el = document.getElementById(id);
